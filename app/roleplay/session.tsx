@@ -64,16 +64,20 @@ export default function Session() {
       </View>
 
       <View style={styles.aiBlock}>
+        <Text style={styles.blockLabel}>Live conversation script</Text>
+        <Text style={styles.aiKorean}>{aiTurn.korean}</Text>
+        {/* §6.2: English stays hidden on the live screen until the learner asks. */}
         <Pressable
           onPress={() => setShowMeaning((value) => !value)}
           hitSlop={8}
           accessibilityRole="button"
+          accessibilityState={{ expanded: showMeaning }}
+          style={styles.meaningToggle}
         >
-          <Text style={styles.blockLabel}>
-            {showMeaning ? 'Hide meaning' : 'Live conversation script'}
+          <Text style={styles.meaningToggleLabel}>
+            {showMeaning ? 'Hide meaning' : 'Show meaning'}
           </Text>
         </Pressable>
-        <Text style={styles.aiKorean}>{aiTurn.korean}</Text>
         {showMeaning ? <Text style={styles.caption}>{aiTurn.english}</Text> : null}
       </View>
 
@@ -247,6 +251,14 @@ const styles = StyleSheet.create({
   },
   caption: {
     ...type.caption,
+  },
+  meaningToggle: {
+    alignSelf: 'flex-start',
+    paddingVertical: 2,
+  },
+  meaningToggleLabel: {
+    ...type.badge,
+    color: colors.primary,
   },
   stage: {
     flex: 1,
