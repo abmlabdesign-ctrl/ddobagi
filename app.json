@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Ddobak",
+    "slug": "ddobak",
+    "version": "1.0.2",
+    "orientation": "portrait",
+    "scheme": "ddobak",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "backgroundColor": "#FFFFFF",
+    "splash": {
+      "backgroundColor": "#FFFFFF",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.ddobak.app"
+    },
+    "android": {
+      "package": "com.ddobak.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#FF6A3D"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
