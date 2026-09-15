@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ListChevronIcon, SearchIcon, SelectChevronIcon } from '@/icons';
-import { colors, radius, selectedOutline, shadows } from '@/theme/tokens';
+import { colors, hairline, radius, selectedOutline, shadows } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
 
 /** RP-1 search: h48, r16, white with the card shadow — not a sunken grey field. */
@@ -52,8 +52,9 @@ export function SelectRow({
 }
 
 /**
- * ON-2 single-select row. Selected state is the 1.5px ring only — the comps
- * declare no fill, and no border on the unselected state either.
+ * ON-2 single-select row. Outlined in every state: #D1D5D9 at rest, a 1.5px
+ * primary ring when selected. The comp also tints the selected row, but the
+ * design call for ON-2 is ring-only.
  */
 export function OptionRow({
   label,
@@ -221,9 +222,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
+    // The comp declares 18 and then overrides both sides to 16.
+    paddingHorizontal: 16,
+    ...hairline,
   },
-  selectValue: text(15, 22, '600', colors.inkAlt),
+  selectValue: text(15, 22, '500', colors.inkAlt),
   option: {
     height: 56,
     borderRadius: radius.card,
@@ -231,12 +234,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 18,
   },
-  optionIdle: {
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-  },
-  optionLabel: text(15, 22, '500', colors.inkAlt),
-  optionLabelSelected: text(15, 22, '600', colors.primary),
+  optionIdle: hairline,
+  optionLabel: text(15, 22, '400', colors.inkAlt),
+  optionLabelSelected: text(15, 22, '500', colors.primary),
   menuRow: {
     flexDirection: 'row',
     alignItems: 'center',

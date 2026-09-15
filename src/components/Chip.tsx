@@ -6,7 +6,9 @@ import { text, type } from '@/theme/typography';
 
 /**
  * Three chip roles from the comps:
- * `choice` — ON-2 answers. No fill at all; state is colour + weight only.
+ * `choice` — ON-2 answers. Always outlined; selecting recolours the line and
+ *   the label without changing the fill (the comp tints it, the design call
+ *   for ON-2 is ring-only).
  * `filter` — RP-1. White fill, selected adds the tint plus a 1.5px ring and a
  *   dropdown chevron.
  * `tab`    — RV-1. Active is an ink fill with white text.
@@ -77,7 +79,11 @@ const styles = StyleSheet.create({
 });
 
 const containerStyles: Record<Variant, (selected: boolean) => ViewStyle> = {
-  choice: () => ({}),
+  choice: (selected) => ({
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: selected ? colors.primary : colors.border,
+  }),
   filter: (selected) =>
     selected
       ? { backgroundColor: colors.primary100, ...selectedOutline }
@@ -93,8 +99,9 @@ const containerStyles: Record<Variant, (selected: boolean) => ViewStyle> = {
 };
 
 const labelStyles: Record<Variant, (selected: boolean) => TextStyle> = {
+  // One step under the rest of the chip family — ON-2 reads lighter in the comp.
   choice: (selected) =>
-    selected ? { ...type.label, color: colors.primary } : type.chip,
+    selected ? text(14, 22, '500', colors.primary) : text(14, 22, '400', colors.inkAlt),
   filter: (selected) =>
     selected ? { ...type.label, color: colors.primary } : type.chip,
   tab: (selected) =>
