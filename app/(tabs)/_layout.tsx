@@ -49,7 +49,11 @@ export default function TabsLayout() {
           name={name}
           options={{
             title,
-            tabBarIcon: ({ color }) => <Icon color={color} />,
+            // The comp greys the glyph one step lighter than its label —
+            // #B0B8C1 against #95989C — so the icon takes its own colour.
+            tabBarIcon: ({ focused }) => (
+              <Icon color={focused ? colors.primary : colors.textTertiary} />
+            ),
             tabBarLabel: ({ focused, color }) => (
               <Text style={[styles.label, focused ? styles.labelActive : null, { color }]}>
                 {title}
