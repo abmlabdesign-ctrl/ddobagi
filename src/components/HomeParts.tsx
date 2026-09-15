@@ -162,7 +162,11 @@ const styles = StyleSheet.create({
   },
   resume: {
     borderRadius: radius.button,
-    backgroundColor: 'rgba(255,255,255,0.43)',
+    // The comp declares rgba(255,255,255,0.43), which it composites over the
+    // #F7F8FD page ground. The card is sticky now and floats over the situation
+    // grid, so it carries that composite as an opaque fill — same colour where
+    // the comp shows it, and the list no longer reads through it.
+    backgroundColor: '#FAFBFE',
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 16,

@@ -1,5 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { QuickTalkArt } from '@/components/art/QuickTalkArt';
@@ -22,10 +23,16 @@ export default function Home() {
   const goal = profile.weeklyGoal;
   const percent = Math.round((goal.completed / goal.total) * 100);
   const inProgress = situations.find((situation) => situation.progress);
+  // The resume card floats over the scroll, so the body reserves its height.
+  const [dockHeight, setDockHeight] = useState(0);
 
   return (
     <ScreenShell bottomEdge="tabs">
-      <Screen scroll background="surface-alt" contentStyle={styles.content}>
+      <Screen
+        scroll
+        background="surface-alt"
+        contentStyle={[styles.content, { paddingBottom: dockHeight + spacing.huge }]}
+      >
         <HomeStatusRow streakDays={profile.streakDays} />
 
         <Text style={styles.greeting}>
@@ -113,13 +120,23 @@ export default function Home() {
           </CardGrid>
         </Section>
 
-        {inProgress ? (
+      </Screen>
+
+      {/* The comp hangs the resume card 20 above the tab bar and lets the list
+          run under it. The bar owns the home-indicator inset itself, so the
+          scene's own bottom edge already is the bar's top edge. */}
+      {inProgress ? (
+        <View
+          style={styles.resumeDock}
+          onLayout={(event) => setDockHeight(event.nativeEvent.layout.height)}
+          pointerEvents="box-none"
+        >
           <ResumeCard
             situation={inProgress}
             onPress={() => router.push(`/roleplay/${inProgress.id}`)}
           />
-        ) : null}
-      </Screen>
+        </View>
+      ) : null}
     </ScreenShell>
   );
 }
@@ -129,7 +146,13 @@ const styles = StyleSheet.create({
     // The comp spaces every home block 32 apart, measured off its absolute tops.
     gap: spacing.xxxl,
     paddingTop: 20,
-    paddingBottom: spacing.huge,
+  },
+  resumeDock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: spacing.xl,
+    paddingHorizontal: spacing.gutter,
   },
   greeting: type.display,
   goalCard: {

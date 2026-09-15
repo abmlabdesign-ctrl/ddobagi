@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
+import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, spacing } from '@/theme/tokens';
@@ -60,7 +60,7 @@ type Props = {
   /** Extra room under the last item, on top of the comp's own bottom padding. */
   bottomInset?: number;
   style?: ViewStyle;
-  contentStyle?: ViewStyle;
+  contentStyle?: StyleProp<ViewStyle>;
   background?: 'surface' | 'surface-alt';
 };
 
