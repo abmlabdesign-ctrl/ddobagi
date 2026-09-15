@@ -117,6 +117,8 @@ export type MissionSummary = {
 export type Token = {
   text: string;
   romanization?: string;
+  /** The unfilled gap in a fill-in sentence (RV-2c … RV-2e): an orange rule, no text. */
+  blank?: boolean;
 };
 
 export type SpeakQuestion = {

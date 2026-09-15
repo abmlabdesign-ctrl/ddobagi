@@ -129,6 +129,10 @@ function KoreanToken({
   const gap = spaced ? styles.spaced : null;
   // The rule is what tells the learner a word can be tapped, so every word gets
   // one. Punctuation keeps the same box — a clear rule — so baselines still line up.
+  if (token.blank) {
+    return <Text style={[styles.token, styles.blankRule, gap, textStyle]}>{BLANK}</Text>;
+  }
+
   const rule = [
     styles.rule,
     { borderBottomColor: isPunctuation(token.text) ? 'transparent' : underlineColor },
@@ -160,6 +164,9 @@ function KoreanToken({
     </View>
   );
 }
+
+/** The comp sizes the gap with six non-breaking space pairs at the sentence size. */
+const BLANK = '\u00a0 '.repeat(6);
 
 /** Text-only helper for Korean without romanization or a caption. */
 export function toTokens(sentence: string): Token[] {
@@ -218,6 +225,11 @@ const styles = StyleSheet.create({
   rule: {
     borderBottomWidth: 2,
     borderStyle: 'dotted',
+    paddingBottom: 1,
+  },
+  blankRule: {
+    borderBottomWidth: 2,
+    borderBottomColor: colors.primary,
     paddingBottom: 1,
   },
   tooltip: {

@@ -82,7 +82,7 @@ RP-1 타이틀은 `Choose a situation`.
 | `components/Chip` | ON-2 · RP-1 · RV-1 · MY-1b (variant별로 분리돼 있어 variant 단위 수정은 안전) |
 | `components/SkillBar` | ON-4 · RP-4 · MY-2 |
 | `components/SituationCard` | HM-1 · RP-1 |
-| `components/KoreanText` | ON-3 · RV-2 (학습 콘텐츠 전반) |
+| `components/KoreanText` | RV-2 · RV-2a~RV-2e (미션 러너 전용) |
 
 `Waveform`(ON-3) · `StepProgress`(RV-2) · `HomeParts`(HM-1)는 단일 화면 전용이라 자유롭게 고쳐도 됩니다.
 

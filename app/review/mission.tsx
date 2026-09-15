@@ -12,7 +12,7 @@ import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { StepProgress } from '@/components/StepProgress';
 import { missionById, missions } from '@/data/missions';
-import type { ChoiceQuestion, SpeakQuestion } from '@/data/types';
+import type { ChoiceQuestion, SpeakQuestion, Token } from '@/data/types';
 import { DropdownChevronIcon, SpeakerIcon } from '@/icons';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { text, type } from '@/theme/typography';
@@ -165,23 +165,27 @@ function ChoiceStep({
   const [showMeaning, setShowMeaning] = useState(false);
 
   // The comp draws the answer sentence word by word, each on its own dotted rule.
-  const sentenceTokens = useMemo(() => {
-    const parts = question.sentenceTokens.map((token) =>
-      token ? token.text : answered ? question.options[answer] : '____',
-    );
-    if (question.blankAttachesLeft) {
-      // A particle joins the word before it, so the gap closes once it is filled.
-      const gap = question.sentenceTokens.findIndex((token) => token === null);
-      return parts
-        .reduce<string[]>((acc, part, index) => {
-          if (index === gap && acc.length) acc[acc.length - 1] += part;
-          else acc.push(part);
-          return acc;
-        }, [])
-        .map((text) => ({ text }));
+  const sentenceTokens = useMemo<Token[]>(() => {
+    // Until it is filled the gap stands on its own, as an orange rule; only the
+    // answer fuses onto the word before it, and only for a particle.
+    if (answer === null) {
+      return question.sentenceTokens.map((token) =>
+        token ? { text: token.text } : { text: '', blank: true },
+      );
     }
-    return parts.map((text) => ({ text }));
-  }, [question, answer, answered]);
+    const parts = question.sentenceTokens.map((token) =>
+      token ? token.text : question.options[answer],
+    );
+    if (!question.blankAttachesLeft) return parts.map((text) => ({ text }));
+    const gap = question.sentenceTokens.findIndex((token) => token === null);
+    return parts
+      .reduce<string[]>((acc, part, index) => {
+        if (index === gap && acc.length) acc[acc.length - 1] += part;
+        else acc.push(part);
+        return acc;
+      }, [])
+      .map((text) => ({ text }));
+  }, [question, answer]);
 
   return (
     <View style={styles.step}>
