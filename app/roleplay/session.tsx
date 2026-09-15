@@ -7,9 +7,9 @@ import { MicButton } from '@/components/MicButton';
 import { conversationBySituation, fallbackSituationId } from '@/data/conversations';
 import { situationById } from '@/data/situations';
 import type { Turn } from '@/data/types';
-import { ChevronLeftIcon, ReplayIcon } from '@/icons';
+import { BackChevronIcon, ReplayIcon } from '@/icons';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
-import { fontFamily, type } from '@/theme/typography';
+import { gloss, numeral, text, type } from '@/theme/typography';
 
 /**
  * RP-3 Live AI conversation + RP-3b Live script.
@@ -32,9 +32,7 @@ export default function Session() {
 
   const aiTurn = aiTurns[Math.min(turnIndex, aiTurns.length - 1)];
   const aiPosition = script.turns.indexOf(aiTurn);
-  const userReply = script.turns
-    .slice(aiPosition + 1)
-    .find((turn) => turn.speaker === 'user');
+  const userReply = script.turns.slice(aiPosition + 1).find((turn) => turn.speaker === 'user');
 
   const advance = () => {
     if (turnIndex + 1 >= aiTurns.length) {
@@ -50,12 +48,11 @@ export default function Session() {
       <View style={styles.topBar}>
         <Pressable
           onPress={() => router.back()}
-          hitSlop={12}
           accessibilityRole="button"
           accessibilityLabel="Leave the conversation"
           style={styles.topButton}
         >
-          <ChevronLeftIcon size={24} />
+          <BackChevronIcon close />
         </Pressable>
         <Text style={styles.turnCounter}>
           {turnIndex + 1} / {aiTurns.length}
@@ -65,20 +62,21 @@ export default function Session() {
 
       <View style={styles.aiBlock}>
         <Text style={styles.blockLabel}>Live conversation script</Text>
-        <Text style={styles.aiKorean}>{aiTurn.korean}</Text>
-        {/* §6.2: English stays hidden on the live screen until the learner asks. */}
-        <Pressable
-          onPress={() => setShowMeaning((value) => !value)}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: showMeaning }}
-          style={styles.meaningToggle}
-        >
-          <Text style={styles.meaningToggleLabel}>
-            {showMeaning ? 'Hide meaning' : 'Show meaning'}
-          </Text>
-        </Pressable>
-        {showMeaning ? <Text style={styles.caption}>{aiTurn.english}</Text> : null}
+        <View style={styles.aiText}>
+          <Text style={styles.aiKorean}>{aiTurn.korean}</Text>
+          {/* §6.2: English stays hidden on the live screen until the learner asks. */}
+          {showMeaning ? <Text style={styles.caption}>{aiTurn.english}</Text> : null}
+          <Pressable
+            onPress={() => setShowMeaning((value) => !value)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showMeaning }}
+          >
+            <Text style={styles.meaningToggle}>
+              {showMeaning ? 'Hide meaning' : 'Show meaning'}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.stage}>
@@ -92,6 +90,14 @@ export default function Session() {
           <Text style={styles.replayLabel}>10</Text>
         </Pressable>
 
+        <Image
+          source={require('../../assets/graphics/voice-wave.gif')}
+          style={styles.wave}
+          resizeMode="cover"
+          accessibilityIgnoresInvertColors
+          accessibilityLabel="Voice waveform"
+        />
+
         {showHint ? (
           <View style={styles.hintCard}>
             <View style={styles.hintBadge}>
@@ -101,21 +107,13 @@ export default function Session() {
             <Text style={styles.hintEnglish}>{script.hint.english}</Text>
           </View>
         ) : null}
-
-        <Image
-          source={require('../../assets/graphics/voice-wave.gif')}
-          style={styles.wave}
-          resizeMode="contain"
-          accessibilityIgnoresInvertColors
-          accessibilityLabel="Voice waveform"
-        />
       </View>
 
       <View style={styles.userSheet}>
         <Text style={styles.blockLabel}>You</Text>
         <Text style={styles.userKorean}>{userReply?.korean ?? '…'}</Text>
         {showMeaning && userReply ? (
-          <Text style={styles.caption}>{userReply.english}</Text>
+          <Text style={styles.userGloss}>{userReply.english}</Text>
         ) : null}
       </View>
 
@@ -123,20 +121,17 @@ export default function Session() {
         <Pressable
           onPress={() => setShowScript(true)}
           accessibilityRole="button"
-          style={[styles.controlPill, styles.controlPillActive]}
+          style={[styles.controlPill, styles.controlPillPrimary]}
         >
-          <Text style={styles.controlPillLabelActive}>Script</Text>
+          <Text style={styles.controlPillLabelPrimary}>Script</Text>
         </Pressable>
 
         <MicButton
           size={84}
           active={micOn}
           onPress={() => {
-            if (micOn) {
-              advance();
-            } else {
-              setMicOn(true);
-            }
+            if (micOn) advance();
+            else setMicOn(true);
           }}
         />
 
@@ -144,11 +139,9 @@ export default function Session() {
           onPress={() => setShowHint((value) => !value)}
           accessibilityRole="button"
           accessibilityState={{ selected: showHint }}
-          style={[styles.controlPill, showHint ? styles.controlPillActive : null]}
+          style={styles.controlPill}
         >
-          <Text style={showHint ? styles.controlPillLabelActive : styles.controlPillLabel}>
-            Hint
-          </Text>
+          <Text style={styles.controlPillLabel}>Hint</Text>
         </Pressable>
       </View>
 
@@ -187,19 +180,12 @@ function LiveScript({
             <View
               key={turn.id}
               style={[
-                styles.bubbleWrap,
-                turn.speaker === 'user' ? styles.bubbleWrapUser : styles.bubbleWrapAi,
+                styles.bubble,
+                turn.speaker === 'user' ? styles.bubbleUser : styles.bubbleAi,
               ]}
             >
-              <View
-                style={[
-                  styles.bubble,
-                  turn.speaker === 'user' ? styles.bubbleUser : styles.bubbleAi,
-                ]}
-              >
-                <Text style={styles.bubbleKorean}>{turn.korean}</Text>
-              </View>
-              <Text style={styles.caption}>{turn.english}</Text>
+              <Text style={styles.bubbleKorean}>{turn.korean}</Text>
+              <Text style={styles.bubbleGloss}>{turn.english}</Text>
             </View>
           ))}
         </ScrollView>
@@ -226,47 +212,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  turnCounter: {
-    fontFamily: fontFamily.numeric,
-    fontSize: 14,
-    lineHeight: 22,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
+  turnCounter: numeral(14, 20, '500', colors.textSecondary),
   aiBlock: {
     paddingHorizontal: spacing.gutter,
-    paddingBottom: spacing.lg,
-    gap: spacing.sm,
+    paddingBottom: 16,
+    gap: 8,
+    alignItems: 'center',
   },
   blockLabel: {
     ...type.badge,
     color: colors.textTertiary,
   },
+  aiText: {
+    gap: 4,
+    alignItems: 'center',
+  },
   aiKorean: {
-    fontFamily: fontFamily.sans,
-    fontSize: 22,
-    lineHeight: 32,
-    fontWeight: '700',
-    color: colors.inkAlt,
+    ...text(22, 32, '700', colors.inkAlt),
+    textAlign: 'center',
   },
   caption: {
     ...type.caption,
+    textAlign: 'center',
   },
-  meaningToggle: {
-    alignSelf: 'flex-start',
-    paddingVertical: 2,
-  },
-  meaningToggleLabel: {
-    ...type.badge,
-    color: colors.primary,
-  },
+  meaningToggle: text(12, 16, '600', colors.primary),
   stage: {
     flex: 1,
+    alignItems: 'center',
     justifyContent: 'flex-end',
-    paddingHorizontal: spacing.gutter,
-    gap: spacing.md,
   },
   replay: {
+    position: 'absolute',
+    left: spacing.gutter,
+    top: 0,
     width: 56,
     height: 56,
     borderRadius: radius.pill,
@@ -276,20 +254,22 @@ const styles = StyleSheet.create({
     gap: 1,
     ...shadows.card,
   },
-  replayLabel: {
-    fontFamily: fontFamily.numeric,
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.ink,
-  },
+  replayLabel: numeral(11, 14, '700', colors.ink),
   hintCard: {
-    alignSelf: 'flex-start',
+    position: 'absolute',
+    bottom: 120,
+    alignSelf: 'center',
     borderRadius: radius.card,
     backgroundColor: colors.surface,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    gap: spacing.sm,
-    ...shadows.card,
+    gap: 8,
+    // The comp gives the hint a soft primary glow, not the neutral card shadow.
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
   hintBadge: {
     alignSelf: 'flex-start',
@@ -303,20 +283,14 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   hintKorean: {
-    fontFamily: fontFamily.sans,
-    fontSize: 15,
-    lineHeight: 26,
-    fontWeight: '600',
-    color: colors.ink,
+    ...text(15, 26, '600', colors.ink),
+    letterSpacing: -0.3,
   },
-  hintEnglish: {
-    ...type.caption,
-    marginTop: -4,
-  },
+  hintEnglish: gloss(15),
   wave: {
-    width: '100%',
-    height: 160,
-    marginBottom: spacing.sm,
+    width: 380,
+    height: 360,
+    marginBottom: 40,
   },
   userSheet: {
     borderTopLeftRadius: radius.sheet,
@@ -325,10 +299,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.gutter,
     paddingTop: spacing.xl,
     gap: 6,
+    alignItems: 'center',
+    shadowColor: '#324458',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 8,
   },
   userKorean: {
     ...type.section,
-    color: colors.inkAlt,
+    textAlign: 'center',
+  },
+  userGloss: {
+    ...gloss(18),
+    textAlign: 'center',
   },
   controls: {
     backgroundColor: colors.surface,
@@ -346,19 +330,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  controlPillActive: {
+  controlPillPrimary: {
     backgroundColor: colors.primary100,
   },
-  controlPillLabel: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.inkAlt,
-  },
-  controlPillLabelActive: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    fontWeight: '600',
+  controlPillLabel: type.label,
+  controlPillLabelPrimary: {
+    ...type.label,
     color: colors.primary,
   },
   backdrop: {
@@ -387,36 +364,31 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   sheetBody: {
-    gap: spacing.lg,
+    gap: spacing.md,
     paddingBottom: spacing.xl,
   },
-  bubbleWrap: {
-    gap: spacing.xs,
-    maxWidth: '86%',
-  },
-  bubbleWrapAi: {
-    alignSelf: 'flex-start',
-    alignItems: 'flex-start',
-  },
-  bubbleWrapUser: {
-    alignSelf: 'flex-end',
-    alignItems: 'flex-end',
-  },
   bubble: {
-    borderRadius: radius.card,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    maxWidth: 290,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 2,
   },
   bubbleAi: {
+    alignSelf: 'flex-start',
     backgroundColor: colors.surface,
-    ...shadows.card,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: radius.card,
+    borderBottomLeftRadius: radius.card,
+    borderBottomRightRadius: radius.card,
   },
   bubbleUser: {
-    backgroundColor: colors.bubbleUser,
+    alignSelf: 'flex-end',
+    backgroundColor: colors.bubbleUserStrong,
+    borderTopLeftRadius: radius.card,
+    borderTopRightRadius: radius.card,
+    borderBottomLeftRadius: radius.card,
+    borderBottomRightRadius: 4,
   },
-  bubbleKorean: {
-    ...type.body,
-    fontWeight: '600',
-    color: colors.ink,
-  },
+  bubbleKorean: text(15, 23, '500', colors.inkAlt),
+  bubbleGloss: text(12, 18, '400', colors.textSecondary),
 });

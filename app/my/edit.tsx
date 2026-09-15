@@ -1,26 +1,28 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
 import { Button } from '@/components/Button';
+import { Card, RowDivider } from '@/components/Card';
 import { Chip } from '@/components/Chip';
-import { Segmented, SelectRow } from '@/components/Controls';
-import { NavBar } from '@/components/NavBar';
 import { CtaDock } from '@/components/CtaDock';
+import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { avatars, interestOptions, koreanLevels } from '@/data/profile';
+import { ListChevronIcon } from '@/icons';
 import { useApp } from '@/store/AppStore';
-import { colors, radius, spacing } from '@/theme/tokens';
-import { fontFamily, type } from '@/theme/typography';
+import { colors, radius, selectedOutline, spacing } from '@/theme/tokens';
+import { numeral, text, type } from '@/theme/typography';
 
 const MAX_INTERESTS = 5;
 
-/** MY-1b Edit profile */
+/** MY-1b Edit profile — four white cards, each holding one field group. */
 export default function EditProfile() {
   const { profile, updateProfile } = useApp();
 
   const [avatarId, setAvatarId] = useState(profile.avatarId);
-  const [nickname, setNickname] = useState(profile.nickname);
+  const [nickname] = useState(profile.nickname);
   const [level, setLevel] = useState(profile.koreanLevel);
   const [interests, setInterests] = useState(profile.interests);
 
@@ -42,57 +44,81 @@ export default function EditProfile() {
       <NavBar title="Edit profile" />
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>
-        <View style={styles.group}>
+        <Card radiusToken="card" paddingHorizontal={20} paddingVertical={18} style={styles.group}>
           <View style={styles.groupHeader}>
-            <Text style={type.section}>Avatar</Text>
-            <Text style={type.caption}>Pick 1 of {avatars.length}</Text>
+            <Text style={type.listTitle}>Avatar</Text>
+            <Text style={styles.groupMeta}>Pick 1 of {avatars.length}</Text>
           </View>
-          <View style={styles.avatarRow}>
-            {avatars.map((avatar) => (
-              <Pressable
-                key={avatar.id}
-                onPress={() => setAvatarId(avatar.id)}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: avatarId === avatar.id }}
-                accessibilityLabel={`Avatar ${avatar.id}`}
-                style={[
-                  styles.avatarButton,
-                  avatarId === avatar.id ? styles.avatarSelected : null,
-                ]}
-              >
-                <Image
-                  source={avatar.source}
-                  style={styles.avatarImage}
-                  resizeMode="cover"
-                  accessibilityIgnoresInvertColors
-                />
-              </Pressable>
-            ))}
+          <View style={styles.avatarGrid}>
+            {avatars.map((avatar) => {
+              const selected = avatarId === avatar.id;
+              return (
+                <Pressable
+                  key={avatar.id}
+                  onPress={() => setAvatarId(avatar.id)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={`Avatar ${avatar.id}`}
+                  style={[styles.avatarButton, selected ? styles.avatarSelected : null]}
+                >
+                  <Image
+                    source={avatar.source}
+                    style={styles.avatarImage}
+                    resizeMode="cover"
+                    accessibilityIgnoresInvertColors
+                  />
+                  {selected ? (
+                    <View style={styles.avatarCheck}>
+                      <CheckMark />
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })}
           </View>
-        </View>
+        </Card>
 
-        <View style={styles.group}>
-          <Text style={type.section}>Nickname</Text>
-          <TextInput
-            value={nickname}
-            onChangeText={setNickname}
-            style={styles.input}
-            maxLength={20}
-            accessibilityLabel="Nickname"
-          />
-        </View>
+        <Card radiusToken="card" paddingHorizontal={20} paddingVertical={6}>
+          <View style={styles.fieldRow}>
+            <Text style={styles.fieldLabel}>Nickname</Text>
+            <Text style={styles.fieldValueStrong}>{nickname}</Text>
+          </View>
+          <RowDivider />
+          <Pressable accessibilityRole="button" style={styles.fieldRow}>
+            <Text style={styles.fieldLabel}>Native language</Text>
+            <View style={styles.fieldRight}>
+              <Text style={styles.fieldValue}>{profile.nativeLanguage}</Text>
+              <ListChevronIcon />
+            </View>
+          </Pressable>
+        </Card>
 
-        <SelectRow label="Native language" value={profile.nativeLanguage} />
+        <Card radiusToken="card" paddingHorizontal={20} paddingVertical={18} style={styles.group}>
+          <Text style={type.listTitle}>Korean level</Text>
+          <View style={styles.levels}>
+            {koreanLevels.map((option) => {
+              const active = option === level;
+              return (
+                <Pressable
+                  key={option}
+                  onPress={() => setLevel(option)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: active }}
+                  style={[styles.level, active ? styles.levelActive : styles.levelIdle]}
+                >
+                  <Text style={active ? styles.levelLabelActive : styles.levelLabel}>
+                    {option}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Card>
 
-        <View style={styles.group}>
-          <Text style={type.section}>Korean level</Text>
-          <Segmented options={koreanLevels} value={level} onChange={setLevel} />
-        </View>
-
-        <View style={styles.group}>
+        <Card radiusToken="card" paddingHorizontal={20} paddingVertical={18} style={styles.group}>
           <View style={styles.groupHeader}>
-            <Text style={type.section}>Interests</Text>
-            <Text style={type.caption}>
+            <Text style={type.listTitle}>Interests</Text>
+            <Text style={styles.groupCount}>
               {interests.length} / {MAX_INTERESTS}
             </Text>
           </View>
@@ -101,71 +127,122 @@ export default function EditProfile() {
               <Chip
                 key={option}
                 label={option}
+                variant="option"
                 selected={interests.includes(option)}
                 onPress={() => toggleInterest(option)}
               />
             ))}
           </View>
-        </View>
+        </Card>
       </Screen>
 
-      <CtaDock>
+      <CtaDock paddingTop={12}>
         <Button label="Save" onPress={save} />
       </CtaDock>
     </ScreenShell>
   );
 }
 
+function CheckMark() {
+  return (
+    <Svg width={11} height={9} viewBox="0 0 11 9">
+      <Path
+        d="M1 4.6L4 7.6 10 1.4"
+        stroke={colors.surface}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </Svg>
+  );
+}
+
 const styles = StyleSheet.create({
   content: {
-    gap: spacing.xxl,
-    paddingTop: spacing.sm,
+    gap: 16,
+    paddingTop: 8,
     paddingBottom: spacing.huge,
   },
   group: {
-    gap: spacing.md,
+    gap: 12,
   },
   groupHeader: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
   },
-  avatarRow: {
+  groupMeta: text(12, 16, '500', colors.textSecondary),
+  groupCount: numeral(12, 16, '400', colors.textSecondary),
+  avatarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.md,
+    gap: 12,
+    justifyContent: 'space-between',
   },
   avatarButton: {
-    width: 72,
-    height: 72,
+    width: 70,
+    height: 70,
     borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
+    backgroundColor: colors.surfaceAlt,
     overflow: 'hidden',
   },
   avatarSelected: {
+    borderWidth: 2,
     borderColor: colors.primary,
   },
   avatarImage: {
     width: '100%',
     height: '100%',
   },
-  input: {
-    height: 48,
-    borderRadius: radius.input,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 16,
-    fontFamily: fontFamily.sans,
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.ink,
+  avatarCheck: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 22,
+    height: 22,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  fieldRow: {
+    height: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  fieldLabel: text(16, 22, '500', colors.textSecondary),
+  fieldValue: text(16, 22, '500', colors.inkAlt),
+  fieldValueStrong: text(16, 22, '600', colors.inkAlt),
+  fieldRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  levels: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  level: {
+    flex: 1,
+    height: 40,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  levelIdle: {
+    backgroundColor: colors.surfaceAlt,
+  },
+  levelActive: {
+    backgroundColor: colors.primary100,
+    ...selectedOutline,
+  },
+  levelLabel: text(14, 20, '500', colors.textSecondary),
+  levelLabelActive: text(14, 20, '600', colors.primary),
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: 8,
   },
 });

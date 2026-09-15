@@ -12,7 +12,7 @@ import { categoryById } from '@/data/categories';
 import { missions, todayFocus } from '@/data/missions';
 import { mistakeGroups, mistakesSummary } from '@/data/review';
 import { situationById } from '@/data/situations';
-import { ListChevronIcon, SpeakerIcon } from '@/icons';
+import { BookmarkIcon, ListChevronIcon, SpeakerIcon } from '@/icons';
 import { useApp } from '@/store/AppStore';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
@@ -187,31 +187,37 @@ function ScrapbookTab() {
   }
 
   return (
-    <View style={styles.tabBody}>
+    <View style={styles.scrapbook}>
       {Object.entries(grouped).map(([situationId, phrases]) => (
         <View key={situationId} style={styles.group}>
           <Text style={type.label}>{situationById[situationId]?.title ?? situationId}</Text>
-          <Card paddingHorizontal={18} paddingVertical={4}>
-            {phrases.map((phrase, index) => (
-              <View key={phrase.id}>
-                {index > 0 ? <RowDivider /> : null}
-                <View style={styles.phraseRow}>
-                  <View style={styles.listText}>
-                    <Text style={styles.phraseKorean}>{phrase.korean}</Text>
-                    <Text style={type.description}>{phrase.english}</Text>
-                  </View>
+          <View style={styles.phraseList}>
+            {phrases.map((phrase) => (
+              // The comp gives each phrase its own card with a replay and a save action.
+              <Card key={phrase.id} padding={16} style={styles.phraseCard}>
+                <View style={styles.phraseText}>
+                  <Text style={styles.phraseKorean}>{phrase.korean}</Text>
+                  <Text style={styles.phraseGloss}>{phrase.english}</Text>
+                </View>
+                <View style={styles.phraseActions}>
                   <Pressable
-                    hitSlop={10}
                     accessibilityRole="button"
                     accessibilityLabel={`Replay ${phrase.korean}`}
-                    style={styles.speaker}
+                    style={styles.phraseAction}
                   >
-                    <SpeakerIcon size={18} />
+                    <SpeakerIcon size={16} color={colors.inkAlt} />
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Saved: ${phrase.korean}`}
+                    style={[styles.phraseAction, styles.phraseActionPrimary]}
+                  >
+                    <BookmarkIcon size={14} />
                   </Pressable>
                 </View>
-              </View>
+              </Card>
             ))}
-          </Card>
+          </View>
         </View>
       ))}
     </View>
@@ -308,23 +314,40 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   fixedCount: text(14, 20, '600', colors.success),
+  scrapbook: {
+    gap: 24,
+  },
   group: {
-    gap: 8,
-  },
-  phraseRow: {
-    minHeight: 68,
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 12,
-    paddingVertical: 12,
   },
-  phraseKorean: text(15, 22, '600', colors.inkAlt),
-  speaker: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary100,
+  phraseList: {
+    gap: 12,
+  },
+  phraseCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  phraseText: {
+    flex: 1,
+    gap: 3,
+  },
+  phraseKorean: text(16, 24, '600', colors.inkAlt),
+  phraseGloss: text(12, 18, '400', colors.textSecondary),
+  phraseActions: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  phraseAction: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  phraseActionPrimary: {
+    backgroundColor: colors.primary100,
   },
 });
