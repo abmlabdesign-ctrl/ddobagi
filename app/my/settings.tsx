@@ -20,7 +20,7 @@ export default function Settings() {
   };
 
   return (
-    <ScreenShell>
+    <ScreenShell bottomEdge="content">
       <NavBar title="Settings" />
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>

@@ -21,7 +21,7 @@ export default function MistakeLog() {
   const rows = mistakes.filter((mistake) => mistake.situationId === situationId);
 
   return (
-    <ScreenShell>
+    <ScreenShell bottomEdge="content">
       <NavBar
         title="Mistake log"
         action="Script"

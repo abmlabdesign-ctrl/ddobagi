@@ -25,7 +25,7 @@ export default function MistakeScript() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
-    <ScreenShell>
+    <ScreenShell bottomEdge="content">
       <NavBar title={situation?.title ?? 'Script'} />
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>

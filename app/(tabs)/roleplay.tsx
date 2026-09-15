@@ -43,7 +43,7 @@ export default function Roleplay() {
       : `${results.length} situation${results.length === 1 ? '' : 's'}`;
 
   return (
-    <ScreenShell>
+    <ScreenShell bottomEdge="tabs">
       <ScreenTitleBar title="Choose a situation" />
 
       <View style={styles.filters}>

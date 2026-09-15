@@ -22,7 +22,7 @@ export default function Stats() {
   const data = stats[period.toLowerCase() as StatsPeriod];
 
   return (
-    <ScreenShell>
+    <ScreenShell bottomEdge="content">
       <NavBar title="Stats" />
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>

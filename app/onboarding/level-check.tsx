@@ -58,7 +58,7 @@ export default function LevelCheck() {
   const live = lines.length ? lines[lines.length - 1] : '';
 
   return (
-    <ScreenShell background="surface">
+    <ScreenShell background="surface" bottomEdge="content">
       <NavBar
         title="Level check"
         action="Finish"

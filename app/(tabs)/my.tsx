@@ -24,7 +24,7 @@ export default function MyPage() {
   const percent = Math.round((goal.completed / goal.total) * 100);
 
   return (
-    <ScreenShell>
+    <ScreenShell bottomEdge="tabs">
       <ScreenTitleBar title="My Page" />
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>

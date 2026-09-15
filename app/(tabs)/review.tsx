@@ -32,7 +32,7 @@ export default function Review() {
   const [tab, setTab] = useState<Tab>(tabByParam[tabParam ?? ''] ?? 'Micro missions');
 
   return (
-    <ScreenShell>
+    <ScreenShell bottomEdge="tabs">
       <ScreenTitleBar title="Review missions" />
 
       <View style={styles.tabs}>

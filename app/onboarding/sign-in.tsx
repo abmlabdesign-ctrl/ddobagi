@@ -3,7 +3,7 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { Button } from '@/components/Button';
-import { Screen } from '@/components/Screen';
+import { Screen, ScreenShell } from '@/components/Screen';
 import { useApp } from '@/store/AppStore';
 import { colors, shadows, spacing } from '@/theme/tokens';
 import { text, type } from '@/theme/typography';
@@ -18,45 +18,47 @@ export default function SignIn() {
   };
 
   return (
-    <Screen style={styles.screen}>
-      {/* The comp centres the logo block in whatever space the buttons leave. */}
-      <View style={styles.logoBlock}>
-        <View style={styles.logoFrame}>
-          <Image
-            source={require('../../assets/graphics/logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-            accessibilityIgnoresInvertColors
-          />
+    <ScreenShell background="surface" bottomEdge="content">
+      <Screen style={styles.screen}>
+        {/* The comp centres the logo block in whatever space the buttons leave. */}
+        <View style={styles.logoBlock}>
+          <View style={styles.logoFrame}>
+            <Image
+              source={require('../../assets/graphics/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
+            />
+          </View>
+          <View style={styles.titleBlock}>
+            <Text style={type.display}>Ddobak</Text>
+            <Text style={styles.blurb}>
+              Practice real Korean conversations with AI.{'\n'}
+              Built around how you actually speak.
+            </Text>
+          </View>
         </View>
-        <View style={styles.titleBlock}>
-          <Text style={type.display}>Ddobak</Text>
-          <Text style={styles.blurb}>
-            Practice real Korean conversations with AI.{'\n'}
-            Built around how you actually speak.
+
+        <View style={styles.actions}>
+          <Button
+            label="Continue with Google"
+            variant="elevated"
+            icon={<GoogleMark />}
+            onPress={() => signIn('google')}
+          />
+          <Button
+            label="Continue with Apple"
+            variant="dark"
+            icon={<AppleMark />}
+            onPress={() => signIn('apple')}
+          />
+          <Button label="Continue with email" variant="text" onPress={() => signIn('email')} />
+          <Text style={styles.terms}>
+            By continuing, you agree to our Terms and Privacy Policy.
           </Text>
         </View>
-      </View>
-
-      <View style={styles.actions}>
-        <Button
-          label="Continue with Google"
-          variant="elevated"
-          icon={<GoogleMark />}
-          onPress={() => signIn('google')}
-        />
-        <Button
-          label="Continue with Apple"
-          variant="dark"
-          icon={<AppleMark />}
-          onPress={() => signIn('apple')}
-        />
-        <Button label="Continue with email" variant="text" onPress={() => signIn('email')} />
-        <Text style={styles.terms}>
-          By continuing, you agree to our Terms and Privacy Policy.
-        </Text>
-      </View>
-    </Screen>
+      </Screen>
+    </ScreenShell>
   );
 }
 
