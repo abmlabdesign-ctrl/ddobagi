@@ -10,8 +10,8 @@ import { ProgressRing } from '@/components/ProgressRing';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { Section } from '@/components/Section';
 import { SituationCard } from '@/components/SituationCard';
-import { situations } from '@/data/situations';
-import { CheckCircleIcon } from '@/icons';
+import { homeFeatured, situations } from '@/data/situations';
+import { TrophyIcon } from '@/icons';
 import { useApp } from '@/store/AppStore';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
 import { text, type } from '@/theme/typography';
@@ -21,7 +21,6 @@ export default function Home() {
   const { profile } = useApp();
   const goal = profile.weeklyGoal;
   const percent = Math.round((goal.completed / goal.total) * 100);
-  const featured = situations.filter((situation) => situation.featured).slice(0, 4);
   const inProgress = situations.find((situation) => situation.progress);
 
   return (
@@ -42,7 +41,7 @@ export default function Home() {
         >
           <View style={styles.goalText}>
             <View style={styles.goalLabel}>
-              <CheckCircleIcon size={24} color={colors.primary} />
+              <TrophyIcon size={24} color={colors.primary} />
               <Text style={styles.goalLabelText}>This week&apos;s goal</Text>
             </View>
             <Text style={type.section}>{goal.label}</Text>
@@ -103,7 +102,7 @@ export default function Home() {
           onAction={() => router.push('/(tabs)/roleplay')}
         >
           <CardGrid>
-            {featured.map((situation) => (
+            {homeFeatured.map((situation) => (
               <SituationCard
                 key={situation.id}
                 situation={situation}

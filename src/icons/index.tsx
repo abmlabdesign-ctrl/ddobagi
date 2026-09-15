@@ -1,5 +1,5 @@
 import type { ColorValue } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
 import { colors } from '@/theme/tokens';
 
@@ -335,6 +335,20 @@ export function PlayIcon({ size = 8, color = colors.surface }: IconProps) {
   return (
     <Svg width={size * 0.875} height={size} viewBox="0 0 7 8">
       <Path d="M6.41 2.94a1.25 1.25 0 0 1 0 2.12L1.7 7.85A1.22 1.22 0 0 1 0 6.79V1.21A1.22 1.22 0 0 1 1.7.15z" fill={color} />
+    </Svg>
+  );
+}
+
+/**
+ * HM-1 `This week's goal`. The comp draws a filled 18×18 trophy inset 3px
+ * inside a 24×24 box — not a member of the stroked 24-grid icon set.
+ */
+export function TrophyIcon({ size = 24, color = colors.primary }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <G transform="translate(3 3)">
+        <Path d="M 4 7.8 L 4 4 L 2 4 L 2 5 C 2 5.633 2.183 6.204 2.55 6.713 C 2.917 7.222 3.4 7.584 4 7.8 Z M 14 7.8 C 14.6 7.583 15.083 7.221 15.45 6.712 C 15.817 6.203 16 5.633 16 5 L 16 4 L 14 4 L 14 7.8 Z M 8 16 L 8 12.9 C 7.183 12.717 6.454 12.371 5.813 11.863 C 5.172 11.355 4.701 10.717 4.4 9.95 C 3.15 9.8 2.104 9.254 1.263 8.313 C 0.422 7.372 0.001 6.267 0 5 L 0 4 C 0 3.45 0.196 2.979 0.588 2.588 C 0.98 2.197 1.451 2.001 2 2 L 4 2 C 4 1.45 4.196 0.979 4.588 0.588 C 4.98 0.197 5.451 0.001 6 0 L 12 0 C 12.55 0 13.021 0.196 13.413 0.588 C 13.805 0.98 14.001 1.451 14 2 L 16 2 C 16.55 2 17.021 2.196 17.413 2.588 C 17.805 2.98 18.001 3.451 18 4 L 18 5 C 18 6.267 17.579 7.371 16.737 8.313 C 15.895 9.255 14.849 9.801 13.6 9.95 C 13.3 10.717 12.829 11.354 12.188 11.863 C 11.547 12.372 10.817 12.717 10 12.9 L 10 16 L 13 16 C 13.283 16 13.521 16.096 13.713 16.288 C 13.905 16.48 14.001 16.717 14 17 C 13.999 17.283 13.903 17.52 13.712 17.713 C 13.521 17.906 13.283 18.001 13 18 L 5 18 C 4.717 18 4.479 17.904 4.288 17.712 C 4.097 17.52 4.001 17.283 4 17 C 3.999 16.717 4.095 16.48 4.288 16.288 C 4.481 16.096 4.718 16 5 16 L 8 16 Z" fill={color} fillRule="evenodd" />
+      </G>
     </Svg>
   );
 }

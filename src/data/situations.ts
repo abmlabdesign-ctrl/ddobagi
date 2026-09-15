@@ -1226,3 +1226,13 @@ export const situationById = Object.fromEntries(
 export function situationsByCategory(categoryId: string) {
   return situations.filter((situation) => situation.categoryId === categoryId);
 }
+
+/**
+ * HM-1 `Browse situations`. The home comp shows these four, in this order —
+ * the `featured` flag alone sorts RP-1 but does not fix the home rail's order.
+ */
+const homeFeaturedIds = ['cafe-order', 'school-professor', 'government-bank', 'pharmacy-symptoms'];
+
+export const homeFeatured = homeFeaturedIds
+  .map((id) => situations.find((situation) => situation.id === id))
+  .filter((situation): situation is Situation => Boolean(situation));

@@ -27,6 +27,18 @@ export function SituationCard({
 }: Props) {
   const progress = showProgress ? situation.progress : undefined;
 
+  const duration = (
+    <View style={styles.meta}>
+      <View style={styles.clock}>
+        <ClockIcon />
+      </View>
+      <Text style={styles.metaLabel}>
+        {durationPrefix}
+        {situation.minutes} min
+      </Text>
+    </View>
+  );
+
   return (
     <Pressable
       onPress={onPress}
@@ -39,13 +51,10 @@ export function SituationCard({
         <Text style={styles.title} numberOfLines={2}>
           {situation.title}
         </Text>
-        <View style={styles.meta}>
-          <ClockIcon />
-          <Text style={styles.metaLabel}>
-            {durationPrefix}
-            {situation.minutes} min
-          </Text>
-        </View>
+        {/* The card is a space-between column, so whatever comes last is pinned
+            to its foot. With a progress bar the duration rides with the title;
+            without one the duration takes the foot itself — both comps agree. */}
+        {progress ? duration : null}
       </View>
 
       {progress ? (
@@ -55,7 +64,9 @@ export function SituationCard({
           </View>
           <Text style={styles.percent}>{progress.percent}%</Text>
         </View>
-      ) : null}
+      ) : (
+        duration
+      )}
     </Pressable>
   );
 }
@@ -63,11 +74,11 @@ export function SituationCard({
 function ClockIcon() {
   return (
     <Svg width={12} height={12} viewBox="0 0 12 12">
-      <Circle cx={6} cy={6} r={5} stroke={colors.textSecondary} strokeWidth={1.2} fill="none" />
+      <Circle cx={6} cy={6} r={5} stroke={colors.textTertiary} strokeWidth={1} fill="none" />
       <Path
         d="M6 3.2V6l2 1.2"
-        stroke={colors.textSecondary}
-        strokeWidth={1.2}
+        stroke={colors.textTertiary}
+        strokeWidth={1}
         strokeLinecap="round"
         fill="none"
       />
@@ -78,7 +89,8 @@ function ClockIcon() {
 const styles = StyleSheet.create({
   card: {
     width: '100%',
-    minHeight: 160,
+    // The comps fix the card at 160 so the two columns stay level.
+    height: 160,
     borderRadius: 24,
     backgroundColor: colors.surface,
     paddingVertical: 16,
@@ -100,6 +112,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
+  },
+  /** The comp centres the 12px clock inside a 16px box before the 2px gap. */
+  clock: {
+    width: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   metaLabel: numeral(12, 12, '400', colors.textSecondary),
   progressRow: {
