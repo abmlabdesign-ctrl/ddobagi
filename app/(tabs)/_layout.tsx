@@ -1,62 +1,75 @@
 import { Tabs } from 'expo-router';
-import { Platform } from 'react-native';
+import { StyleSheet, Text, type ColorValue } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { HomeIcon, ProfileIcon, ReviewIcon, RoleplayIcon } from '@/icons';
-import { colors, layout, shadows } from '@/theme/tokens';
+import { HomeTabIcon, ProfileTabIcon, ReviewTabIcon, RoleplayTabIcon } from '@/icons';
+import { colors } from '@/theme/tokens';
 import { fontFamily } from '@/theme/typography';
 
-/** 4 roots · icons 24 · labels 12/500 · active primary, inactive `#B0B8C1`. */
+type TabIcon = (props: { color: ColorValue }) => React.ReactElement;
+
+const TABS: { name: string; title: string; Icon: TabIcon }[] = [
+  { name: 'index', title: 'Home', Icon: HomeTabIcon },
+  { name: 'roleplay', title: 'Roleplay', Icon: RoleplayTabIcon },
+  { name: 'review', title: 'Review', Icon: ReviewTabIcon },
+  { name: 'my', title: 'My Page', Icon: ProfileTabIcon },
+];
+
+/**
+ * The comps draw the bar as `padding:12px 16px 8px` with an 8px gap between a
+ * filled 24px glyph and an Inter label — no shadow, and the active label steps
+ * up to 700 rather than only changing colour.
+ */
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textTertiary,
-        tabBarLabelStyle: {
-          fontFamily: fontFamily.sans,
-          fontSize: 12,
-          lineHeight: 16,
-          fontWeight: '500',
-        },
+        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarIconStyle: { height: 24 },
+        tabBarItemStyle: { paddingVertical: 0 },
         tabBarStyle: {
-          height: layout.tabBarHeight + (Platform.OS === 'ios' ? 28 : 12),
-          paddingTop: 6,
+          height: 64 + insets.bottom,
+          paddingTop: 12,
+          paddingBottom: 8 + insets.bottom,
+          paddingHorizontal: 16,
           backgroundColor: colors.surface,
           borderTopWidth: 0,
-          ...shadows.bottomNav,
+          elevation: 0,
         },
         sceneStyle: { backgroundColor: colors.surfaceAlt },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <HomeIcon size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="roleplay"
-        options={{
-          title: 'Roleplay',
-          tabBarIcon: ({ color }) => <RoleplayIcon size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="review"
-        options={{
-          title: 'Review',
-          tabBarIcon: ({ color }) => <ReviewIcon size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="my"
-        options={{
-          title: 'My Page',
-          tabBarIcon: ({ color }) => <ProfileIcon size={24} color={color} />,
-        }}
-      />
+      {TABS.map(({ name, title, Icon }) => (
+        <Tabs.Screen
+          key={name}
+          name={name}
+          options={{
+            title,
+            tabBarIcon: ({ color }) => <Icon color={color} />,
+            tabBarLabel: ({ focused, color }) => (
+              <Text style={[styles.label, focused ? styles.labelActive : null, { color }]}>
+                {title}
+              </Text>
+            ),
+          }}
+        />
+      ))}
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  label: {
+    fontFamily: fontFamily.numericMedium,
+    fontSize: 12,
+    lineHeight: 12,
+    marginTop: 8,
+  },
+  labelActive: {
+    fontFamily: fontFamily.numericBold,
+  },
+});

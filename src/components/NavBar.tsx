@@ -1,24 +1,36 @@
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { ChevronLeftIcon } from '@/icons';
-import { colors, layout, spacing } from '@/theme/tokens';
+import { BackChevronIcon } from '@/icons';
+import { colors, layout } from '@/theme/tokens';
 import { type } from '@/theme/typography';
 
 type Props = {
   title?: string;
-  /** Right-hand action text, e.g. `Finish` or `Edit`. */
+  /** Right-hand action text, e.g. `Finish`. */
   action?: string;
   onAction?: () => void;
-  /** Hide the back chevron on roots. */
   showBack?: boolean;
   onBack?: () => void;
-  /** Replaces the centre title, e.g. the `2 / 4` turn counter. */
+  /** Swaps the back chevron for a close glyph (mission runner). */
+  closeIcon?: boolean;
+  /** Replaces the centre title. */
   center?: React.ReactNode;
 };
 
-/** 56px bar: back chevron · centred title · action text. */
-export function NavBar({ title, action, onAction, showBack = true, onBack, center }: Props) {
+/**
+ * 52px bar. Screens with a back control gutter at 20 and use a 40×40 hit box;
+ * the right spacer keeps the title optically centred.
+ */
+export function NavBar({
+  title,
+  action,
+  onAction,
+  showBack = true,
+  onBack,
+  closeIcon = false,
+  center,
+}: Props) {
   const goBack = onBack ?? (() => (router.canGoBack() ? router.back() : router.replace('/')));
 
   return (
@@ -27,12 +39,11 @@ export function NavBar({ title, action, onAction, showBack = true, onBack, cente
         {showBack ? (
           <Pressable
             onPress={goBack}
-            hitSlop={12}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
-            style={styles.backTarget}
+            accessibilityLabel={closeIcon ? 'Close' : 'Go back'}
+            style={styles.button}
           >
-            <ChevronLeftIcon size={24} />
+            <BackChevronIcon close={closeIcon} />
           </Pressable>
         ) : null}
       </View>
@@ -48,10 +59,28 @@ export function NavBar({ title, action, onAction, showBack = true, onBack, cente
       <View style={[styles.side, styles.sideRight]}>
         {action ? (
           <Pressable onPress={onAction} hitSlop={12} accessibilityRole="button">
-            <Text style={type.action}>{action}</Text>
+            <Text style={styles.action}>{action}</Text>
           </Pressable>
         ) : null}
       </View>
+    </View>
+  );
+}
+
+/** Root tabs use a left-aligned 24/34/700 title in the same 52px bar. */
+export function ScreenTitleBar({
+  title,
+  right,
+}: {
+  title: string;
+  right?: React.ReactNode;
+}) {
+  return (
+    <View style={styles.titleBar}>
+      <Text style={type.screenTitle} numberOfLines={1}>
+        {title}
+      </Text>
+      {right}
     </View>
   );
 }
@@ -61,26 +90,36 @@ const styles = StyleSheet.create({
     height: layout.navBarHeight,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.gutter,
-    backgroundColor: colors.surface,
+    paddingHorizontal: layout.navBarPaddingWithBack,
+  },
+  titleBar: {
+    height: layout.navBarHeight,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: layout.navBarPaddingTitleOnly,
   },
   side: {
-    minWidth: 44,
+    width: 40,
     justifyContent: 'center',
   },
   sideRight: {
     alignItems: 'flex-end',
+  },
+  button: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backTarget: {
-    width: 44,
-    height: 44,
-    marginLeft: -10,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
+  action: {
+    ...type.label,
+    color: colors.primary,
+    textAlign: 'right',
   },
 });

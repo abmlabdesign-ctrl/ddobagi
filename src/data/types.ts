@@ -138,6 +138,8 @@ export type ChoiceQuestion = {
   promptEnglish: string;
   /** Sentence with a blank; `null` marks the gap. */
   sentenceTokens: (Token | null)[];
+  /** Particles attach to the word before them, so the filled gap takes no space. */
+  blankAttachesLeft?: boolean;
   options: string[];
   answerIndex: number;
   explanation: string;

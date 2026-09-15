@@ -1,26 +1,37 @@
-import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native';
 
-import { colors, radius } from '@/theme/tokens';
-import { fontFamily, type } from '@/theme/typography';
+import { colors, radius, shadows } from '@/theme/tokens';
+import { type } from '@/theme/typography';
 
-type Variant = 'primary' | 'secondary' | 'dark' | 'text';
+/**
+ * `primary` — filled orange, `glow` adds the RP-4 Save halo.
+ * `elevated` — white with the card shadow (RP-4 Try again).
+ * `tonal` — `#F2F3F5` fill (ON-4 Home).
+ * `dark`  — ink fill (ON-1 Apple).
+ * `text` — 48px text-only row (ON-1 email).
+ * No variant carries a border: none of the comps draw one.
+ */
+type Variant = 'primary' | 'elevated' | 'tonal' | 'dark' | 'text';
 
 type Props = {
   label: string;
   onPress?: () => void;
   variant?: Variant;
   disabled?: boolean;
-  /** Renders an icon to the left of the label (social sign-in). */
+  /** The comps use 56 everywhere except ON-4's primary, which is 52. */
+  height?: number;
+  glow?: boolean;
   icon?: React.ReactNode;
   style?: ViewStyle;
 };
 
-/** Height 56, radius 18, label 16/600. The text variant is 48 high. */
 export function Button({
   label,
   onPress,
   variant = 'primary',
   disabled = false,
+  height,
+  glow = false,
   icon,
   style,
 }: Props) {
@@ -33,6 +44,8 @@ export function Button({
       style={({ pressed }) => [
         styles.base,
         variantStyles[variant],
+        height ? { height } : null,
+        glow ? shadows.primaryGlow : null,
         pressed && !disabled ? pressedStyles[variant] : null,
         disabled ? styles.disabled : null,
         style,
@@ -40,7 +53,7 @@ export function Button({
     >
       <View style={styles.content}>
         {icon}
-        <Text style={[styles.label, labelStyles[variant]]}>{label}</Text>
+        <Text style={labelStyles[variant]}>{label}</Text>
       </View>
     </Pressable>
   );
@@ -52,16 +65,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.button,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  label: {
-    ...type.title,
-    fontFamily: fontFamily.sans,
+    gap: 10,
   },
   disabled: {
     opacity: 0.4,
@@ -70,25 +79,24 @@ const styles = StyleSheet.create({
 
 const variantStyles: Record<Variant, ViewStyle> = {
   primary: { backgroundColor: colors.primary },
-  secondary: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
+  elevated: { backgroundColor: colors.surface, ...shadows.card },
+  tonal: { backgroundColor: colors.fill },
   dark: { backgroundColor: colors.ink },
   text: { height: 48, backgroundColor: 'transparent' },
 };
 
 const pressedStyles: Record<Variant, ViewStyle> = {
   primary: { backgroundColor: colors.primaryPressed },
-  secondary: { backgroundColor: colors.fill },
+  elevated: { backgroundColor: colors.fill },
+  tonal: { backgroundColor: colors.fillAlt },
   dark: { backgroundColor: '#11161D' },
   text: { opacity: 0.6 },
 };
 
-const labelStyles = {
-  primary: { color: colors.surface },
-  secondary: { color: colors.inkAlt },
-  dark: { color: colors.surface },
-  text: { color: colors.textSecondary, fontSize: 15, fontWeight: '500' as const },
+const labelStyles: Record<Variant, TextStyle> = {
+  primary: type.cta,
+  elevated: type.title,
+  tonal: type.title,
+  dark: { ...type.title, color: colors.surface },
+  text: { ...type.row, color: colors.textSecondary },
 };

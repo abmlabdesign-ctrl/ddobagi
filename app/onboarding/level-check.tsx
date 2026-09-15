@@ -3,17 +3,18 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/Card';
-import { KoreanText } from '@/components/KoreanText';
 import { MicButton } from '@/components/MicButton';
 import { NavBar } from '@/components/NavBar';
-import { Screen } from '@/components/Screen';
+import { Screen, ScreenShell } from '@/components/Screen';
+import { Waveform } from '@/components/Waveform';
+import { SpeakerIcon } from '@/icons';
 import {
   levelCheckQuestion,
   levelCheckSeconds,
   levelCheckTranscript,
 } from '@/data/skills';
 import { colors, radius, spacing } from '@/theme/tokens';
-import { fontFamily, type } from '@/theme/typography';
+import { text, type } from '@/theme/typography';
 
 /**
  * ON-3 1-minute AI level check.
@@ -52,9 +53,12 @@ export default function LevelCheck() {
 
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = `${secondsLeft % 60}`.padStart(2, '0');
+  // The comp colours the sentence still being recognised in primary.
+  const settled = lines.slice(0, -1).join('');
+  const live = lines.length ? lines[lines.length - 1] : '';
 
   return (
-    <View style={styles.root}>
+    <ScreenShell background="surface">
       <NavBar
         title="Level check"
         action="Finish"
@@ -62,77 +66,99 @@ export default function LevelCheck() {
       />
 
       <Screen contentStyle={styles.content}>
-        <Card style={styles.questionCard} padding={0} elevation="flat">
-          <KoreanText
-            tokens={[{ text: levelCheckQuestion.korean }]}
-            english={levelCheckQuestion.english}
-            meaning="always"
-            onReplay={() => {}}
-          />
-        </Card>
+        <View style={styles.question}>
+          <View style={styles.speaker}>
+            <SpeakerIcon size={16} />
+          </View>
+          <View style={styles.questionText}>
+            <Text style={styles.korean}>{levelCheckQuestion.korean}</Text>
+            <Text style={styles.english}>{levelCheckQuestion.english}</Text>
+          </View>
+        </View>
 
-        <Card style={styles.transcript}>
+        <Card style={styles.transcript} radiusToken="card" elevation="card" padding={24}>
           <Text style={styles.transcriptLabel}>Live transcript</Text>
           <Text style={styles.transcriptBody}>
-            {lines.join('')}
-            {running ? '|' : ''}
+            {settled}
+            <Text style={styles.transcriptLive}>
+              {live}
+              {running ? '|' : ''}
+            </Text>
           </Text>
         </Card>
 
         <View style={styles.timerBlock}>
           <Text style={type.secondary}>Time left</Text>
-          <Text style={styles.timer}>
+          <Text style={type.timer}>
             {minutes}:{seconds}
           </Text>
         </View>
-
-        <View style={styles.micBlock}>
-          <MicButton active={running} onPress={() => setRecording((value) => !value)} />
-        </View>
       </Screen>
-    </View>
+
+      <View style={styles.micBlock}>
+        <Waveform active={running} />
+        <MicButton active={running} onPress={() => setRecording((value) => !value)} />
+      </View>
+    </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.surface,
-  },
   content: {
     flex: 1,
-    gap: spacing.xl,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xxl,
+    gap: spacing.gutter,
+    paddingTop: 20,
+    paddingBottom: 20,
+    alignItems: 'center',
   },
-  questionCard: {
-    backgroundColor: 'transparent',
+  question: {
+    alignSelf: 'stretch',
+    gap: 4,
+    paddingBottom: 20,
+  },
+  speaker: {
+    width: 24,
+    height: 24,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  questionText: {
+    gap: 4,
+  },
+  korean: {
+    ...type.korean,
+    textAlign: 'center',
+  },
+  english: {
+    ...type.caption,
+    textAlign: 'center',
   },
   transcript: {
     flex: 1,
-    gap: spacing.md,
-    borderRadius: radius.card,
+    alignSelf: 'stretch',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: colors.fill,
   },
   transcriptLabel: {
     ...type.badge,
     color: colors.textTertiary,
   },
-  transcriptBody: {
-    fontFamily: fontFamily.sans,
-    fontSize: 18,
-    lineHeight: 28,
-    fontWeight: '500',
-    color: colors.ink,
+  transcriptBody: text(18, 28, '500', colors.inkAlt),
+  transcriptLive: {
+    color: colors.primary,
   },
   timerBlock: {
     alignItems: 'center',
-    gap: spacing.xs,
-  },
-  timer: {
-    ...type.timer,
-    fontVariant: ['tabular-nums'],
+    gap: 6,
   },
   micBlock: {
     alignItems: 'center',
+    gap: 20,
+    paddingTop: 8,
+    paddingHorizontal: spacing.gutter,
+    paddingBottom: 12,
   },
 });

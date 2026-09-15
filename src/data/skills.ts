@@ -27,9 +27,15 @@ export const bandLabels: Record<SkillBand, string> = {
   'needs-work': 'Needs work',
 };
 
+/**
+ * Band colours are taken from the comps, where `Strong` is the blue chip and
+ * `Medium` the green one. (The handoff README states the opposite; the .dc.html
+ * screens are the source of truth and all three of them agree.)
+ * `needs-work` renders as bare text, so its background is never drawn.
+ */
 export const bandColors: Record<SkillBand, { text: string; background: string }> = {
-  strong: { text: colors.success, background: colors.successBg },
-  medium: { text: colors.info, background: colors.infoBg },
+  strong: { text: colors.info, background: colors.infoBg },
+  medium: { text: colors.success, background: colors.successBg },
   'needs-work': { text: colors.primary, background: colors.primary100 },
 };
 

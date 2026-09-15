@@ -139,6 +139,7 @@ export const missions: Mission[] = [
         promptTokens: [{ text: '어디서' }, { text: '만났어요' }, { text: '?' }],
         promptEnglish: 'Where did you meet?',
         sentenceTokens: [{ text: '학교' }, null, { text: '친구를' }, { text: '만났어요' }, { text: '.' }],
+        blankAttachesLeft: true,
         options: ['에서', '에', '으로'],
         answerIndex: 0,
         explanation: 'Use 에서 for the place where an action happens',

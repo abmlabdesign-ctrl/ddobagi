@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Badge } from '@/components/Badge';
 import { Card } from '@/components/Card';
 import { NavBar } from '@/components/NavBar';
-import { Screen } from '@/components/Screen';
+import { Screen, ScreenShell } from '@/components/Screen';
 import { skillLabels } from '@/data/skills';
 import { situationById } from '@/data/situations';
 import { SpeakerIcon } from '@/icons';
@@ -21,11 +21,15 @@ export default function MistakeLog() {
   const rows = mistakes.filter((mistake) => mistake.situationId === situationId);
 
   return (
-    <View style={styles.root}>
-      <NavBar title="Mistake log" action="Script" onAction={() => router.push(`/review/script/${situationId}`)} />
+    <ScreenShell>
+      <NavBar
+        title="Mistake log"
+        action="Script"
+        onAction={() => router.push(`/review/script/${situationId}`)}
+      />
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>
-        <Text style={type.display}>{situation?.title ?? situationId}</Text>
+        <Text style={type.screenTitle}>{situation?.title ?? situationId}</Text>
 
         {rows.length === 0 ? (
           <Text style={type.secondary}>Nothing left to review here.</Text>
@@ -85,15 +89,11 @@ export default function MistakeLog() {
           </Card>
         ))}
       </Screen>
-    </View>
+    </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.surfaceAlt,
-  },
   content: {
     gap: spacing.lg,
     paddingTop: spacing.sm,
@@ -119,8 +119,6 @@ const styles = StyleSheet.create({
   },
   koreanWrong: {
     color: colors.textSecondary,
-    textDecorationLine: 'line-through',
-    textDecorationColor: colors.primary,
   },
   actions: {
     flexDirection: 'row',

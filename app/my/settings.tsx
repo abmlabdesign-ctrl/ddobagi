@@ -1,24 +1,18 @@
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Card } from '@/components/Card';
-import { MenuRow, Toggle } from '@/components/Controls';
+import { Card, RowDivider } from '@/components/Card';
+import { MenuRow, SliderRow, Toggle } from '@/components/Controls';
 import { NavBar } from '@/components/NavBar';
-import { Screen } from '@/components/Screen';
+import { Screen, ScreenShell } from '@/components/Screen';
 import { settings as settingsCopy } from '@/data/profile';
 import { useApp } from '@/store/AppStore';
 import { colors, spacing } from '@/theme/tokens';
-import { type } from '@/theme/typography';
+import { text, type } from '@/theme/typography';
 
 /** MY-3 Settings */
 export default function Settings() {
   const { profile, settings, updateSettings, resetOnboarding } = useApp();
-
-  const cycleSpeed = () => {
-    const speeds = settingsCopy.speechSpeeds;
-    const next = speeds[(speeds.indexOf(settings.aiSpeechSpeed) + 1) % speeds.length];
-    updateSettings({ aiSpeechSpeed: next });
-  };
 
   const logOut = () => {
     resetOnboarding();
@@ -26,13 +20,19 @@ export default function Settings() {
   };
 
   return (
-    <View style={styles.root}>
+    <ScreenShell>
       <NavBar title="Settings" />
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>
         <Group title="Learning">
-          <MenuRow label="App language" value={profile.appLanguage} />
-          <MenuRow label="AI speech speed" value={settings.aiSpeechSpeed} onPress={cycleSpeed} last />
+          <MenuRow label="App language" value={profile.appLanguage} height={56} />
+          <RowDivider />
+          <SliderRow
+            label="AI speech speed"
+            value={settings.aiSpeechSpeed}
+            options={settingsCopy.speechSpeeds}
+            onChange={(value) => updateSettings({ aiSpeechSpeed: value })}
+          />
         </Group>
 
         <Group title="Notifications">
@@ -41,18 +41,21 @@ export default function Settings() {
             value={settings.practiceReminder}
             onChange={(value) => updateSettings({ practiceReminder: value })}
           />
+          <RowDivider />
           <ToggleRow
             label="Review mission alerts"
             value={settings.reviewAlerts}
             onChange={(value) => updateSettings({ reviewAlerts: value })}
-            last
           />
         </Group>
 
         <Group title="Account">
-          <MenuRow label="Account info" />
-          <MenuRow label={settingsCopy.connectedProvider} />
-          <MenuRow label="Help center" />
+          <MenuRow label="Account info" height={56} />
+          <RowDivider />
+          <MenuRow label={settingsCopy.connectedProvider} height={56} />
+          <RowDivider />
+          <MenuRow label="Help center" height={56} />
+          <RowDivider />
           <Pressable onPress={logOut} accessibilityRole="button" style={styles.logOut}>
             <Text style={styles.logOutLabel}>Log out</Text>
           </Pressable>
@@ -60,7 +63,7 @@ export default function Settings() {
 
         <Text style={styles.version}>{settingsCopy.appVersion}</Text>
       </Screen>
-    </View>
+    </ScreenShell>
   );
 }
 
@@ -68,7 +71,9 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   return (
     <View style={styles.group}>
       <Text style={styles.groupTitle}>{title}</Text>
-      <Card padding={16}>{children}</Card>
+      <Card radiusToken="group" elevation="card" paddingHorizontal={20} paddingVertical={6}>
+        {children}
+      </Card>
     </View>
   );
 }
@@ -77,61 +82,49 @@ function ToggleRow({
   label,
   value,
   onChange,
-  last = false,
 }: {
   label: string;
   value: boolean;
   onChange: (value: boolean) => void;
-  last?: boolean;
 }) {
   return (
-    <View style={[styles.toggleRow, last ? null : styles.toggleDivider]}>
-      <Text style={type.body}>{label}</Text>
+    <View style={styles.toggleRow}>
+      <Text style={type.row}>{label}</Text>
       <Toggle label={label} value={value} onChange={onChange} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.surfaceAlt,
-  },
   content: {
-    gap: spacing.xl,
-    paddingTop: spacing.sm,
+    gap: 10,
+    paddingTop: 8,
     paddingBottom: spacing.huge,
   },
   group: {
-    gap: spacing.md,
+    gap: 8,
   },
   groupTitle: {
-    ...type.secondary,
-    fontWeight: '600',
-    color: colors.inkAlt,
+    ...text(12, 16, '600', colors.textTertiary),
+    paddingLeft: 4,
   },
   toggleRow: {
-    minHeight: 56,
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
-  },
-  toggleDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.fill,
   },
   logOut: {
-    minHeight: 56,
+    height: 56,
     justifyContent: 'center',
   },
   logOutLabel: {
-    ...type.body,
+    ...type.row,
     color: colors.primary,
-    fontWeight: '600',
   },
   version: {
     ...type.caption,
     textAlign: 'center',
+    marginTop: 8,
   },
 });

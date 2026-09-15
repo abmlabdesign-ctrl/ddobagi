@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/Card';
 import { NavBar } from '@/components/NavBar';
-import { Screen } from '@/components/Screen';
+import { Screen, ScreenShell } from '@/components/Screen';
 import { conversationBySituation, fallbackSituationId } from '@/data/conversations';
 import { situationById } from '@/data/situations';
 import { AlertIcon } from '@/icons';
@@ -25,7 +25,7 @@ export default function MistakeScript() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
-    <View style={styles.root}>
+    <ScreenShell>
       <NavBar title={situation?.title ?? 'Script'} />
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>
@@ -97,15 +97,11 @@ export default function MistakeScript() {
           );
         })}
       </Screen>
-    </View>
+    </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.surfaceAlt,
-  },
   content: {
     gap: spacing.lg,
     paddingTop: spacing.sm,

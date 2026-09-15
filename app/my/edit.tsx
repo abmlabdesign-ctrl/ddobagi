@@ -6,7 +6,8 @@ import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { Segmented, SelectRow } from '@/components/Controls';
 import { NavBar } from '@/components/NavBar';
-import { Screen } from '@/components/Screen';
+import { CtaDock } from '@/components/CtaDock';
+import { Screen, ScreenShell } from '@/components/Screen';
 import { avatars, interestOptions, koreanLevels } from '@/data/profile';
 import { useApp } from '@/store/AppStore';
 import { colors, radius, spacing } from '@/theme/tokens';
@@ -37,7 +38,7 @@ export default function EditProfile() {
   };
 
   return (
-    <View style={styles.root}>
+    <ScreenShell>
       <NavBar title="Edit profile" />
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>
@@ -108,18 +109,14 @@ export default function EditProfile() {
         </View>
       </Screen>
 
-      <View style={styles.footer}>
+      <CtaDock>
         <Button label="Save" onPress={save} />
-      </View>
-    </View>
+      </CtaDock>
+    </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.surfaceAlt,
-  },
   content: {
     gap: spacing.xxl,
     paddingTop: spacing.sm,
@@ -170,11 +167,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-  },
-  footer: {
-    paddingHorizontal: spacing.gutter,
-    paddingBottom: spacing.xxl,
-    paddingTop: spacing.md,
-    backgroundColor: colors.surfaceAlt,
   },
 });

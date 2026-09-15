@@ -1,18 +1,21 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
-import { Screen } from '@/components/Screen';
-import { Segmented } from '@/components/Controls';
-import { SpeakerIcon } from '@/icons';
+import { CountBadge } from '@/components/Badge';
+import { Card, RowDivider } from '@/components/Card';
+import { Chip } from '@/components/Chip';
+import { ScreenTitleBar } from '@/components/NavBar';
+import { Screen, ScreenShell } from '@/components/Screen';
+import { categoryById } from '@/data/categories';
 import { missions, todayFocus } from '@/data/missions';
 import { mistakeGroups, mistakesSummary } from '@/data/review';
 import { situationById } from '@/data/situations';
+import { ListChevronIcon, SpeakerIcon } from '@/icons';
 import { useApp } from '@/store/AppStore';
-import { colors, radius, shadows, spacing } from '@/theme/tokens';
-import { fontFamily, type } from '@/theme/typography';
+import { colors, radius, spacing } from '@/theme/tokens';
+import { numeral, text, type } from '@/theme/typography';
 
 const tabs = ['Micro missions', 'Mistake log', 'Scrapbook'] as const;
 type Tab = (typeof tabs)[number];
@@ -29,48 +32,75 @@ export default function Review() {
   const [tab, setTab] = useState<Tab>(tabByParam[tabParam ?? ''] ?? 'Micro missions');
 
   return (
-    <Screen scroll background="surface-alt" contentStyle={styles.content}>
-      <Text style={styles.title}>Review missions</Text>
-      <Segmented options={tabs} value={tab} onChange={setTab} />
+    <ScreenShell>
+      <ScreenTitleBar title="Review missions" />
 
-      {tab === 'Micro missions' ? <MissionsTab /> : null}
-      {tab === 'Mistake log' ? <MistakesTab /> : null}
-      {tab === 'Scrapbook' ? <ScrapbookTab /> : null}
-    </Screen>
+      <View style={styles.tabs}>
+        {tabs.map((entry) => (
+          <Chip
+            key={entry}
+            label={entry}
+            variant="tab"
+            selected={tab === entry}
+            onPress={() => setTab(entry)}
+          />
+        ))}
+      </View>
+
+      <Screen scroll background="surface-alt" contentStyle={styles.content}>
+        {tab === 'Micro missions' ? <MissionsTab /> : null}
+        {tab === 'Mistake log' ? <MistakesTab /> : null}
+        {tab === 'Scrapbook' ? <ScrapbookTab /> : null}
+      </Screen>
+    </ScreenShell>
   );
 }
 
 function MissionsTab() {
   return (
     <View style={styles.tabBody}>
-      <Card style={styles.focusCard}>
-        <Text style={styles.focusLabel}>Today&apos;s focus</Text>
-        <Text style={type.section}>
-          {todayFocus.skills.map((skill) => `· ${skill}`).join(' ')}
-        </Text>
-        <Text style={type.secondary}>{todayFocus.description}</Text>
-        <Button
-          label={todayFocus.cta}
-          style={styles.focusCta}
+      <LinearGradient
+        colors={['#D8E7FF', '#FFF0EC']}
+        locations={[0.08, 0.96]}
+        start={{ x: 0, y: 0.35 }}
+        end={{ x: 1, y: 0.65 }}
+        style={styles.focusCard}
+      >
+        <View style={styles.focusText}>
+          <Text style={styles.focusLabel}>
+            Today&apos;s focus {todayFocus.skills.map((skill) => `· ${skill}`).join(' ')}
+          </Text>
+          <Text style={type.lead}>{todayFocus.description}</Text>
+        </View>
+        <Pressable
           onPress={() => router.push(`/review/mission?missionId=${missions[0].id}`)}
-        />
-      </Card>
+          accessibilityRole="button"
+          style={styles.focusCta}
+        >
+          <Text style={styles.focusCtaLabel}>{todayFocus.cta}</Text>
+        </Pressable>
+      </LinearGradient>
 
-      <View style={styles.list}>
-        {missions.map((mission) => (
-          <Pressable
-            key={mission.id}
-            onPress={() => router.push(`/review/mission?missionId=${mission.id}`)}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]}
-          >
-            <Text style={type.listTitle}>{mission.title}</Text>
-            <Text style={styles.rowMeta}>
-              {mission.questionCount} questions · {mission.minutes} min
-            </Text>
-          </Pressable>
+      <Card elevation="card" paddingHorizontal={18} paddingVertical={4}>
+        {missions.map((mission, index) => (
+          <View key={mission.id}>
+            {index > 0 ? <RowDivider /> : null}
+            <Pressable
+              onPress={() => router.push(`/review/mission?missionId=${mission.id}`)}
+              accessibilityRole="button"
+              style={styles.listRow}
+            >
+              <View style={styles.listText}>
+                <Text style={type.listTitleTight}>{mission.title}</Text>
+                <Text style={type.caption}>
+                  {mission.questionCount} questions · {mission.minutes} min
+                </Text>
+              </View>
+              <ListChevronIcon />
+            </Pressable>
+          </View>
         ))}
-      </View>
+      </Card>
     </View>
   );
 }
@@ -78,53 +108,61 @@ function MissionsTab() {
 function MistakesTab() {
   return (
     <View style={styles.tabBody}>
-      <View style={styles.summaryHeader}>
+      <Card paddingHorizontal={18} paddingVertical={14} style={styles.summaryCard}>
         <View style={styles.summaryText}>
-          <Text style={type.section}>Mistakes to review</Text>
-          <Text style={type.secondary}>
+          <Text style={type.caption}>Mistakes to review</Text>
+          <Text style={type.cardTitle}>
             {mistakesSummary.total} left across {mistakesSummary.situations} situations
           </Text>
         </View>
-        <View style={styles.countPill}>
-          <Text style={styles.countPillLabel}>{mistakesSummary.total}</Text>
+        <View style={styles.summaryCount}>
+          <Text style={styles.summaryCountLabel}>{mistakesSummary.total}</Text>
         </View>
-      </View>
+      </Card>
 
       <View style={styles.sortRow}>
-        <Text style={styles.sectionLabel}>Pick a situation</Text>
+        <Text style={type.label}>Pick a situation</Text>
         <Text style={type.caption}>{mistakesSummary.sort}</Text>
       </View>
 
-      <View style={styles.list}>
-        {mistakeGroups.map((group) => {
+      <Card paddingHorizontal={18} paddingVertical={4}>
+        {mistakeGroups.map((group, index) => {
           const situation = situationById[group.situationId];
+          const category = situation ? categoryById[situation.categoryId] : undefined;
           return (
-            <Pressable
-              key={group.situationId}
-              onPress={() => router.push(`/review/mistakes/${group.situationId}`)}
-              accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.row,
-                styles.rowSplit,
-                pressed ? styles.rowPressed : null,
-              ]}
-            >
-              <View style={styles.rowText}>
-                <Text style={type.listTitle}>{situation?.title ?? group.situationId}</Text>
-                <Text style={styles.rowMeta}>
-                  {group.count} mistakes · {group.skills.join(' · ')} · {group.date}
-                </Text>
-              </View>
-              <View style={styles.countPillSmall}>
-                <Text style={styles.countPillSmallLabel}>{group.count}</Text>
-              </View>
-            </Pressable>
+            <View key={group.situationId}>
+              {index > 0 ? <RowDivider /> : null}
+              <Pressable
+                onPress={() => router.push(`/review/mistakes/${group.situationId}`)}
+                accessibilityRole="button"
+                style={styles.mistakeRow}
+              >
+                {category ? (
+                  <Image
+                    source={category.illustration}
+                    style={styles.thumb}
+                    resizeMode="cover"
+                    accessibilityIgnoresInvertColors
+                  />
+                ) : null}
+                <View style={styles.listText}>
+                  <Text style={type.listTitle}>{situation?.title ?? group.situationId}</Text>
+                  <Text style={type.caption}>
+                    {group.count} mistakes · {group.skills.join(' · ')} · {group.date}
+                  </Text>
+                </View>
+                <View style={styles.mistakeRight}>
+                  <CountBadge label={`${group.count}`} />
+                  <ListChevronIcon />
+                </View>
+              </Pressable>
+            </View>
           );
         })}
-      </View>
+      </Card>
 
-      <Card style={styles.fixedCard}>
-        <Text style={type.body}>Mistakes you fixed</Text>
+      <Card paddingHorizontal={18} paddingVertical={14} style={styles.fixedCard}>
+        <Text style={type.row}>Mistakes you fixed</Text>
         <Text style={styles.fixedCount}>
           {mistakesSummary.fixedCount} · {mistakesSummary.fixedWindow}
         </Text>
@@ -152,27 +190,28 @@ function ScrapbookTab() {
     <View style={styles.tabBody}>
       {Object.entries(grouped).map(([situationId, phrases]) => (
         <View key={situationId} style={styles.group}>
-          <Text style={styles.sectionLabel}>
-            {situationById[situationId]?.title ?? situationId}
-          </Text>
-          <View style={styles.list}>
-            {phrases.map((phrase) => (
-              <View key={phrase.id} style={[styles.row, styles.rowSplit]}>
-                <View style={styles.rowText}>
-                  <Text style={styles.phraseKorean}>{phrase.korean}</Text>
-                  <Text style={type.description}>{phrase.english}</Text>
+          <Text style={type.label}>{situationById[situationId]?.title ?? situationId}</Text>
+          <Card paddingHorizontal={18} paddingVertical={4}>
+            {phrases.map((phrase, index) => (
+              <View key={phrase.id}>
+                {index > 0 ? <RowDivider /> : null}
+                <View style={styles.phraseRow}>
+                  <View style={styles.listText}>
+                    <Text style={styles.phraseKorean}>{phrase.korean}</Text>
+                    <Text style={type.description}>{phrase.english}</Text>
+                  </View>
+                  <Pressable
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Replay ${phrase.korean}`}
+                    style={styles.speaker}
+                  >
+                    <SpeakerIcon size={18} />
+                  </Pressable>
                 </View>
-                <Pressable
-                  hitSlop={10}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Replay ${phrase.korean}`}
-                  style={styles.speaker}
-                >
-                  <SpeakerIcon size={18} />
-                </Pressable>
               </View>
             ))}
-          </View>
+          </Card>
         </View>
       ))}
     </View>
@@ -180,121 +219,106 @@ function ScrapbookTab() {
 }
 
 const styles = StyleSheet.create({
+  tabs: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: spacing.gutter,
+    paddingVertical: 8,
+  },
   content: {
-    gap: spacing.lg,
-    paddingTop: spacing.huge,
+    gap: 12,
+    paddingTop: 16,
     paddingBottom: spacing.huge,
   },
-  title: {
-    ...type.display,
-    color: colors.inkAlt,
-  },
   tabBody: {
-    gap: spacing.lg,
-    paddingTop: spacing.xs,
+    gap: 12,
   },
   focusCard: {
-    gap: spacing.sm,
+    borderRadius: radius.group,
+    padding: 20,
+    gap: 14,
   },
-  focusLabel: {
-    ...type.badge,
-    color: colors.textTertiary,
+  focusText: {
+    gap: 6,
   },
+  focusLabel: text(13, 19, '600', colors.primary),
   focusCta: {
-    marginTop: spacing.md,
+    height: 48,
+    borderRadius: radius.search,
+    backgroundColor: 'rgba(255,255,255,0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  list: {
-    gap: spacing.sm,
+  focusCtaLabel: text(16, 22, '600', colors.primary),
+  listRow: {
+    height: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  row: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
-    padding: 16,
-    gap: spacing.xs,
-    ...shadows.card,
+  listText: {
+    flex: 1,
+    gap: 1,
   },
-  rowSplit: {
+  summaryCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.md,
+    gap: 12,
   },
-  rowText: {
+  summaryText: {
     flex: 1,
     gap: 2,
   },
-  rowPressed: {
-    backgroundColor: colors.fill,
-  },
-  rowMeta: {
-    ...type.description,
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  summaryText: {
-    gap: spacing.xs,
-  },
-  countPill: {
-    width: 48,
-    height: 48,
+  summaryCount: {
+    width: 44,
+    height: 44,
     borderRadius: radius.pill,
     backgroundColor: colors.primary100,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  countPillLabel: {
-    fontFamily: fontFamily.numeric,
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  countPillSmall: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary100,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  countPillSmallLabel: {
-    fontFamily: fontFamily.numeric,
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.primary,
-  },
+  summaryCountLabel: numeral(15, 20, '700', colors.primary),
   sortRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
+    paddingHorizontal: 4,
   },
-  sectionLabel: {
-    ...type.secondary,
-    fontWeight: '600',
-    color: colors.inkAlt,
+  mistakeRow: {
+    height: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  thumb: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.badge,
+    backgroundColor: colors.fill,
+  },
+  mistakeRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   fixedCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  fixedCount: {
-    ...type.secondary,
-    color: colors.success,
-    fontWeight: '600',
-  },
+  fixedCount: text(14, 20, '600', colors.success),
   group: {
-    gap: spacing.md,
+    gap: 8,
   },
-  phraseKorean: {
-    fontFamily: fontFamily.sans,
-    fontSize: 17,
-    lineHeight: 24,
-    fontWeight: '600',
-    color: colors.ink,
+  phraseRow: {
+    minHeight: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
   },
+  phraseKorean: text(15, 22, '600', colors.inkAlt),
   speaker: {
     width: 36,
     height: 36,

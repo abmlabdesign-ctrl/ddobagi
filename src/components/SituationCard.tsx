@@ -1,20 +1,32 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { DifficultyBadge, InProgressBadge } from './Badge';
+import { DifficultyBadge } from './Badge';
 import type { Situation } from '@/data/types';
-import { colors, shadows } from '@/theme/tokens';
-import { fontFamily, type } from '@/theme/typography';
+import { colors, radius } from '@/theme/tokens';
+import { numeral, text, type } from '@/theme/typography';
 
 type Props = {
   situation: Situation;
   onPress?: () => void;
   /** `About 8 min` on the home rail, `8 min` in browse. */
   durationPrefix?: string;
+  /** RP-1 shows a progress bar at the card's foot; the home rail does not. */
+  showProgress?: boolean;
 };
 
-/** 164 × 160, radius 24, white on `surface-alt`. Two per row with a 12px gap. */
-export function SituationCard({ situation, onPress, durationPrefix = '' }: Props) {
+/**
+ * 164×160, radius 24, white on `surface-alt`. The comps give this card no
+ * shadow and no status badge — progress is a bar, and only on RP-1.
+ */
+export function SituationCard({
+  situation,
+  onPress,
+  durationPrefix = '',
+  showProgress = false,
+}: Props) {
+  const progress = showProgress ? situation.progress : undefined;
+
   return (
     <Pressable
       onPress={onPress}
@@ -23,16 +35,10 @@ export function SituationCard({ situation, onPress, durationPrefix = '' }: Props
       style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
     >
       <View style={styles.top}>
-        <View style={styles.badgeRow}>
-          <DifficultyBadge difficulty={situation.difficulty} />
-          {situation.progress ? <InProgressBadge /> : null}
-        </View>
+        <DifficultyBadge difficulty={situation.difficulty} />
         <Text style={styles.title} numberOfLines={2}>
           {situation.title}
         </Text>
-      </View>
-
-      <View style={styles.metaRow}>
         <View style={styles.meta}>
           <ClockIcon />
           <Text style={styles.metaLabel}>
@@ -40,10 +46,16 @@ export function SituationCard({ situation, onPress, durationPrefix = '' }: Props
             {situation.minutes} min
           </Text>
         </View>
-        {situation.progress ? (
-          <Text style={styles.progress}>{situation.progress.percent}%</Text>
-        ) : null}
       </View>
+
+      {progress ? (
+        <View style={styles.progressRow}>
+          <View style={styles.track}>
+            <View style={[styles.fill, { width: `${progress.percent}%` }]} />
+          </View>
+          <Text style={styles.percent}>{progress.percent}%</Text>
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -72,43 +84,40 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     justifyContent: 'space-between',
-    ...shadows.card,
   },
   pressed: {
     backgroundColor: colors.fill,
   },
   top: {
     gap: 8,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   title: {
     ...type.section,
-    color: colors.inkAlt,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignSelf: 'stretch',
   },
   meta: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 2,
+  },
+  metaLabel: numeral(12, 12, '400', colors.textSecondary),
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
   },
-  metaLabel: {
-    fontFamily: fontFamily.numeric,
-    fontSize: 12,
-    fontWeight: '400',
-    color: colors.textSecondary,
+  track: {
+    flex: 1,
+    height: 7,
+    borderRadius: radius.pill,
+    backgroundColor: colors.track,
+    overflow: 'hidden',
   },
-  progress: {
-    fontFamily: fontFamily.numeric,
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
+  fill: {
+    height: 7,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
   },
+  percent: text(12, 16, '500', colors.primary),
 });

@@ -226,3 +226,115 @@ export function ArrowUpIcon(props: IconProps) {
     </Icon>
   );
 }
+
+/* ── Aspect-correct chevrons ────────────────────────────────────────────────
+ * The comps draw chevrons at fixed, non-square sizes: 10×18 back, 7×12 list,
+ * 10×6 dropdown, 12×7 select. Rendering them from a 24×24 box changes both the
+ * proportion and the apparent stroke weight, so each gets its own viewBox.
+ */
+
+export function BackChevronIcon({
+  color = colors.ink,
+  close = false,
+}: {
+  color?: ColorValue;
+  close?: boolean;
+}) {
+  if (close) {
+    return (
+      <Svg width={14} height={14} viewBox="0 0 14 14">
+        <Path d="M1 1l12 12M13 1L1 13" {...strokeProps(color, 1.8)} />
+      </Svg>
+    );
+  }
+  return (
+    <Svg width={10} height={18} viewBox="0 0 10 18">
+      <Path d="M9 1L1 9l8 8" {...strokeProps(color, 1.8)} />
+    </Svg>
+  );
+}
+
+export function ListChevronIcon({ color = colors.textTertiary }: { color?: ColorValue }) {
+  return (
+    <Svg width={7} height={12} viewBox="0 0 7 12">
+      <Path d="M1 1l5 5-5 5" {...strokeProps(color, 1.6)} />
+    </Svg>
+  );
+}
+
+export function DropdownChevronIcon({ color = colors.inkAlt }: { color?: ColorValue }) {
+  return (
+    <Svg width={10} height={6} viewBox="0 0 10 6">
+      <Path d="M1 1l4 4 4-4" {...strokeProps(color, 1.6)} />
+    </Svg>
+  );
+}
+
+export function SelectChevronIcon({ color = colors.textTertiary }: { color?: ColorValue }) {
+  return (
+    <Svg width={12} height={7} viewBox="0 0 12 7">
+      <Path d="M1 1l5 5 5-5" {...strokeProps(color, 1.6)} />
+    </Svg>
+  );
+}
+
+/* ── Tab bar ────────────────────────────────────────────────────────────────
+ * The comps draw the tab glyphs as solid shapes, not strokes.
+ */
+
+export function HomeTabIcon({ color }: { color: ColorValue }) {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24">
+      <Path
+        d="M11.35 2.76a1 1 0 0 1 1.3 0l8.02 6.86c.4.34.63.84.63 1.37V19.5a2 2 0 0 1-2 2h-4.2v-5.1a1 1 0 0 0-1-1h-4.2a1 1 0 0 0-1 1v5.1H4.7a2 2 0 0 1-2-2v-8.51c0-.53.23-1.03.63-1.37z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+export function RoleplayTabIcon({ color }: { color: ColorValue }) {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24">
+      <Path
+        d="M12 3.2c5 0 9 3.2 9 7.4 0 4.2-4 7.4-9 7.4-.85 0-1.68-.09-2.46-.26l-4.3 2.05a.6.6 0 0 1-.84-.68l.83-3.3C3.2 14.5 3 12.9 3 10.6 3 6.4 7 3.2 12 3.2z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+export function ReviewTabIcon({ color }: { color: ColorValue }) {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24">
+      <Path
+        d="M12 2.8a9.2 9.2 0 1 1-8.7 12.2 1.1 1.1 0 1 1 2.08-.7A7 7 0 1 0 12 5a6.97 6.97 0 0 0-5.07 2.2h2.2a1.1 1.1 0 1 1 0 2.2H4.4a1.1 1.1 0 0 1-1.1-1.1V3.57a1.1 1.1 0 1 1 2.2 0v1.8A9.17 9.17 0 0 1 12 2.8z"
+        fill={color}
+      />
+      <Path
+        d="M15.4 9.53a1.1 1.1 0 0 1 .1 1.55l-4.1 4.7a1.1 1.1 0 0 1-1.61.05l-2.1-2.1a1.1 1.1 0 1 1 1.56-1.56l1.27 1.28 3.33-3.82a1.1 1.1 0 0 1 1.55-.1z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+export function ProfileTabIcon({ color }: { color: ColorValue }) {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24">
+      <Path
+        d="M12 3.6a4.3 4.3 0 1 1 0 8.6 4.3 4.3 0 0 1 0-8.6zM12 13.6c4.3 0 7.8 2.4 7.8 6.05a1.1 1.1 0 0 1-1.1 1.1H5.3a1.1 1.1 0 0 1-1.1-1.1c0-3.65 3.5-6.05 7.8-6.05z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+/** Solid play triangle used on the home resume card. */
+export function PlayIcon({ size = 8, color = colors.surface }: IconProps) {
+  return (
+    <Svg width={size * 0.875} height={size} viewBox="0 0 7 8">
+      <Path d="M6.41 2.94a1.25 1.25 0 0 1 0 2.12L1.7 7.85A1.22 1.22 0 0 1 0 6.79V1.21A1.22 1.22 0 0 1 1.7.15z" fill={color} />
+    </Svg>
+  );
+}

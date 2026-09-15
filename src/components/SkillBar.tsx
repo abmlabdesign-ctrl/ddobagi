@@ -1,11 +1,10 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { SkillBandBadge } from './Badge';
-import { bandLabels, skillLabels } from '@/data/skills';
+import { bandColors, bandLabels, skillLabels } from '@/data/skills';
 import type { SkillBand, SkillId } from '@/data/types';
 import { colors, radius } from '@/theme/tokens';
-import { fontFamily, type } from '@/theme/typography';
+import { numeral, text, type } from '@/theme/typography';
 
 type Props = {
   skill: SkillId;
@@ -13,40 +12,49 @@ type Props = {
   band: SkillBand;
 };
 
-/** Label 15/500 · score · band badge · 8px track. Scores run 0–100. */
+/**
+ * ON-4 / RP-4 breakdown row. The fill is the same orange gradient for every
+ * skill — the band only changes the label on the right, and `needs-work` is a
+ * bare text label rather than a badge.
+ */
 export function SkillBar({ skill, score, band }: Props) {
-  const fill = colors[band === 'needs-work' ? 'primary' : band === 'medium' ? 'info' : 'success'];
+  const clamped = Math.max(0, Math.min(100, score));
 
   return (
     <View style={styles.row}>
       <View style={styles.header}>
-        <Text style={type.body}>{skillLabels[skill]}</Text>
-        <View style={styles.right}>
+        <View style={styles.labelGroup}>
+          <Text style={type.bodyRegular}>{skillLabels[skill]}</Text>
           <Text style={styles.score}>{score}</Text>
-          <SkillBandBadge band={band} label={bandLabels[band]} />
         </View>
+        <BandLabel band={band} />
       </View>
+
       <View style={styles.track}>
-        <View
-          style={[
-            styles.fill,
-            { width: `${Math.max(0, Math.min(100, score))}%`, backgroundColor: fill },
-          ]}
+        <LinearGradient
+          colors={[colors.primary300, colors.primary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[styles.fill, { width: `${clamped}%` }]}
         />
       </View>
     </View>
   );
 }
 
-/** `0–100` caption that sits beside a breakdown heading. */
-export function ScaleCaption() {
-  return <Text style={type.caption}>0–100</Text>;
+function BandLabel({ band }: { band: SkillBand }) {
+  if (band === 'needs-work') {
+    return <Text style={styles.needsWork}>{bandLabels[band]}</Text>;
+  }
+  const tone = bandColors[band];
+  return (
+    <View style={[styles.badge, { backgroundColor: tone.background }]}>
+      <Text style={[styles.badgeLabel, { color: tone.text }]}>{bandLabels[band]}</Text>
+    </View>
+  );
 }
 
-/**
- * MY-2 variant: label · 10px track with the blue gradient fill · score.
- * The stats screens show trends, not bands, so there's no badge here.
- */
+/** MY-2 variant: label · 10px track · score, with no band. */
 export function SkillBarCompact({ skill, score }: { skill: SkillId; score: number }) {
   return (
     <View style={styles.compactRow}>
@@ -68,29 +76,30 @@ export function SkillBarCompact({ skill, score }: { skill: SkillId; score: numbe
 
 const styles = StyleSheet.create({
   row: {
-    gap: 8,
+    gap: 6,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     justifyContent: 'space-between',
   },
-  right: {
+  labelGroup: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     gap: 8,
   },
-  score: {
-    fontFamily: fontFamily.numeric,
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '600',
-    color: colors.ink,
+  score: text(16, 22, '500', colors.inkAlt),
+  badge: {
+    borderRadius: radius.chipBadge,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
+  badgeLabel: text(12, 16, '400'),
+  needsWork: text(13, 19, '600', colors.primary),
   track: {
     height: 8,
     borderRadius: radius.pill,
-    backgroundColor: colors.fill,
+    backgroundColor: colors.track,
     overflow: 'hidden',
   },
   fill: {
@@ -103,12 +112,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   compactLabel: {
+    ...text(12, 16, '500', colors.textSecondary),
     width: 86,
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '500',
-    color: colors.textSecondary,
   },
   compactTrack: {
     flex: 1,
@@ -122,11 +127,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   compactScore: {
+    ...numeral(13, 18, '700', colors.inkAlt),
     width: 24,
     textAlign: 'right',
-    fontFamily: fontFamily.numeric,
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.inkAlt,
   },
 });

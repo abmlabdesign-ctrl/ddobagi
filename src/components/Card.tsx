@@ -3,19 +3,39 @@ import { StyleSheet, View, type ViewProps, type ViewStyle } from 'react-native';
 import { colors, radius, shadows } from '@/theme/tokens';
 
 type Props = ViewProps & {
-  /** `card` is the default 0 0 20px shadow; `flat` drops it for nested cards. */
-  elevation?: 'card' | 'flat';
+  /**
+   * The comps split cards in two: list/tile cards carry
+   * `0 0 20px rgba(50,68,88,0.08)`, while the big content cards declare
+   * `0 0 0 0` — no shadow. Flat is therefore the default.
+   */
+  elevation?: 'flat' | 'card';
+  /** 16 prompt · 20 panel · 24 grouped. */
+  radiusToken?: keyof typeof radius;
   padding?: number;
+  paddingHorizontal?: number;
+  paddingVertical?: number;
   style?: ViewStyle | ViewStyle[];
 };
 
-export function Card({ elevation = 'card', padding = 20, style, children, ...rest }: Props) {
+export function Card({
+  elevation = 'flat',
+  radiusToken = 'panel',
+  padding,
+  paddingHorizontal,
+  paddingVertical,
+  style,
+  children,
+  ...rest
+}: Props) {
   return (
     <View
       style={[
         styles.card,
+        { borderRadius: radius[radiusToken] },
         elevation === 'card' ? shadows.card : null,
-        { padding },
+        padding !== undefined ? { padding } : null,
+        paddingHorizontal !== undefined ? { paddingHorizontal } : null,
+        paddingVertical !== undefined ? { paddingVertical } : null,
         style as ViewStyle,
       ]}
       {...rest}
@@ -25,7 +45,7 @@ export function Card({ elevation = 'card', padding = 20, style, children, ...res
   );
 }
 
-/** `surface-alt` panel used inside cards (report fixes, mission explanations). */
+/** `surface-alt` panel used inside cards. */
 export function SubCard({ padding = 16, style, children, ...rest }: Props) {
   return (
     <View style={[styles.subCard, { padding }, style as ViewStyle]} {...rest}>
@@ -34,13 +54,21 @@ export function SubCard({ padding = 16, style, children, ...rest }: Props) {
   );
 }
 
+/** 1px `#F0F2F7` rule between rows of a grouped card. */
+export function RowDivider() {
+  return <View style={styles.divider} />;
+}
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.card,
   },
   subCard: {
     backgroundColor: colors.surfaceAlt,
     borderRadius: radius.input,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.divider,
   },
 });

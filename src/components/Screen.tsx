@@ -6,17 +6,18 @@ import { colors, spacing } from '@/theme/tokens';
 
 type Props = {
   children: ReactNode;
-  /** Adds the 24px side gutter. Turn off for edge-to-edge lists. */
   gutter?: boolean;
   scroll?: boolean;
-  /** Extra bottom room for a fixed CTA or the tab bar. */
   bottomInset?: number;
   style?: ViewStyle;
   contentStyle?: ViewStyle;
-  /** Most screens sit on `surface-alt`; ON-1~3, RP-2 and RV-2f are white. */
   background?: 'surface' | 'surface-alt';
 };
 
+/**
+ * The scrolling body of a screen. Headers, filter rows and CTA docks sit
+ * outside it — the comps keep those fixed and scroll only the middle block.
+ */
 export function Screen({
   children,
   gutter = true,
@@ -48,6 +49,32 @@ export function Screen({
   }
 
   return <View style={[styles.root, surface, padding, style, contentStyle]}>{children}</View>;
+}
+
+/**
+ * Screen shell for a fixed header + scrolling body + fixed dock. Keeps the
+ * background on the outer view so the dock and header sit on the same ground.
+ */
+export function ScreenShell({
+  children,
+  background = 'surface-alt',
+  style,
+}: {
+  children: ReactNode;
+  background?: 'surface' | 'surface-alt';
+  style?: ViewStyle;
+}) {
+  return (
+    <View
+      style={[
+        styles.root,
+        { backgroundColor: background === 'surface' ? colors.surface : colors.surfaceAlt },
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

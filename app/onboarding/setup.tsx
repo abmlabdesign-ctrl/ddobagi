@@ -5,11 +5,12 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
 import { OptionRow, SelectRow } from '@/components/Controls';
+import { CtaDock } from '@/components/CtaDock';
 import { NavBar } from '@/components/NavBar';
-import { Screen } from '@/components/Screen';
+import { Screen, ScreenShell } from '@/components/Screen';
 import { onboardingOptions } from '@/data/profile';
 import { useApp } from '@/store/AppStore';
-import { colors, radius, spacing } from '@/theme/tokens';
+import { spacing } from '@/theme/tokens';
 import { type } from '@/theme/typography';
 
 /** ON-2 Setup (About you) — `Next` stays disabled until the required answers are in. */
@@ -30,11 +31,8 @@ export default function Setup() {
   };
 
   return (
-    <View style={styles.root}>
+    <ScreenShell background="surface">
       <NavBar title="About you" />
-      <View style={styles.progress}>
-        <ProgressDots step={1} total={3} />
-      </View>
 
       <Screen scroll contentStyle={styles.content}>
         <SelectRow label="App language" value={profile.appLanguage} />
@@ -85,70 +83,34 @@ export default function Setup() {
         </View>
       </Screen>
 
-      <View style={styles.footer}>
+      <CtaDock>
         <Button label="Next" onPress={next} disabled={!canContinue} />
-      </View>
-    </View>
-  );
-}
-
-function ProgressDots({ step, total }: { step: number; total: number }) {
-  return (
-    <View style={styles.dots}>
-      {Array.from({ length: total }).map((_, index) => (
-        <View
-          key={index}
-          style={[styles.dot, index < step ? styles.dotActive : styles.dotIdle]}
-        />
-      ))}
-    </View>
+      </CtaDock>
+    </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.surface,
-  },
-  progress: {
-    paddingHorizontal: spacing.gutter,
-    paddingBottom: spacing.md,
-    alignItems: 'center',
-  },
   content: {
-    gap: spacing.xxl,
-    paddingTop: spacing.sm,
+    gap: 48,
+    paddingTop: 20,
     paddingBottom: spacing.huge,
   },
   group: {
-    gap: spacing.md,
+    gap: 12,
   },
   groupHeader: {
-    gap: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+    flexWrap: 'wrap',
   },
   optionList: {
-    gap: spacing.sm,
+    gap: 8,
   },
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: 8,
   },
-  footer: {
-    paddingHorizontal: spacing.gutter,
-    paddingBottom: spacing.xxl,
-    paddingTop: spacing.md,
-    backgroundColor: colors.surface,
-  },
-  dots: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  dot: {
-    width: 20,
-    height: 4,
-    borderRadius: radius.pill,
-  },
-  dotActive: { backgroundColor: colors.primary },
-  dotIdle: { backgroundColor: colors.fill },
 });

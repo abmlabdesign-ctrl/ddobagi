@@ -23,10 +23,20 @@ Claude Code가 이 저장소에서 작업할 때 참고하는 가이드입니다
 화면을 건드렸다면 `npm run export:web`으로 번들이 깨지지 않는지 확인합니다.
 CI(`.github/workflows/ci.yml`)가 push·PR에서 이 셋을 그대로 실행합니다.
 
+## Source of Truth
+
+**`docs/design-handoff.md`와 함께 전달된 `*.dc.html` 시안이 UI의 유일한 기준입니다.**
+핸드오프 README의 서술과 시안 값이 어긋나면 **시안을 따릅니다**. 기존 구현을 근거로 디자인을 고치지 않습니다.
+확정된 충돌 항목: ON-2 선택 상태는 링만(배경 없음), SkillBar는 `Strong = #0091FF` / `Medium = #27A376`,
+RP-1 타이틀은 `Choose a situation`.
+
 ## 코드 규칙
 
 - **디자인 토큰을 쓴다.** 색상·간격·라운드·섀도우는 `src/theme/tokens.ts`, 타이포는 `src/theme/typography.ts`.
   화면에서 `#FF6A3D`나 `padding: 24` 같은 값을 직접 쓰지 않습니다.
+- **타이포는 `text()` / `numeral()` 헬퍼로.** React Native는 weight가 아니라 패밀리 이름으로 폰트를 고르므로
+  `fontWeight`를 직접 쓰지 말고 `text(16, 22, '600')` 형태로 씁니다. 숫자는 전부 Inter(`numeral`)입니다.
+- **카드 그림자는 기본이 없음.** 시안에서 `0 0 20px`가 선언된 카드에만 `elevation="card"`를 줍니다.
 - **학습 콘텐츠는 `KoreanText`를 거친다.** 한국어/영어/로마자 노출 규칙(README "정보 노출 원칙")이 이 컴포넌트에 있습니다.
   한국어 문장을 `<Text>`로 직접 찍지 마세요.
 - **UI 문구는 미국식 영어·구어체·문장 대문자.** 버튼은 동사 1~2단어(`Save`, `Try again`).

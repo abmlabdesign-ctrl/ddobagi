@@ -2,16 +2,20 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { CountBadge } from '@/components/Badge';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { CtaDock } from '@/components/CtaDock';
 import { KoreanText, joinTokens } from '@/components/KoreanText';
 import { MicButton } from '@/components/MicButton';
 import { NavBar } from '@/components/NavBar';
-import { Screen } from '@/components/Screen';
+import { Screen, ScreenShell } from '@/components/Screen';
+import { StepProgress } from '@/components/StepProgress';
 import { missionById, missions } from '@/data/missions';
 import type { ChoiceQuestion, SpeakQuestion } from '@/data/types';
+import { DropdownChevronIcon, SpeakerIcon } from '@/icons';
 import { colors, radius, spacing } from '@/theme/tokens';
-import { fontFamily, type } from '@/theme/typography';
+import { text, type } from '@/theme/typography';
 
 /**
  * RV-2 … RV-2f. One runner covers all six mission types: speaking drills use
@@ -44,41 +48,64 @@ export default function MissionRunner() {
   }
 
   return (
-    <View style={styles.root}>
-      <NavBar
-        title={mission.title}
-        center={
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressTitle} numberOfLines={1}>
-              {mission.title}
-            </Text>
-            <Text style={styles.progressCount}>
-              {position}/{mission.questionCount}
-            </Text>
-          </View>
-        }
-      />
+    <ScreenShell>
+      <NavBar title={mission.title} closeIcon onBack={() => router.replace('/(tabs)/review')} />
+
+      <View style={styles.progress}>
+        <StepProgress total={mission.questionCount} completed={position} />
+      </View>
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>
         {question.type === 'speak' ? (
-          <SpeakStep
-            question={question}
-            answered={spoken}
-            onSpeak={() => setSpoken(true)}
-          />
+          <SpeakStep question={question} answered={spoken} onSpeak={() => setSpoken(true)} />
         ) : (
           <ChoiceStep question={question} answer={answer} onAnswer={setAnswer} />
         )}
       </Screen>
 
-      <View style={styles.footer}>
+      {question.type === 'choice' ? (
+        <View style={styles.options}>
+          {question.options.map((option, optionIndex) => {
+            const answered = answer !== null;
+            const selected = answer === optionIndex;
+            const isAnswer = optionIndex === question.answerIndex;
+            return (
+              <Pressable
+                key={option}
+                onPress={() => (answered ? undefined : setAnswer(optionIndex))}
+                accessibilityRole="radio"
+                accessibilityState={{ selected, disabled: answered }}
+                style={[
+                  styles.option,
+                  selected && !isAnswer ? styles.optionWrong : null,
+                  answered && isAnswer ? styles.optionRight : null,
+                ]}
+              >
+                <Text
+                  style={
+                    answered && isAnswer
+                      ? styles.optionLabelRight
+                      : selected
+                        ? styles.optionLabelWrong
+                        : styles.optionLabel
+                  }
+                >
+                  {option}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+
+      <CtaDock>
         <Button
           label={position >= mission.questionCount ? 'Finish' : 'Next'}
           onPress={next}
           disabled={question.type === 'speak' ? !spoken : answer === null}
         />
-      </View>
-    </View>
+      </CtaDock>
+    </ScreenShell>
   );
 }
 
@@ -94,7 +121,13 @@ function SpeakStep({
 }) {
   return (
     <View style={styles.step}>
-      <Card style={styles.sentenceCard}>
+      <Card elevation="card" radiusToken="card" padding={24} style={styles.promptCard}>
+        <View style={styles.promptHeader}>
+          <View style={styles.speaker}>
+            <SpeakerIcon size={18} />
+          </View>
+          <Text style={styles.promptLabel}>Listen, then repeat</Text>
+        </View>
         <KoreanText
           tokens={question.tokens}
           onReplay={() => {}}
@@ -121,7 +154,7 @@ function SpeakStep({
 function ChoiceStep({
   question,
   answer,
-  onAnswer,
+  onAnswer: _onAnswer,
 }: {
   question: ChoiceQuestion;
   answer: number | null;
@@ -129,57 +162,50 @@ function ChoiceStep({
 }) {
   const answered = answer !== null;
   const correct = answer === question.answerIndex;
+  const [showMeaning, setShowMeaning] = useState(false);
 
-  const sentence = useMemo(
-    () =>
-      joinTokens(
-        question.sentenceTokens.map((token) =>
-          token ? token.text : answered ? question.options[answer] : '____',
-        ),
-      ),
-    [question, answer, answered],
-  );
+  const sentence = useMemo(() => {
+    const parts = question.sentenceTokens.map((token) =>
+      token ? token.text : answered ? question.options[answer] : '____',
+    );
+    if (!question.blankAttachesLeft) return joinTokens(parts);
+    // A particle joins the word before it, so the gap closes once it is filled.
+    const gap = question.sentenceTokens.findIndex((token) => token === null);
+    return joinTokens(
+      parts.reduce<string[]>((acc, part, index) => {
+        if (index === gap && acc.length) acc[acc.length - 1] += part;
+        else acc.push(part);
+        return acc;
+      }, []),
+    );
+  }, [question, answer, answered]);
 
   return (
     <View style={styles.step}>
-      <Card style={styles.sentenceCard}>
-        <Text style={styles.promptLabel}>{question.promptLabel}</Text>
-        <KoreanText
-          tokens={question.promptTokens}
-          english={question.promptEnglish}
-          meaning="toggle"
-          onReplay={() => {}}
-          tapHint="Tap a word to see how it sounds"
-        />
+      <Card elevation="card" radiusToken="card" padding={24} style={styles.promptCard}>
+        <View style={styles.promptHeader}>
+          <View style={styles.promptHeaderLeft}>
+            <View style={styles.speaker}>
+              <SpeakerIcon size={18} />
+            </View>
+            <Text style={styles.promptLabel}>{question.promptLabel}</Text>
+          </View>
+          <Pressable
+            onPress={() => setShowMeaning((value) => !value)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showMeaning }}
+            style={styles.meaningPill}
+          >
+            <Text style={styles.meaningLabel}>Meaning</Text>
+            <DropdownChevronIcon color={colors.textSecondary} />
+          </Pressable>
+        </View>
+
+        <KoreanText tokens={question.promptTokens} />
+        {showMeaning ? <Text style={type.caption}>{question.promptEnglish}</Text> : null}
+
+        {sentence.length > 0 ? <Text style={styles.answerSentence}>{sentence}</Text> : null}
       </Card>
-
-      {sentence.length > 0 ? (
-        <Card style={styles.answerCard} elevation="flat">
-          <Text style={styles.answerSentence}>{sentence}</Text>
-        </Card>
-      ) : null}
-
-      <View style={styles.options}>
-        {question.options.map((option, optionIndex) => {
-          const selected = answer === optionIndex;
-          const isAnswer = optionIndex === question.answerIndex;
-          return (
-            <Pressable
-              key={option}
-              onPress={() => (answered ? undefined : onAnswer(optionIndex))}
-              accessibilityRole="radio"
-              accessibilityState={{ selected, disabled: answered }}
-              style={[
-                styles.option,
-                selected && !isAnswer ? styles.optionWrong : null,
-                answered && isAnswer ? styles.optionRight : null,
-              ]}
-            >
-              <Text style={[type.body, styles.optionLabel]}>{option}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
 
       {answered ? (
         <Feedback
@@ -203,14 +229,12 @@ function Feedback({
 }) {
   return (
     <View style={styles.feedback}>
-      <View
-        style={[styles.feedbackBadge, correct ? styles.badgeGood : styles.badgeBad]}
-      >
-        <Text style={[styles.feedbackLabel, correct ? styles.labelGood : styles.labelBad]}>
-          {label}
-        </Text>
-      </View>
-      <Text style={type.secondary}>{explanation}</Text>
+      <CountBadge
+        label={label}
+        color={correct ? colors.success : colors.primary}
+        background={correct ? colors.successBg : colors.primary100}
+      />
+      <Text style={styles.feedbackText}>{explanation}</Text>
     </View>
   );
 }
@@ -224,10 +248,10 @@ function MissionComplete({
   questionCount: number;
 }) {
   return (
-    <View style={styles.completeRoot}>
+    <ScreenShell background="surface">
       <Screen contentStyle={styles.completeContent}>
         <View style={styles.completeText}>
-          <Text style={type.display}>Mission complete!</Text>
+          <Text style={type.screenTitle}>Mission complete!</Text>
           <Text style={type.secondary}>
             You finished all {questionCount} questions of{'\n'}the {title.toLowerCase()} mission.
           </Text>
@@ -243,122 +267,120 @@ function MissionComplete({
             <Text style={type.caption}>Politeness</Text>
           </View>
         </View>
-
-        <View style={styles.completeActions}>
-          <Button
-            label="Retry"
-            variant="secondary"
-            style={styles.completeButton}
-            onPress={() => router.replace('/(tabs)/review')}
-          />
-          <Button
-            label="Done"
-            style={styles.completeButton}
-            onPress={() => router.replace('/(tabs)/review')}
-          />
-        </View>
       </Screen>
-    </View>
+
+      <CtaDock row gap={10}>
+        <Button
+          label="Retry"
+          variant="elevated"
+          style={styles.completeButton}
+          onPress={() => router.replace('/(tabs)/review')}
+        />
+        <Button
+          label="Done"
+          style={styles.completeButton}
+          onPress={() => router.replace('/(tabs)/review')}
+        />
+      </CtaDock>
+    </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.surfaceAlt,
+  progress: {
+    paddingHorizontal: spacing.gutter,
+    paddingTop: 25,
   },
   content: {
-    gap: spacing.xl,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.huge,
-  },
-  progressHeader: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  progressTitle: {
-    ...type.title,
-  },
-  progressCount: {
-    fontFamily: fontFamily.numeric,
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textTertiary,
+    gap: 16,
+    paddingTop: 30,
+    paddingBottom: 20,
   },
   step: {
-    gap: spacing.xl,
+    gap: 16,
   },
-  sentenceCard: {
-    gap: spacing.md,
+  promptCard: {
+    gap: 8,
+  },
+  promptHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  promptHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexShrink: 1,
+  },
+  speaker: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary100,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   promptLabel: {
     ...type.badge,
     color: colors.textTertiary,
+    flexShrink: 1,
   },
-  answerCard: {
+  meaningPill: {
+    height: 28,
+    paddingHorizontal: 10,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceAlt,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 5,
   },
+  meaningLabel: text(11, 16, '600', colors.textSecondary),
   answerSentence: {
     ...type.korean,
-    textAlign: 'center',
+    marginTop: 4,
   },
   options: {
-    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.gutter,
+    paddingVertical: 24,
+    gap: 8,
   },
   option: {
-    minHeight: 56,
-    borderRadius: radius.card,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    height: 48,
+    borderRadius: radius.search,
+    backgroundColor: colors.fill,
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
   optionRight: {
     backgroundColor: colors.successBg,
+    borderWidth: 1,
     borderColor: colors.success,
-    borderWidth: 1.5,
   },
   optionWrong: {
     backgroundColor: colors.primary100,
+    borderWidth: 1,
     borderColor: colors.primary,
-    borderWidth: 1.5,
   },
-  optionLabel: {
-    fontWeight: '600',
-  },
+  optionLabel: text(16, 22, '500', colors.inkAlt),
+  optionLabelRight: text(16, 22, '600', colors.success),
+  optionLabelWrong: text(16, 22, '600', colors.primary),
   feedback: {
-    gap: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: radius.input,
+    backgroundColor: colors.surface,
   },
-  feedbackBadge: {
-    alignSelf: 'flex-start',
-    borderRadius: radius.badge,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  feedbackText: {
+    ...type.descriptionMedium,
+    flex: 1,
   },
-  badgeGood: { backgroundColor: colors.successBg },
-  badgeBad: { backgroundColor: colors.primary100 },
-  feedbackLabel: {
-    fontFamily: fontFamily.sans,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '600',
-  },
-  labelGood: { color: colors.success },
-  labelBad: { color: colors.primary },
   micBlock: {
     alignItems: 'center',
-  },
-  footer: {
-    paddingHorizontal: spacing.gutter,
-    paddingBottom: spacing.xxl,
-    paddingTop: spacing.md,
-    backgroundColor: colors.surfaceAlt,
-  },
-  completeRoot: {
-    flex: 1,
-    backgroundColor: colors.surface,
   },
   completeContent: {
     flex: 1,
@@ -376,18 +398,12 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   summaryValue: {
-    fontFamily: fontFamily.numeric,
+    ...type.timer,
     fontSize: 28,
     lineHeight: 36,
-    fontWeight: '700',
-    color: colors.ink,
   },
   summaryValueGood: {
     color: colors.success,
-  },
-  completeActions: {
-    flexDirection: 'row',
-    gap: spacing.md,
   },
   completeButton: {
     flex: 1,

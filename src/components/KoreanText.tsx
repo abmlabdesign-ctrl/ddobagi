@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   spaced: {
-    marginLeft: 6,
+    marginLeft: 8,
   },
   tokenWrap: {
     position: 'relative',
@@ -202,9 +202,10 @@ const styles = StyleSheet.create({
     ...type.korean,
   },
   tappable: {
-    textDecorationLine: 'underline',
-    textDecorationStyle: 'dotted',
-    textDecorationColor: colors.textTertiary,
+    borderBottomWidth: 2,
+    borderStyle: 'dotted',
+    borderBottomColor: colors.border,
+    paddingBottom: 1,
   },
   tooltip: {
     position: 'absolute',

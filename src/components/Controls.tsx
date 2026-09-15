@@ -1,10 +1,10 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { ChevronDownIcon, ChevronRightIcon, SearchIcon } from '@/icons';
-import { colors, hairline, radius, selectedOutline } from '@/theme/tokens';
-import { fontFamily, type } from '@/theme/typography';
+import { ListChevronIcon, SearchIcon, SelectChevronIcon } from '@/icons';
+import { colors, radius, selectedOutline, shadows } from '@/theme/tokens';
+import { numeral, text, type } from '@/theme/typography';
 
-/** Height 48, radius 14, `#F2F3F5` — RP-1 search. */
+/** RP-1 search: h48, r16, white with the card shadow — not a sunken grey field. */
 export function SearchField({
   value,
   onChangeText,
@@ -16,7 +16,7 @@ export function SearchField({
 }) {
   return (
     <View style={styles.search}>
-      <SearchIcon size={20} />
+      <SearchIcon size={18} />
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -30,7 +30,7 @@ export function SearchField({
   );
 }
 
-/** Height 48, radius 12 — `App language`, `Native language`. */
+/** ON-2 / MY-1b select. The label sits at section-header weight in the comps. */
 export function SelectRow({
   label,
   value,
@@ -42,16 +42,19 @@ export function SelectRow({
 }) {
   return (
     <View style={styles.selectGroup}>
-      {label ? <Text style={type.caption}>{label}</Text> : null}
+      {label ? <Text style={type.section}>{label}</Text> : null}
       <Pressable onPress={onPress} accessibilityRole="button" style={styles.select}>
         <Text style={styles.selectValue}>{value}</Text>
-        <ChevronDownIcon size={18} />
+        <SelectChevronIcon />
       </Pressable>
     </View>
   );
 }
 
-/** Height 56, radius 16 — single-select list (ON-2). */
+/**
+ * ON-2 single-select row. Selected state is the 1.5px ring only — the comps
+ * declare no fill, and no border on the unselected state either.
+ */
 export function OptionRow({
   label,
   selected,
@@ -66,41 +69,44 @@ export function OptionRow({
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ selected }}
-      style={[styles.option, selected ? styles.optionSelected : styles.optionIdle]}
+      style={[styles.option, selected ? selectedOutline : styles.optionIdle]}
     >
-      <Text style={[type.body, selected ? styles.optionLabelSelected : null]}>{label}</Text>
+      <Text style={selected ? styles.optionLabelSelected : styles.optionLabel}>{label}</Text>
     </Pressable>
   );
 }
 
-/** Menu row with a chevron — My Page. */
+/** Row inside a grouped card (My Page, Settings). */
 export function MenuRow({
   label,
   value,
   onPress,
-  last = false,
+  height = 54,
 }: {
   label: string;
   value?: string;
   onPress?: () => void;
-  last?: boolean;
+  height?: number;
 }) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      style={[styles.menuRow, last ? null : styles.menuDivider]}
+      style={[styles.menuRow, { height }]}
     >
-      <Text style={type.body}>{label}</Text>
+      <Text style={type.row}>{label}</Text>
       <View style={styles.menuRight}>
-        {value ? <Text style={type.secondary}>{value}</Text> : null}
-        <ChevronRightIcon size={18} />
+        {value ? <Text style={styles.menuValue}>{value}</Text> : null}
+        <ListChevronIcon />
       </View>
     </Pressable>
   );
 }
 
-/** Weekly | Monthly, Beginner | Intermediate | Advanced. */
+/**
+ * MY-2 period switch. The comps invert the usual treatment: a white shell with
+ * an ink-filled active pill.
+ */
 export function Segmented<T extends string>({
   options,
   value,
@@ -122,7 +128,7 @@ export function Segmented<T extends string>({
             accessibilityState={{ selected: active }}
             style={[styles.segment, active ? styles.segmentActive : null]}
           >
-            <Text style={[styles.segmentLabel, active ? styles.segmentLabelActive : null]}>
+            <Text style={active ? styles.segmentLabelActive : styles.segmentLabel}>
               {option}
             </Text>
           </Pressable>
@@ -154,81 +160,101 @@ export function Toggle({
   );
 }
 
+/** MY-3 AI speech speed. Tapping the track steps through the given stops. */
+export function SliderRow({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: readonly string[];
+  onChange: (value: string) => void;
+}) {
+  const index = Math.max(0, options.indexOf(value));
+  const percent = options.length > 1 ? (index / (options.length - 1)) * 100 : 0;
+
+  return (
+    <Pressable
+      onPress={() => onChange(options[(index + 1) % options.length])}
+      accessibilityRole="adjustable"
+      accessibilityLabel={label}
+      accessibilityValue={{ text: value }}
+      style={styles.sliderRow}
+    >
+      <View style={styles.sliderHeader}>
+        <Text style={type.row}>{label}</Text>
+        <Text style={styles.sliderValue}>{value}</Text>
+      </View>
+      <View style={styles.sliderTrack}>
+        <View style={[styles.sliderFill, { width: `${percent}%` }]} />
+        <View style={[styles.sliderKnob, { left: `${percent}%` }]} />
+      </View>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   search: {
     height: 48,
-    borderRadius: radius.search,
-    backgroundColor: colors.fill,
+    borderRadius: radius.card,
+    backgroundColor: colors.surface,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    gap: 8,
+    paddingHorizontal: 16,
+    gap: 10,
+    ...shadows.card,
   },
   searchInput: {
     flex: 1,
-    fontFamily: fontFamily.sans,
-    fontSize: 15,
-    lineHeight: 20,
-    color: colors.ink,
+    ...text(15, 20, '400', colors.ink),
     padding: 0,
   },
   selectGroup: {
-    gap: 8,
+    gap: 12,
   },
   select: {
     height: 48,
     borderRadius: radius.input,
     backgroundColor: colors.surface,
-    ...hairline,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
   },
-  selectValue: {
-    ...type.body,
-    fontWeight: '600',
-  },
+  selectValue: text(15, 22, '600', colors.inkAlt),
   option: {
     height: 56,
     borderRadius: radius.card,
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     paddingHorizontal: 18,
   },
   optionIdle: {
-    backgroundColor: colors.surface,
-    ...hairline,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
   },
-  optionSelected: {
-    backgroundColor: colors.primary100,
-    ...selectedOutline,
-  },
-  optionLabelSelected: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
+  optionLabel: text(15, 22, '500', colors.inkAlt),
+  optionLabelSelected: text(15, 22, '600', colors.primary),
   menuRow: {
-    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
-  },
-  menuDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.fill,
   },
   menuRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
+  menuValue: text(14, 20, '500', colors.textSecondary),
   segmented: {
     flexDirection: 'row',
-    backgroundColor: colors.fill,
+    backgroundColor: colors.surface,
     borderRadius: radius.pill,
     padding: 4,
-    gap: 4,
+    gap: 6,
+    ...shadows.soft,
   },
   segment: {
     flex: 1,
@@ -238,34 +264,59 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   segmentActive: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.ink,
   },
-  segmentLabel: {
-    fontFamily: fontFamily.sans,
-    fontSize: 14,
-    lineHeight: 22,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  segmentLabelActive: {
-    color: colors.ink,
-    fontWeight: '600',
-  },
+  segmentLabel: text(14, 20, '600', colors.inkAlt),
+  segmentLabelActive: text(14, 20, '600', colors.surface),
   toggle: {
-    width: 52,
-    height: 32,
+    width: 48,
+    height: 28,
     borderRadius: radius.pill,
-    padding: 3,
+    paddingHorizontal: 3,
     justifyContent: 'center',
   },
   toggleOn: { backgroundColor: colors.primary },
   toggleOff: { backgroundColor: colors.border },
   knob: {
-    width: 26,
-    height: 26,
+    width: 22,
+    height: 22,
     borderRadius: radius.pill,
     backgroundColor: colors.surface,
   },
   knobOn: { alignSelf: 'flex-end' },
   knobOff: { alignSelf: 'flex-start' },
+  sliderRow: {
+    paddingVertical: 14,
+    gap: 10,
+  },
+  sliderHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sliderValue: numeral(14, 20, '600', colors.primary),
+  sliderTrack: {
+    height: 6,
+    borderRadius: radius.pill,
+    backgroundColor: colors.track,
+  },
+  sliderFill: {
+    height: 6,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+  },
+  sliderKnob: {
+    position: 'absolute',
+    top: -6,
+    marginLeft: -9,
+    width: 18,
+    height: 18,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    shadowColor: '#324458',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
 });

@@ -1,19 +1,21 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { PillLabel } from '@/components/Badge';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { CtaDock } from '@/components/CtaDock';
 import { NavBar } from '@/components/NavBar';
-import { Screen } from '@/components/Screen';
-import { Section } from '@/components/Section';
+import { ProgressRing } from '@/components/ProgressRing';
+import { Screen, ScreenShell } from '@/components/Screen';
 import { SkillBar } from '@/components/SkillBar';
 import { reports } from '@/data/conversations';
 import { situationById } from '@/data/situations';
 import { useApp } from '@/store/AppStore';
-import { colors, radius, spacing } from '@/theme/tokens';
-import { fontFamily, type } from '@/theme/typography';
+import { colors, spacing } from '@/theme/tokens';
+import { numeral, text, type } from '@/theme/typography';
 
-/** RP-4 Report — goals, score, 6-skill breakdown and sentence fixes. */
+/** RP-4 Report — goals, score ring, 6-skill breakdown and sentence fixes. */
 export default function ReportScreen() {
   const { situationId } = useLocalSearchParams<{ situationId: string }>();
   const { savePhrase } = useApp();
@@ -34,140 +36,139 @@ export default function ReportScreen() {
   };
 
   return (
-    <View style={styles.root}>
-      <NavBar title="Report" onBack={() => router.replace('/(tabs)/roleplay')} />
+    <ScreenShell>
+      {/* The comp has no back control here — the dock buttons are the exits. */}
+      <NavBar title="Report" showBack={false} />
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>
         <View style={styles.headline}>
-          <Text style={type.caption}>{situation?.title}</Text>
-          <Text style={type.display}>
-            You hit all {report.goalsMet} goal{report.goalsMet === 1 ? '' : 's'}.
-          </Text>
-          <View style={styles.scoreRow}>
-            <Text style={styles.score}>{report.score}</Text>
-            <Text style={styles.scoreUnit}>pts</Text>
+          <View style={styles.headlineText}>
+            <PillLabel label={situation?.title ?? ''} />
+            <Text style={styles.headlineBody}>
+              You hit all {report.goalsMet} goal{report.goalsMet === 1 ? '' : 's'}.{'\n'}
+              That&apos;s {report.scoreDelta} points more than last time.
+            </Text>
           </View>
-          <Text style={type.secondary}>
-            That&apos;s {report.scoreDelta} points more than last time.
-          </Text>
+
+          <ProgressRing
+            percent={report.score}
+            size={96}
+            strokeWidth={7}
+            color={colors.info}
+            center={
+              <View style={styles.scoreCenter}>
+                <Text style={styles.score}>{report.score}</Text>
+                <Text style={styles.scoreUnit}>pts</Text>
+              </View>
+            }
+          />
         </View>
 
-        <Section title="6-skill breakdown" caption="0–100">
-          <Card style={styles.skills}>
-            {report.skills.map((entry) => (
-              <SkillBar
-                key={entry.skill}
-                skill={entry.skill}
-                score={entry.score}
-                band={entry.band}
-              />
-            ))}
-          </Card>
-        </Section>
-
-        <Section title="Sentence fix">
-          {report.fixes.map((fix) => (
-            <Card key={fix.said.korean} style={styles.fix}>
-              <View style={styles.fixBlock}>
-                <Text style={styles.fixLabel}>What you said</Text>
-                <Text style={[styles.fixKorean, styles.fixKoreanWrong]}>{fix.said.korean}</Text>
-                <Text style={type.caption}>{fix.said.english}</Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.fixBlock}>
-                <Text style={[styles.fixLabel, styles.fixLabelGood]}>Suggested</Text>
-                <Text style={styles.fixKorean}>{fix.suggested.korean}</Text>
-                <Text style={type.caption}>{fix.suggested.english}</Text>
-              </View>
-            </Card>
+        <Card paddingHorizontal={24} paddingVertical={20} style={styles.skills}>
+          <View style={styles.skillsHeader}>
+            <Text style={type.section}>6-skill breakdown</Text>
+            <Text style={type.caption}>0–100</Text>
+          </View>
+          {report.skills.map((entry) => (
+            <SkillBar
+              key={entry.skill}
+              skill={entry.skill}
+              score={entry.score}
+              band={entry.band}
+            />
           ))}
-        </Section>
+        </Card>
+
+        <Card radiusToken="group" paddingHorizontal={24} paddingVertical={16} style={styles.fix}>
+          <Text style={styles.fixTitle}>Sentence fix</Text>
+          {report.fixes.map((entry) => (
+            <View key={entry.said.korean} style={styles.fixGroup}>
+              <View style={styles.fixBlock}>
+                <Text style={type.microLabel}>What you said</Text>
+                <Text style={styles.saidKorean}>{entry.said.korean}</Text>
+                <Text style={styles.gloss}>{entry.said.english}</Text>
+              </View>
+              <View style={styles.fixBlock}>
+                <Text style={styles.suggestedLabel}>Suggested</Text>
+                <Text style={styles.suggestedKorean}>{entry.suggested.korean}</Text>
+                <Text style={styles.gloss}>{entry.suggested.english}</Text>
+              </View>
+            </View>
+          ))}
+        </Card>
       </Screen>
 
-      <View style={styles.footer}>
+      <CtaDock row gap={10} paddingTop={12}>
         <Button
           label="Try again"
-          variant="secondary"
-          style={styles.footerButton}
+          variant="elevated"
+          style={styles.tryAgain}
           onPress={() => router.replace(`/roleplay/session?situationId=${report.situationId}`)}
         />
-        <Button label="Save" style={styles.footerButton} onPress={save} />
-      </View>
-    </View>
+        <Button label="Save" glow style={styles.save} onPress={save} />
+      </CtaDock>
+    </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.surfaceAlt,
-  },
   content: {
-    gap: spacing.xxl,
-    paddingTop: spacing.sm,
+    gap: 20,
+    paddingTop: 8,
     paddingBottom: spacing.huge,
   },
   headline: {
-    gap: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 4,
+    paddingBottom: 4,
   },
-  scoreRow: {
+  headlineText: {
+    flex: 1,
+    gap: 12,
+  },
+  headlineBody: text(16, 28, '500', colors.inkAlt),
+  scoreCenter: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: spacing.xs,
+    gap: 1,
   },
-  score: {
-    ...type.timer,
-    fontSize: 56,
-    lineHeight: 64,
-    color: colors.primary,
-  },
-  scoreUnit: {
-    fontFamily: fontFamily.numeric,
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
+  score: numeral(30, 34, '700', colors.info, true),
+  scoreUnit: text(12, 16, '600', colors.textSecondary),
   skills: {
-    gap: spacing.xl,
+    gap: 16,
+  },
+  skillsHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
   },
   fix: {
-    gap: spacing.md,
+    gap: 8,
+  },
+  fixTitle: {
+    ...type.badge,
+    color: colors.textTertiary,
+  },
+  fixGroup: {
+    gap: 8,
   },
   fixBlock: {
-    gap: spacing.xs,
+    gap: 1,
   },
-  fixLabel: {
-    ...type.badge,
+  saidKorean: text(14, 22, '500', colors.textSecondary),
+  suggestedLabel: {
+    ...type.microLabel,
     color: colors.primary,
   },
-  fixLabelGood: {
-    color: colors.success,
-  },
-  fixKorean: {
-    ...type.body,
-    fontWeight: '600',
-    fontSize: 17,
-    lineHeight: 26,
-  },
-  fixKoreanWrong: {
-    textDecorationLine: 'line-through',
-    textDecorationColor: colors.primary,
-    color: colors.textSecondary,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.fill,
-    borderRadius: radius.pill,
-  },
-  footer: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    paddingHorizontal: spacing.gutter,
-    paddingBottom: spacing.xxl,
-    paddingTop: spacing.md,
-    backgroundColor: colors.surfaceAlt,
-  },
-  footerButton: {
+  suggestedKorean: text(14, 22, '600', colors.inkAlt),
+  gloss: text(9, 14, '400', colors.textSecondary),
+  tryAgain: {
     flex: 1,
+  },
+  save: {
+    flex: 1.4,
   },
 });
