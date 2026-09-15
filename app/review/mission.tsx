@@ -6,7 +6,7 @@ import { CountBadge } from '@/components/Badge';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { CtaDock } from '@/components/CtaDock';
-import { KoreanText, joinTokens } from '@/components/KoreanText';
+import { KoreanText } from '@/components/KoreanText';
 import { MicButton } from '@/components/MicButton';
 import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
@@ -164,20 +164,23 @@ function ChoiceStep({
   const correct = answer === question.answerIndex;
   const [showMeaning, setShowMeaning] = useState(false);
 
-  const sentence = useMemo(() => {
+  // The comp draws the answer sentence word by word, each on its own dotted rule.
+  const sentenceTokens = useMemo(() => {
     const parts = question.sentenceTokens.map((token) =>
       token ? token.text : answered ? question.options[answer] : '____',
     );
-    if (!question.blankAttachesLeft) return joinTokens(parts);
-    // A particle joins the word before it, so the gap closes once it is filled.
-    const gap = question.sentenceTokens.findIndex((token) => token === null);
-    return joinTokens(
-      parts.reduce<string[]>((acc, part, index) => {
-        if (index === gap && acc.length) acc[acc.length - 1] += part;
-        else acc.push(part);
-        return acc;
-      }, []),
-    );
+    if (question.blankAttachesLeft) {
+      // A particle joins the word before it, so the gap closes once it is filled.
+      const gap = question.sentenceTokens.findIndex((token) => token === null);
+      return parts
+        .reduce<string[]>((acc, part, index) => {
+          if (index === gap && acc.length) acc[acc.length - 1] += part;
+          else acc.push(part);
+          return acc;
+        }, [])
+        .map((text) => ({ text }));
+    }
+    return parts.map((text) => ({ text }));
   }, [question, answer, answered]);
 
   return (
@@ -204,7 +207,13 @@ function ChoiceStep({
         <KoreanText tokens={question.promptTokens} />
         {showMeaning ? <Text style={type.caption}>{question.promptEnglish}</Text> : null}
 
-        {sentence.length > 0 ? <Text style={styles.answerSentence}>{sentence}</Text> : null}
+        {sentenceTokens.length > 0 ? (
+          <KoreanText
+            tokens={sentenceTokens}
+            underlineColor={colors.primary}
+            style={styles.answerSentence}
+          />
+        ) : null}
       </Card>
 
       {answered ? (
@@ -337,7 +346,6 @@ const styles = StyleSheet.create({
   },
   meaningLabel: text(11, 16, '600', colors.textSecondary),
   answerSentence: {
-    ...type.korean,
     marginTop: 4,
   },
   options: {

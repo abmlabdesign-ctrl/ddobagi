@@ -19,8 +19,10 @@ import { fontFamily, type } from '@/theme/typography';
  *  - Korean is the primary text and is always read first.
  *  - English is a caption: `always` where meaning is required to do the task,
  *    `toggle` behind Show meaning, `none` for speaking drills.
- *  - Romanization is never shown by default; a word with a romanization gets a
- *    dotted underline and reveals a tooltip on tap.
+ *  - Every word carries a dotted underline — that is the affordance for
+ *    "tap to hear how it sounds" across RV-2a … RV-2e. Punctuation does not.
+ *  - Romanization is never shown by default; a word that has one reveals a
+ *    tooltip on tap.
  *  - Replay is offered for every Korean utterance.
  */
 export type MeaningMode = 'always' | 'toggle' | 'none';
@@ -35,6 +37,8 @@ type Props = {
   style?: StyleProp<ViewStyle>;
   /** Shown under the sentence when any token can be tapped. */
   tapHint?: string;
+  /** Colour of the dotted rule under each word. RV-2c uses primary. */
+  underlineColor?: string;
 };
 
 export function KoreanText({
@@ -46,6 +50,7 @@ export function KoreanText({
   captionStyle,
   style,
   tapHint,
+  underlineColor = colors.border,
 }: Props) {
   const [openToken, setOpenToken] = useState<number | null>(null);
   const [showMeaning, setShowMeaning] = useState(false);
@@ -74,6 +79,7 @@ export function KoreanText({
               key={`${token.text}-${index}`}
               token={token}
               textStyle={textStyle}
+              underlineColor={underlineColor}
               spaced={index > 0 && !isPunctuation(token.text)}
               open={openToken === index}
               onToggle={() => setOpenToken(openToken === index ? null : index)}
@@ -110,18 +116,26 @@ function KoreanToken({
   spaced,
   open,
   onToggle,
+  underlineColor,
 }: {
   token: Token;
   textStyle?: StyleProp<TextStyle>;
   spaced: boolean;
   open: boolean;
   onToggle: () => void;
+  underlineColor: string;
 }) {
   const [tooltipWidth, setTooltipWidth] = useState(0);
   const gap = spaced ? styles.spaced : null;
+  // The rule is what tells the learner a word can be tapped, so every word gets
+  // one. Punctuation keeps the same box — a clear rule — so baselines still line up.
+  const rule = [
+    styles.rule,
+    { borderBottomColor: isPunctuation(token.text) ? 'transparent' : underlineColor },
+  ];
 
   if (!token.romanization) {
-    return <Text style={[styles.token, gap, textStyle]}>{token.text}</Text>;
+    return <Text style={[styles.token, rule, gap, textStyle]}>{token.text}</Text>;
   }
 
   return (
@@ -141,7 +155,7 @@ function KoreanToken({
         accessibilityRole="button"
         accessibilityLabel={`${token.text}, tap for pronunciation`}
       >
-        <Text style={[styles.token, styles.tappable, textStyle]}>{token.text}</Text>
+        <Text style={[styles.token, rule, textStyle]}>{token.text}</Text>
       </Pressable>
     </View>
   );
@@ -201,10 +215,9 @@ const styles = StyleSheet.create({
   token: {
     ...type.korean,
   },
-  tappable: {
+  rule: {
     borderBottomWidth: 2,
     borderStyle: 'dotted',
-    borderBottomColor: colors.border,
     paddingBottom: 1,
   },
   tooltip: {
