@@ -53,6 +53,39 @@ RP-1 타이틀은 `Choose a situation`.
 - 커밋 메시지는 한 줄 요약 + 필요 시 본문. 무엇을 왜 바꿨는지 알 수 있게 적습니다.
 - PR은 `.github/pull_request_template.md`의 항목을 채워서 올립니다.
 
+## UI 수정 요청 처리 규칙
+
+사용자는 코드를 직접 고치지 않고 화면별 수정사항을 말로 전달합니다
+("간격이 넓다", "카드가 너무 크다", "폰트가 다르다", "상단 여백을 줄여줘").
+이런 요청은 아래 순서로 처리합니다.
+
+1. **기준값을 먼저 확인한다.** 해당 화면의 `.dc.html` 시안에서 실제 선언값을 읽습니다.
+   추측하거나 "보기 좋게" 조정하지 않습니다.
+2. **영향 범위를 확인한다.** 고칠 값이 화면 파일에 있는지, 공통 컴포넌트/토큰에 있는지 확인합니다.
+3. **공통 컴포넌트를 건드려야 하면 먼저 알린다.** 어떤 화면들이 함께 바뀌는지 말한 뒤 진행합니다.
+   화면 하나만 바꿔야 하면 그 화면에서 로컬 스타일로 덮습니다.
+4. **요청한 부분만 고친다.** 이미 시안과 맞는 값은 손대지 않고, 기능 로직은 바꾸지 않습니다.
+5. **검증 후 보고한다.** `npm run lint` · `npm run typecheck` · `npm run export:web`을 돌리고,
+   바뀐 값을 `변경 전 → 변경 후`로 적어 보고합니다.
+
+### 공통 컴포넌트 영향 범위
+
+값을 여기서 바꾸면 아래 화면이 전부 함께 바뀝니다. 한 화면만 바꿔야 할 때는 쓰지 마세요.
+
+| 위치 | 함께 바뀌는 범위 |
+|---|---|
+| `src/theme/tokens.ts` · `typography.ts` | **전 화면** |
+| `components/NavBar` | 헤더가 있는 14개 화면 |
+| `components/Card` | 카드를 쓰는 11개 화면 |
+| `components/Button` · `CtaDock` | 하단 CTA가 있는 6~7개 화면 |
+| `components/Controls` | ON-2 · RP-1 · MY-1 · MY-2 · MY-3 |
+| `components/Chip` | ON-2 · RP-1 · RV-1 · MY-1b (variant별로 분리돼 있어 variant 단위 수정은 안전) |
+| `components/SkillBar` | ON-4 · RP-4 · MY-2 |
+| `components/SituationCard` | HM-1 · RP-1 |
+| `components/KoreanText` | ON-3 · RV-2 (학습 콘텐츠 전반) |
+
+`Waveform`(ON-3) · `StepProgress`(RV-2) · `HomeParts`(HM-1)는 단일 화면 전용이라 자유롭게 고쳐도 됩니다.
+
 ## 작업 규칙
 
 - 커밋과 푸시는 사용자가 요청할 때만 합니다.
