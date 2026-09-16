@@ -8,7 +8,7 @@ import { MicButton } from '@/components/MicButton';
 import { conversationBySituation, fallbackSituationId } from '@/data/conversations';
 import { situationById } from '@/data/situations';
 import type { Turn } from '@/data/types';
-import { BackChevronIcon, DropdownChevronIcon, ReplayIcon, SpeakerIcon } from '@/icons';
+import { BackChevronIcon, ReplayIcon } from '@/icons';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
 import { gloss, numeral, text, type } from '@/theme/typography';
 
@@ -85,31 +85,19 @@ export default function Session() {
         <Text style={styles.blockLabel}>Live conversation script</Text>
         <Text style={styles.aiKorean}>{aiTurn.korean}</Text>
 
-        {/* The comp sets replay and the meaning toggle side by side as two white
-            pills under the sentence, and hangs the English caption below them. */}
-        <View style={styles.pillRow}>
-          <Pressable
-            onPress={() => {}}
-            accessibilityRole="button"
-            accessibilityLabel="Play the sentence again"
-            style={styles.speakerPill}
-          >
-            <SpeakerIcon size={16} />
-          </Pressable>
-          <Pressable
-            onPress={() => setShowMeaning((value) => !value)}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: showMeaning }}
-            style={styles.meaningPill}
-          >
-            <Text style={styles.meaningLabel}>
-              {showMeaning ? 'Hide meaning' : 'Show meaning'}
-            </Text>
-            <DropdownChevronIcon color={colors.textSecondary} />
-          </Pressable>
-        </View>
+        <Pressable
+          onPress={() => setShowMeaning((value) => !value)}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showMeaning }}
+        >
+          <Text style={styles.meaningToggle}>
+            {showMeaning ? 'Hide meaning' : 'Show meaning'}
+          </Text>
+        </Pressable>
 
-        {/* §6.2: English stays hidden on the live screen until the learner asks. */}
+        {/* §6.2: English stays hidden on the live screen until the learner asks,
+            and only ever for the AI's line — what the learner said needs no gloss. */}
         {showMeaning ? <Text style={styles.caption}>{aiTurn.english}</Text> : null}
       </View>
 
@@ -153,9 +141,6 @@ export default function Session() {
       <View style={styles.userSheet}>
         <Text style={styles.blockLabel}>You</Text>
         <Text style={styles.userKorean}>{userReply?.korean ?? '…'}</Text>
-        {showMeaning && userReply ? (
-          <Text style={styles.userGloss}>{userReply.english}</Text>
-        ) : null}
       </View>
 
       <View style={[styles.controls, { paddingBottom: insets.bottom + spacing.md }]}>
@@ -272,31 +257,7 @@ const styles = StyleSheet.create({
     ...text(12, 18, '400', colors.textSecondary),
     textAlign: 'center',
   },
-  pillRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  speakerPill: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.card,
-  },
-  meaningPill: {
-    height: 32,
-    paddingHorizontal: 12,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    ...shadows.card,
-  },
-  meaningLabel: text(12, 16, '600', colors.textSecondary),
+  meaningToggle: text(12, 16, '600', colors.primary),
   stage: {
     flex: 1,
     alignItems: 'center',
@@ -365,10 +326,6 @@ const styles = StyleSheet.create({
   },
   userKorean: {
     ...type.section,
-    textAlign: 'center',
-  },
-  userGloss: {
-    ...text(12, 18, '400', colors.textSecondary),
     textAlign: 'center',
   },
   controls: {
