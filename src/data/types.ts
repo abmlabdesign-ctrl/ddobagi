@@ -171,6 +171,8 @@ export type SavedPhrase = {
   situationId: string;
   korean: string;
   english: string;
+  /** When it went into the scrapbook, e.g. `Aug 22`. */
+  savedOn: string;
 };
 
 export type StatsPeriod = 'weekly' | 'monthly';

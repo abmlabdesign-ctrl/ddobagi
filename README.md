@@ -52,6 +52,7 @@ npm run export:web # 웹 번들 — 모든 라우트가 컴파일되는지 확�
 | Micro missions · Mistake log · Scrapbook | RV-1 / RV-3a / RV-5 | `app/(tabs)/review.tsx` |
 | 미션 유형 6종 + 완료 | RV-2 ~ RV-2f | `app/review/mission.tsx` |
 | Mistakes by situation | RV-3 | `app/review/mistakes/[situationId].tsx` |
+| Saved phrase 상세 | RV-5b | `app/review/phrase/[phraseId].tsx` |
 | Mistake script + 인라인 상세 | RV-6 / RV-7 | `app/review/script/[situationId].tsx` |
 | My Page | MY-1 | `app/(tabs)/my.tsx` |
 | Edit profile | MY-1b | `app/my/edit.tsx` |

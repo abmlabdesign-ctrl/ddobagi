@@ -1,17 +1,19 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CountBadge } from '@/components/Badge';
 import { Card, RowDivider } from '@/components/Card';
 import { Chip } from '@/components/Chip';
+import { SearchField } from '@/components/Controls';
 import { ScreenTitleBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { categoryById } from '@/data/categories';
 import { missions, todayFocus } from '@/data/missions';
 import { mistakeGroups, mistakesSummary } from '@/data/review';
 import { situationById } from '@/data/situations';
+import type { SavedPhrase } from '@/data/types';
 import { BookmarkIcon, ListChevronIcon, SpeakerIcon } from '@/icons';
 import { useApp } from '@/store/AppStore';
 import { colors, radius, spacing } from '@/theme/tokens';
@@ -171,56 +173,119 @@ function MistakesTab() {
   );
 }
 
-function ScrapbookTab() {
-  const { savedPhrases } = useApp();
-  const grouped = savedPhrases.reduce<Record<string, typeof savedPhrases>>((acc, phrase) => {
-    acc[phrase.situationId] = [...(acc[phrase.situationId] ?? []), phrase];
-    return acc;
-  }, {});
+const scrapbookFilters = ['All', 'Situation', 'Recent'] as const;
+type ScrapbookFilter = (typeof scrapbookFilters)[number];
 
-  if (savedPhrases.length === 0) {
-    return (
-      <View style={styles.tabBody}>
-        <Text style={type.secondary}>Nothing saved yet. Save a phrase from a report.</Text>
-      </View>
-    );
-  }
+const situationTitle = (situationId: string) => situationById[situationId]?.title ?? situationId;
+
+/**
+ * RV-5 Scrapbook — a searchable shelf of saved phrases. Each card carries its
+ * own source situation, so the list needs no per-situation headings.
+ */
+function ScrapbookTab() {
+  const { savedPhrases, removePhrase } = useApp();
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<ScrapbookFilter>('All');
+
+  const phrases = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    const matched = needle
+      ? savedPhrases.filter((phrase) =>
+          [phrase.korean, phrase.english, situationTitle(phrase.situationId)]
+            .join(' ')
+            .toLowerCase()
+            .includes(needle),
+        )
+      : savedPhrases;
+
+    if (filter === 'Situation') {
+      return [...matched].sort((a, b) =>
+        situationTitle(a.situationId).localeCompare(situationTitle(b.situationId)),
+      );
+    }
+    // The store appends, so the tail is the newest save.
+    if (filter === 'Recent') return [...matched].reverse();
+    return matched;
+  }, [savedPhrases, query, filter]);
 
   return (
-    <View style={styles.scrapbook}>
-      {Object.entries(grouped).map(([situationId, phrases]) => (
-        <View key={situationId} style={styles.group}>
-          <Text style={type.label}>{situationById[situationId]?.title ?? situationId}</Text>
-          <View style={styles.phraseList}>
-            {phrases.map((phrase) => (
-              // The comp gives each phrase its own card with a replay and a save action.
-              <Card key={phrase.id} padding={16} style={styles.phraseCard}>
-                <View style={styles.phraseText}>
-                  <Text style={styles.phraseKorean}>{phrase.korean}</Text>
-                  <Text style={styles.phraseGloss}>{phrase.english}</Text>
-                </View>
-                <View style={styles.phraseActions}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Replay ${phrase.korean}`}
-                    style={styles.phraseAction}
-                  >
-                    <SpeakerIcon size={16} color={colors.inkAlt} />
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Saved: ${phrase.korean}`}
-                    style={[styles.phraseAction, styles.phraseActionPrimary]}
-                  >
-                    <BookmarkIcon size={14} />
-                  </Pressable>
-                </View>
-              </Card>
-            ))}
+    <View style={styles.tabBody}>
+      <SearchField value={query} onChangeText={setQuery} placeholder="Search saved phrases" />
+
+      <View style={styles.scrapFilters}>
+        {scrapbookFilters.map((entry) => (
+          <Chip
+            key={entry}
+            label={entry}
+            variant="filter"
+            selected={filter === entry}
+            onPress={() => setFilter(entry)}
+          />
+        ))}
+      </View>
+
+      {phrases.length === 0 ? (
+        <Text style={type.secondary}>
+          {savedPhrases.length === 0
+            ? 'Nothing saved yet. Save a phrase from a report.'
+            : `No saved phrases match \u201c${query.trim()}\u201d.`}
+        </Text>
+      ) : (
+        <View style={styles.phraseList}>
+          {phrases.map((phrase) => (
+            <PhraseCard
+              key={phrase.id}
+              phrase={phrase}
+              onRemove={() => removePhrase(phrase.id)}
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function PhraseCard({ phrase, onRemove }: { phrase: SavedPhrase; onRemove: () => void }) {
+  return (
+    <Pressable
+      onPress={() => router.push(`/review/phrase/${phrase.id}`)}
+      accessibilityRole="button"
+      accessibilityLabel={`${phrase.korean}. Open this saved phrase`}
+      style={({ pressed }) => (pressed ? styles.phrasePressed : null)}
+    >
+      <Card elevation="card" radiusToken="group" padding={16} style={styles.phraseCard}>
+        <View style={styles.phraseTop}>
+          <View style={styles.phraseText}>
+            <Text style={styles.phraseKorean}>{phrase.korean}</Text>
+            <Text style={styles.phraseGloss}>{phrase.english}</Text>
+          </View>
+          <ListChevronIcon />
+        </View>
+
+        <View style={styles.phraseFooter}>
+          <Text style={styles.phraseMeta} numberOfLines={1}>
+            {situationTitle(phrase.situationId)} · {phrase.savedOn}
+          </Text>
+          <View style={styles.phraseActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Replay ${phrase.korean}`}
+              style={styles.phraseAction}
+            >
+              <SpeakerIcon size={16} color={colors.inkAlt} />
+            </Pressable>
+            <Pressable
+              onPress={onRemove}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${phrase.korean} from Saved phrases`}
+              style={[styles.phraseAction, styles.phraseActionPrimary]}
+            >
+              <BookmarkIcon size={14} />
+            </Pressable>
           </View>
         </View>
-      ))}
-    </View>
+      </Card>
+    </Pressable>
   );
 }
 
@@ -314,19 +379,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   fixedCount: text(14, 20, '600', colors.success),
-  scrapbook: {
-    gap: 24,
-  },
-  group: {
-    gap: 12,
+  scrapFilters: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingTop: 2,
   },
   phraseList: {
     gap: 12,
   },
   phraseCard: {
+    gap: 12,
+  },
+  phrasePressed: {
+    opacity: 0.85,
+  },
+  phraseTop: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
     gap: 10,
   },
   phraseText: {
@@ -335,6 +404,16 @@ const styles = StyleSheet.create({
   },
   phraseKorean: text(16, 24, '600', colors.inkAlt),
   phraseGloss: text(12, 18, '400', colors.textSecondary),
+  phraseFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  phraseMeta: {
+    ...text(12, 16, '400', colors.textTertiary),
+    flex: 1,
+  },
   phraseActions: {
     flexDirection: 'row',
     gap: 6,

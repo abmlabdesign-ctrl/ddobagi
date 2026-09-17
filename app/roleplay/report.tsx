@@ -31,6 +31,7 @@ export default function ReportScreen() {
         situationId: report.situationId,
         korean: fix.suggested.korean.replace(/"/g, ''),
         english: fix.suggested.english.replace(/[“”]/g, ''),
+        savedOn: report.completedOn,
       });
     });
     router.replace('/(tabs)/roleplay');
