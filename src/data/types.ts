@@ -90,6 +90,8 @@ export type SentenceFix = {
 
 export type Report = {
   situationId: string;
+  /** When the learner last finished this situation, e.g. `Sep 12`. */
+  completedOn: string;
   goalsMet: number;
   goalsTotal: number;
   score: number;

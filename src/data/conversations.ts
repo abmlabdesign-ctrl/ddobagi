@@ -131,6 +131,7 @@ export const conversationBySituation = Object.fromEntries(
 export const reports: Record<string, Report> = {
   'pharmacy-symptoms': {
     situationId: 'pharmacy-symptoms',
+    completedOn: 'Sep 12',
     goalsMet: 3,
     goalsTotal: 3,
     score: 82,

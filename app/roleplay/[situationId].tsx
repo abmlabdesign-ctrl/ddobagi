@@ -8,9 +8,10 @@ import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { FieldLabel } from '@/components/Section';
 import { categoryById } from '@/data/categories';
+import { reports } from '@/data/conversations';
 import { situationById } from '@/data/situations';
 import { colors, radius, spacing } from '@/theme/tokens';
-import { numeral, type } from '@/theme/typography';
+import { numeral, text, type } from '@/theme/typography';
 
 /**
  * RP-2 Scenario detail. The comp has no hero image and no cards — sections are
@@ -33,6 +34,9 @@ export default function ScenarioDetail() {
 
   const category = categoryById[situation.categoryId];
   const breadcrumb = situation.place ? `${category.name} · ${situation.place}` : category.name;
+  // A report exists only once the learner has finished the situation, so it is
+  // what tells this screen whether there is a history to show.
+  const lastReport = reports[situation.id];
 
   return (
     <ScreenShell background="surface">
@@ -83,6 +87,23 @@ export default function ScenarioDetail() {
               </View>
             ))}
           </View>
+
+          {lastReport ? (
+            <View style={[styles.section, styles.lastSection]}>
+              <FieldLabel label="Last time" />
+              <View style={styles.lastRow}>
+                <Text style={styles.lastScore}>{lastReport.score}</Text>
+                <Text style={styles.lastUnit}>pts</Text>
+                <Text style={styles.lastDate}>Finished {lastReport.completedOn}</Text>
+              </View>
+              <Button
+                label="View transcript"
+                variant="elevated"
+                height={48}
+                onPress={() => router.push(`/review/script/${situation.id}`)}
+              />
+            </View>
+          ) : null}
         </View>
       </Screen>
 
@@ -157,5 +178,19 @@ const styles = StyleSheet.create({
   goalNumberLabel: numeral(11, 16, '600', colors.primary),
   goalLabel: {
     flex: 1,
+  },
+  lastSection: {
+    gap: 12,
+  },
+  lastRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  lastScore: numeral(22, 30, '700', colors.info),
+  lastUnit: text(12, 16, '600', colors.textSecondary),
+  lastDate: {
+    ...type.description,
+    marginLeft: 8,
   },
 });
