@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { PillLabel } from '@/components/Badge';
 import { Button } from '@/components/Button';
@@ -9,13 +9,14 @@ import { NavBar } from '@/components/NavBar';
 import { ProgressRing } from '@/components/ProgressRing';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { SkillBar } from '@/components/SkillBar';
+import { ListChevronIcon } from '@/icons';
 import { reports } from '@/data/conversations';
 import { situationById } from '@/data/situations';
 import { useApp } from '@/store/AppStore';
 import { colors, spacing } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
 
-/** RP-4 Report — goals, score ring, 6-skill breakdown and sentence fixes. */
+/** RP-4 Report — goals, score ring, 6-skill breakdown and a way into the transcript. */
 export default function ReportScreen() {
   const { situationId } = useLocalSearchParams<{ situationId: string }>();
   const { savePhrase } = useApp();
@@ -79,22 +80,24 @@ export default function ReportScreen() {
           ))}
         </Card>
 
-        <Card radiusToken="group" paddingHorizontal={24} paddingVertical={16} style={styles.fix}>
-          <Text style={styles.fixTitle}>Sentence fix</Text>
-          {report.fixes.map((entry) => (
-            <View key={entry.said.korean} style={styles.fixGroup}>
-              <View style={styles.fixBlock}>
-                <Text style={type.microLabel}>What you said</Text>
-                <Text style={styles.saidKorean}>{entry.said.korean}</Text>
-                <Text style={styles.gloss}>{entry.said.english}</Text>
-              </View>
-              <View style={styles.fixBlock}>
-                <Text style={styles.suggestedLabel}>Suggested</Text>
-                <Text style={styles.suggestedKorean}>{entry.suggested.korean}</Text>
-                <Text style={styles.gloss}>{entry.suggested.english}</Text>
-              </View>
+        {/* The corrections read better line by line against the rest of the
+            conversation, so the report points at the transcript instead of
+            reprinting a pair of them here. */}
+        <Card radiusToken="group" paddingHorizontal={24} paddingVertical={8}>
+          <Pressable
+            onPress={() => router.push(`/review/script/${report.situationId}`)}
+            accessibilityRole="button"
+            accessibilityLabel="View the transcript of this conversation"
+            style={styles.transcriptRow}
+          >
+            <View style={styles.transcriptText}>
+              <Text style={type.listTitleTight}>View transcript</Text>
+              <Text style={type.caption}>
+                Every line you and the AI said, with what to fix
+              </Text>
             </View>
-          ))}
+            <ListChevronIcon />
+          </Pressable>
         </Card>
       </Screen>
 
@@ -145,26 +148,16 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     justifyContent: 'space-between',
   },
-  fix: {
-    gap: 8,
+  transcriptRow: {
+    height: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  fixTitle: {
-    ...type.badge,
-    color: colors.textTertiary,
-  },
-  fixGroup: {
-    gap: 8,
-  },
-  fixBlock: {
+  transcriptText: {
+    flex: 1,
     gap: 1,
   },
-  saidKorean: text(14, 22, '500', colors.textSecondary),
-  suggestedLabel: {
-    ...type.microLabel,
-    color: colors.primary,
-  },
-  suggestedKorean: text(14, 22, '600', colors.inkAlt),
-  gloss: text(9, 14, '400', colors.textSecondary),
   tryAgain: {
     flex: 1,
   },
