@@ -6,7 +6,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MicButton } from '@/components/MicButton';
 import { conversationBySituation, fallbackSituationId } from '@/data/conversations';
-import { situationById } from '@/data/situations';
 import type { Turn } from '@/data/types';
 import { BackChevronIcon, ReplayIcon } from '@/icons';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
@@ -22,7 +21,6 @@ export default function Session() {
 
   const id = conversationBySituation[situationId] ? situationId : fallbackSituationId;
   const script = conversationBySituation[id];
-  const situation = situationById[id];
 
   const aiTurns = script.turns.filter((turn) => turn.speaker === 'ai');
   const [turnIndex, setTurnIndex] = useState(1);
@@ -31,6 +29,7 @@ export default function Session() {
   const [showHint, setShowHint] = useState(false);
   const [showScript, setShowScript] = useState(false);
 
+  const progressPercent = Math.round(((turnIndex + 1) / aiTurns.length) * 100);
   const aiTurn = aiTurns[Math.min(turnIndex, aiTurns.length - 1)];
   const aiPosition = script.turns.indexOf(aiTurn);
   const userReply = script.turns.slice(aiPosition + 1).find((turn) => turn.speaker === 'user');
@@ -55,6 +54,11 @@ export default function Session() {
     hintTimer.current = setTimeout(() => setShowHint(false), 4000);
   };
 
+  const onMic = () => {
+    if (micOn) advance();
+    else setMicOn(true);
+  };
+
   const advance = () => {
     if (turnIndex + 1 >= aiTurns.length) {
       router.replace(`/roleplay/report?situationId=${id}`);
@@ -75,9 +79,16 @@ export default function Session() {
         >
           <BackChevronIcon close />
         </Pressable>
-        <Text style={styles.turnCounter}>
-          {turnIndex + 1} / {aiTurns.length}
-        </Text>
+        {/* The comps read progress as a filling bar, not a count — it sits in
+            the header row where the `2 / 4` label used to. */}
+        <View
+          style={styles.progressTrack}
+          accessibilityRole="progressbar"
+          accessibilityLabel="Conversation progress"
+          accessibilityValue={{ min: 0, max: aiTurns.length, now: turnIndex + 1 }}
+        >
+          <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+        </View>
         <View style={styles.topButton} />
       </View>
 
@@ -122,99 +133,182 @@ export default function Session() {
           <Text style={styles.replayLabel}>10</Text>
         </Pressable>
 
-        {showHint ? (
-          <Animated.View
-            entering={FadeInDown.duration(220)}
-            exiting={FadeOut.duration(180)}
-            style={styles.hintCard}
-            pointerEvents="none"
-          >
-            <View style={styles.hintBadge}>
-              <Text style={styles.hintBadgeLabel}>Hint</Text>
-            </View>
-            <Text style={styles.hintKorean}>{script.hint.korean}</Text>
-            <Text style={styles.hintEnglish}>{script.hint.english}</Text>
-          </Animated.View>
-        ) : null}
+        {showHint ? <HintToast hint={script.hint} /> : null}
       </View>
 
-      <View style={styles.userSheet}>
-        <Text style={styles.blockLabel}>You</Text>
-        <Text style={styles.userKorean}>{userReply?.korean ?? '…'}</Text>
-      </View>
-
-      <View style={[styles.controls, { paddingBottom: insets.bottom + spacing.md }]}>
-        <Pressable
-          onPress={() => setShowScript(true)}
-          accessibilityRole="button"
-          style={[styles.controlPill, styles.controlPillPrimary]}
-        >
-          <Text style={styles.controlPillLabelPrimary}>Script</Text>
-        </Pressable>
-
-        <MicButton
-          size={84}
-          active={micOn}
-          onPress={() => {
-            if (micOn) advance();
-            else setMicOn(true);
-          }}
-        />
-
-        <Pressable
-          onPress={toggleHint}
-          accessibilityRole="button"
-          accessibilityState={{ selected: showHint }}
-          style={styles.controlPill}
-        >
-          <Text style={styles.controlPillLabel}>Hint</Text>
-        </Pressable>
-      </View>
+      <SessionBottom
+        userKorean={userReply?.korean ?? '…'}
+        micActive={micOn}
+        onMic={onMic}
+        leftLabel="Script"
+        onLeft={() => setShowScript(true)}
+        onHint={toggleHint}
+        hintOpen={showHint}
+      />
 
       <LiveScript
         visible={showScript}
-        title={situation?.title ?? 'Live script'}
         turns={script.turns}
+        hint={script.hint}
+        hintOpen={showHint}
+        userKorean={userReply?.korean ?? '…'}
+        micActive={micOn}
+        onMic={onMic}
+        onHint={toggleHint}
         onClose={() => setShowScript(false)}
       />
     </View>
   );
 }
 
-/** RP-3b — the whole conversation so far, with English captions per bubble. */
+/** The hint card, floating clear of the mic just above the `You` panel. */
+function HintToast({ hint }: { hint: { korean: string; english: string } }) {
+  return (
+    <Animated.View
+      entering={FadeInDown.duration(220)}
+      exiting={FadeOut.duration(180)}
+      style={styles.hintCard}
+      pointerEvents="none"
+    >
+      <View style={styles.hintBadge}>
+        <Text style={styles.hintBadgeLabel}>Hint</Text>
+      </View>
+      <Text style={styles.hintKorean}>{hint.korean}</Text>
+      <Text style={styles.hintEnglish}>{hint.english}</Text>
+    </Animated.View>
+  );
+}
+
+/**
+ * The `You` panel and the control row. Both RP-3 and RP-3b carry it in the
+ * comps — only the left pill changes, since it swaps the two views.
+ */
+function SessionBottom({
+  userKorean,
+  micActive,
+  onMic,
+  leftLabel,
+  onLeft,
+  onHint,
+  hintOpen,
+}: {
+  userKorean: string;
+  micActive: boolean;
+  onMic: () => void;
+  leftLabel: string;
+  onLeft: () => void;
+  onHint: () => void;
+  hintOpen: boolean;
+}) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <>
+      <View style={styles.userSheet}>
+        <Text style={styles.blockLabel}>You</Text>
+        <Text style={styles.userKorean}>{userKorean}</Text>
+      </View>
+
+      <View style={[styles.controls, { paddingBottom: insets.bottom + spacing.md }]}>
+        <Pressable
+          onPress={onLeft}
+          accessibilityRole="button"
+          style={[styles.controlPill, styles.controlPillPrimary]}
+        >
+          <Text style={styles.controlPillLabelPrimary}>{leftLabel}</Text>
+        </Pressable>
+
+        <MicButton size={84} active={micActive} onPress={onMic} />
+
+        <Pressable
+          onPress={onHint}
+          accessibilityRole="button"
+          accessibilityState={{ selected: hintOpen }}
+          style={styles.controlPill}
+        >
+          <Text style={styles.controlPillLabel}>Hint</Text>
+        </Pressable>
+      </View>
+    </>
+  );
+}
+
+/**
+ * RP-3b Live script. The comp gives it the whole frame rather than a sheet over
+ * RP-3: its own header, the conversation, then the same `You` panel and
+ * controls, with the left pill pointing back at the roleplay.
+ */
 function LiveScript({
   visible,
-  title,
   turns,
+  hint,
+  hintOpen,
+  userKorean,
+  micActive,
+  onMic,
+  onHint,
   onClose,
 }: {
   visible: boolean;
-  title: string;
   turns: Turn[];
+  hint: { korean: string; english: string };
+  hintOpen: boolean;
+  userKorean: string;
+  micActive: boolean;
+  onMic: () => void;
+  onHint: () => void;
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close the script" />
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.xl }]}>
-        <View style={styles.sheetHandle} />
-        <Text style={styles.sheetTitle}>{title}</Text>
-        <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
-          {turns.map((turn) => (
-            <View
-              key={turn.id}
-              style={[
-                styles.bubble,
-                turn.speaker === 'user' ? styles.bubbleUser : styles.bubbleAi,
-              ]}
-            >
-              <Text style={styles.bubbleKorean}>{turn.korean}</Text>
-              <Text style={styles.bubbleGloss}>{turn.english}</Text>
-            </View>
-          ))}
-        </ScrollView>
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <View style={[styles.root, { paddingTop: insets.top }]}>
+        <View style={styles.topBar}>
+          <Pressable
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close the script"
+            style={styles.topButton}
+          >
+            <BackChevronIcon close />
+          </Pressable>
+          <View style={styles.topButton} />
+        </View>
+
+        <View style={styles.scriptStage}>
+          <ScrollView
+            contentContainerStyle={styles.scriptBody}
+            showsVerticalScrollIndicator={false}
+          >
+            {turns.map((turn) => {
+              const isUser = turn.speaker === 'user';
+              return (
+                <View
+                  key={turn.id}
+                  style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAi]}
+                >
+                  <Text style={styles.bubbleKorean}>{turn.korean}</Text>
+                  {/* Only the AI's lines are glossed — the learner's own words
+                      need no translation back at them. */}
+                  {isUser ? null : <Text style={styles.bubbleGloss}>{turn.english}</Text>}
+                </View>
+              );
+            })}
+          </ScrollView>
+
+          {hintOpen ? <HintToast hint={hint} /> : null}
+        </View>
+
+        <SessionBottom
+          userKorean={userKorean}
+          micActive={micActive}
+          onMic={onMic}
+          leftLabel="Roleplay"
+          onLeft={onClose}
+          onHint={onHint}
+          hintOpen={hintOpen}
+        />
       </View>
     </Modal>
   );
@@ -238,7 +332,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  turnCounter: numeral(14, 20, '500', colors.textSecondary),
+  progressTrack: {
+    flex: 1,
+    height: 6,
+    marginHorizontal: 12,
+    borderRadius: radius.pill,
+    backgroundColor: colors.track,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: 6,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+  },
   aiBlock: {
     paddingHorizontal: spacing.gutter,
     paddingBottom: 16,
@@ -352,40 +458,21 @@ const styles = StyleSheet.create({
     ...type.label,
     color: colors.primary,
   },
-  backdrop: {
+  scriptStage: {
     flex: 1,
-    backgroundColor: 'rgba(25,31,40,0.35)',
   },
-  sheet: {
-    backgroundColor: colors.surfaceAlt,
-    borderTopLeftRadius: radius.sheet,
-    borderTopRightRadius: radius.sheet,
+  scriptBody: {
     paddingHorizontal: spacing.gutter,
-    paddingTop: spacing.md,
-    maxHeight: '78%',
-  },
-  sheetHandle: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.border,
-    marginBottom: spacing.md,
-  },
-  sheetTitle: {
-    ...type.title,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  sheetBody: {
-    gap: spacing.md,
+    paddingTop: 8,
     paddingBottom: spacing.xl,
+    gap: 14,
   },
   bubble: {
     maxWidth: 290,
     paddingVertical: 8,
     paddingHorizontal: 12,
     gap: 2,
+    ...shadows.card,
   },
   bubbleAi: {
     alignSelf: 'flex-start',
