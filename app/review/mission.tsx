@@ -462,7 +462,7 @@ function WriteCard({
   const filled = (gap: number) => (
     <Text
       key={`gap-${gap}`}
-      style={[styles.gapText, gapOk(gap) ? null : styles.gapTextWrong]}
+      style={[styles.gapFilled, gapOk(gap) ? null : styles.gapFilledWrong]}
     >
       {(entries[gap] ?? '').trim()}
     </Text>
@@ -482,8 +482,10 @@ function WriteCard({
 
   return (
     <Card elevation="card" radiusToken="card" padding={24} style={styles.promptCard}>
-      <Text style={styles.promptLabel}>{question.promptLabel}</Text>
-      <Text style={styles.writePrompt}>{question.prompt}</Text>
+      <View style={styles.speaker}>
+        <SpeakerIcon size={18} />
+      </View>
+
       {question.source ? <Text style={styles.writeSource}>{question.source}</Text> : null}
 
       {segments ? (
@@ -500,6 +502,8 @@ function WriteCard({
       ) : (
         field(0, false)
       )}
+
+      <Text style={styles.sentenceMeaning}>{question.prompt}</Text>
     </Card>
   );
 }
@@ -689,14 +693,7 @@ const styles = StyleSheet.create({
   },
   /** `12/18/400 #B0B8C1` — the meaning line under a spoken sentence. */
   sentenceMeaning: text(12, 18, '400', colors.textTertiary),
-  writePrompt: {
-    ...type.section,
-    marginTop: 2,
-  },
-  writeSource: {
-    ...text(16, 24, '500', colors.textSecondary),
-    marginTop: -2,
-  },
+  writeSource: text(16, 24, '500', colors.textTertiary),
   writeField: {
     ...text(18, 26, '600', colors.inkAlt),
     marginTop: 8,
@@ -719,24 +716,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   gapText: text(22, 34, '600', colors.inkAlt),
-  gapTextWrong: {
-    color: colors.danger,
-  },
   /**
-   * An inline blank, not a field: the orange rule under it is the only chrome,
-   * so the gap sits in the sentence the way the comp draws it.
+   * An inline blank, not a field: a rule under it is the only chrome, and the
+   * rule stays once it is filled so the sentence still reads as one sentence.
    */
   gapField: {
-    ...text(22, 34, '600', colors.primary),
+    ...text(22, 34, '600', colors.inkAlt),
     // Never flexible, or the field grows to the row and breaks the sentence apart.
     flexGrow: 0,
     flexShrink: 0,
     height: 34,
     paddingVertical: 0,
     paddingHorizontal: 2,
+    marginHorizontal: 4,
     borderBottomWidth: 2,
-    borderBottomColor: colors.primary,
+    borderBottomColor: colors.border,
     textAlign: 'center',
+  },
+  gapFilled: {
+    ...text(22, 34, '600', colors.inkAlt),
+    paddingHorizontal: 2,
+    marginHorizontal: 4,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.border,
+  },
+  gapFilledWrong: {
+    color: colors.danger,
+    borderBottomColor: colors.danger,
   },
   options: {
     backgroundColor: colors.surface,
