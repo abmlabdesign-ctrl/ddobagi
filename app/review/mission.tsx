@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { CtaDock } from '@/components/CtaDock';
-import { KoreanText, joinTokens } from '@/components/KoreanText';
+import { KoreanText } from '@/components/KoreanText';
 import { MicButton } from '@/components/MicButton';
 import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
@@ -32,29 +32,9 @@ const MISSION_CARD_HEIGHT = 300;
 /** Spacing and punctuation are noise for every axis these drills grade. */
 const normalize = (value: string) => value.replace(/[\s.,!?~]/g, '');
 
-/**
- * Rebuilds the sentence around the gaps, marking the ones that were missed.
- * Both the written line and the answer line are built this way, so they line up
- * word for word and only the drilled part reads differently.
- */
-const sentenceParts = (
-  question: WriteQuestion,
-  fill: (gap: number) => string,
-  wrong: boolean[],
-): Part[] => {
-  if (!question.template) return [{ text: fill(0), mark: true }];
-  return question.template.split('___').flatMap((chunk, gap) => [
-    ...(chunk ? [{ text: chunk }] : []),
-    ...(gap < question.blanks.length ? [{ text: fill(gap), mark: wrong[gap] }] : []),
-  ]);
-};
-
 /** The run order: the authored items, cycled up to the mission's designed length. */
 const buildQueue = (mission: Mission) =>
   Array.from({ length: mission.questionCount }, (_, i) => i % mission.questions.length);
-
-/** A sentence split so the part being drilled can be picked out of it. */
-type Part = { text: string; mark?: boolean };
 
 type Verdict = {
   correct: boolean;
@@ -62,10 +42,6 @@ type Verdict = {
   headline?: string;
   /** One line, about the axis this mission drills — not the whole sentence. */
   note: string;
-  /** What the learner produced, with the part they got wrong marked. */
-  given?: { label: string; parts: Part[] };
-  /** The right version, with the corrected part marked. */
-  expected?: { label: string; parts: Part[] };
 };
 
 /**
@@ -149,13 +125,6 @@ export default function MissionRunner() {
       setVerdict({
         correct: question.feedback.correct,
         note: question.feedback.explanation,
-        // Nothing was typed, so the model reading is the answer to show.
-        expected: question.feedback.correct
-          ? undefined
-          : {
-              label: 'Say this',
-              parts: [{ text: joinTokens(question.tokens.map((token) => token.text)) }],
-            },
       });
       if (!question.feedback.correct && !reviewRound) {
         setMissed((current) =>
@@ -183,14 +152,6 @@ export default function MissionRunner() {
       correct: false,
       headline: `The answer is ${question.blanks[missedGap][0]}.`,
       note: question.blankNotes?.[missedGap] ?? question.explanation,
-      given: {
-        label: 'You wrote',
-        parts: sentenceParts(question, (gap) => (entries[gap] ?? '').trim(), wrong),
-      },
-      expected: {
-        label: 'Answer',
-        parts: sentenceParts(question, (gap) => question.blanks[gap][0], wrong),
-      },
     });
   };
 
@@ -201,15 +162,7 @@ export default function MissionRunner() {
     judge({
       correct,
       note: question.explanation,
-      given: correct
-        ? undefined
-        : { label: 'You picked', parts: [{ text: question.options[optionIndex], mark: true }] },
-      expected: correct
-        ? undefined
-        : {
-            label: 'Answer',
-            parts: [{ text: question.options[question.answerIndex], mark: true }],
-          },
+      headline: correct ? undefined : `The answer is ${question.options[question.answerIndex]}`,
     });
   };
 
@@ -237,8 +190,6 @@ export default function MissionRunner() {
       correct={verdict.correct}
       headline={verdict.headline}
       note={verdict.note}
-      given={verdict.given}
-      expected={verdict.expected}
       nextLabel={nextLabel}
       onNext={next}
     />
@@ -387,16 +338,12 @@ function FeedbackPanel({
   correct,
   headline,
   note,
-  given,
-  expected,
   nextLabel,
   onNext,
 }: {
   correct: boolean;
   headline?: string;
   note: string;
-  given?: { label: string; parts: Part[] };
-  expected?: { label: string; parts: Part[] };
   nextLabel: string;
   onNext: () => void;
 }) {
@@ -419,15 +366,6 @@ function FeedbackPanel({
       {headline ? <Text style={styles.panelHeadline}>{headline}</Text> : null}
       <Text style={styles.panelNote}>{note}</Text>
 
-      {given || expected ? (
-        <View style={styles.compare}>
-          {given ? <CompareLine label={given.label} parts={given.parts} tone="given" /> : null}
-          {expected ? (
-            <CompareLine label={expected.label} parts={expected.parts} tone="expected" />
-          ) : null}
-        </View>
-      ) : null}
-
       <Button
         label={nextLabel}
         height={52}
@@ -435,39 +373,6 @@ function FeedbackPanel({
         onPress={onNext}
       />
     </Animated.View>
-  );
-}
-
-/**
- * One side of the miss: the sentence with only the drilled part picked out —
- * struck through in red on what was produced, bold green on what it should be.
- */
-function CompareLine({
-  label,
-  parts,
-  tone,
-}: {
-  label: string;
-  parts: Part[];
-  tone: 'given' | 'expected';
-}) {
-  const given = tone === 'given';
-  return (
-    <View style={styles.compareRow}>
-      <Text style={styles.compareLabel}>{label}</Text>
-      <Text style={given ? styles.compareGiven : styles.compareExpected}>
-        {parts.map((part, index) => (
-          <Text
-            key={index}
-            style={
-              part.mark ? (given ? styles.compareMarkGiven : styles.compareMarkExpected) : null
-            }
-          >
-            {part.text}
-          </Text>
-        ))}
-      </Text>
-    </View>
   );
 }
 
@@ -904,36 +809,10 @@ const styles = StyleSheet.create({
   },
   panelTitle: text(18, 26, '700', colors.success),
   panelHeadline: text(16, 24, '600', colors.inkAlt),
-  panelNote: text(14, 21, '500', colors.textSecondary),
-  compare: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.input,
-    padding: 12,
-    gap: 6,
-    marginBottom: 2,
+  panelNote: {
+    ...text(14, 21, '500', colors.textSecondary),
+    paddingBottom: 4,
   },
-  compareRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-  },
-  compareLabel: {
-    ...text(12, 22, '600', colors.textTertiary),
-    width: 74,
-  },
-  compareGiven: {
-    ...text(15, 24, '500', colors.textSecondary),
-    flex: 1,
-  },
-  compareMarkGiven: {
-    ...text(15, 24, '600', colors.danger),
-    textDecorationLine: 'line-through',
-  },
-  compareExpected: {
-    ...text(15, 24, '500', colors.inkAlt),
-    flex: 1,
-  },
-  compareMarkExpected: text(15, 24, '700', colors.success),
   completeContent: {
     flex: 1,
     justifyContent: 'center',
