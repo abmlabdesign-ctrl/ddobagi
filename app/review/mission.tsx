@@ -1,6 +1,14 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -13,15 +21,18 @@ import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { StepProgress } from '@/components/StepProgress';
 import { missionById, missions } from '@/data/missions';
-import type { ChoiceQuestion, Token, WriteQuestion } from '@/data/types';
+import type { ChoiceQuestion, Mission, Token, WriteQuestion } from '@/data/types';
 import { DropdownChevronIcon, SpeakerIcon } from '@/icons';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
 import { text, type } from '@/theme/typography';
 
+/** Every RV-2 prompt card is the same height, whichever way the axis is drilled. */
+const MISSION_CARD_HEIGHT = 300;
+
 /** Spacing and punctuation are noise for every axis these drills grade. */
 const normalize = (value: string) => value.replace(/[\s.,!?~]/g, '');
 
-/** The finished sentence, used to lead a written miss with the answer. */
+/** The finished sentence, used to show the learner what they should have written. */
 const answerLine = (question: WriteQuestion) =>
   question.template
     ? question.template
@@ -33,26 +44,55 @@ const answerLine = (question: WriteQuestion) =>
         )
     : question.blanks[0][0];
 
+/** What the learner actually wrote, in the shape of the sentence they were given. */
+const writtenLine = (question: WriteQuestion, entries: string[]) =>
+  question.template
+    ? question.template
+        .split('___')
+        .reduce(
+          (line, part, gap) =>
+            line + part + (gap < question.blanks.length ? (entries[gap] ?? '').trim() : ''),
+          '',
+        )
+    : (entries[0] ?? '').trim();
+
+/** The run order: the authored items, cycled up to the mission's designed length. */
+const buildQueue = (mission: Mission) =>
+  Array.from({ length: mission.questionCount }, (_, i) => i % mission.questions.length);
+
+type Verdict = {
+  correct: boolean;
+  note: string;
+  /** Wrong answers show what was written next to what was expected. */
+  given?: string;
+  expected?: string;
+};
+
 /**
  * RV-2a … RV-2f. One runner, three ways to drill: speaking missions use the mic,
- * writing missions grade what the learner typed, choice missions grade on tap.
- * The header, the progress bar and the feedback panel are the same in all three
- * — and `Next` lives only inside that panel, never as a standing dock.
+ * writing missions grade what the learner typed into the gaps, choice missions
+ * grade on tap. The header, the progress bar, the 300px prompt card and the
+ * feedback panel are the same in all three, and `Next` lives only inside that
+ * panel. A miss is not re-asked on the spot — it comes back in a second pass
+ * once the run is through.
  */
 export default function MissionRunner() {
   const { missionId } = useLocalSearchParams<{ missionId: string }>();
   const mission = missionById[missionId] ?? missions[0];
 
-  const [index, setIndex] = useState(0);
+  const [queue, setQueue] = useState<number[]>(() => buildQueue(mission));
+  const [step, setStep] = useState(0);
+  const [missed, setMissed] = useState<number[]>([]);
+  const [reviewRound, setReviewRound] = useState(false);
+
   const [answer, setAnswer] = useState<number | null>(null);
   const [entries, setEntries] = useState<string[]>([]);
   const [recording, setRecording] = useState(false);
   const [spokenCount, setSpokenCount] = useState(0);
-  const [verdict, setVerdict] = useState<{ correct: boolean; note: string } | null>(null);
+  const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [done, setDone] = useState(false);
 
-  const question = mission.questions[index % mission.questions.length];
-  const position = Math.min(index + 1, mission.questionCount);
+  const question = mission.questions[queue[step]];
 
   const reset = () => {
     setAnswer(null);
@@ -62,13 +102,33 @@ export default function MissionRunner() {
     setVerdict(null);
   };
 
+  /** Records a miss so the second pass can re-ask it. */
+  const judge = (result: Verdict) => {
+    if (!result.correct && !reviewRound) {
+      setMissed((current) =>
+        current.includes(queue[step]) ? current : [...current, queue[step]],
+      );
+    }
+    setVerdict(result);
+  };
+
   const next = () => {
-    if (position >= mission.questionCount) {
-      setDone(true);
+    if (step + 1 < queue.length) {
+      setStep(step + 1);
+      reset();
       return;
     }
-    setIndex((value) => value + 1);
-    reset();
+    // One second pass over the misses, then the run is over — a drill that
+    // keeps re-asking a miss it just showed the answer to is a loop, not practice.
+    if (!reviewRound && missed.length) {
+      setQueue(missed);
+      setMissed([]);
+      setReviewRound(true);
+      setStep(0);
+      reset();
+      return;
+    }
+    setDone(true);
   };
 
   /**
@@ -89,27 +149,37 @@ export default function MissionRunner() {
         correct: question.feedback.correct,
         note: question.feedback.explanation,
       });
+      if (!question.feedback.correct && !reviewRound) {
+        setMissed((current) =>
+          current.includes(queue[step]) ? current : [...current, queue[step]],
+        );
+      }
     }, 420);
     return () => clearInterval(id);
-  }, [recording, question]);
+  }, [recording, question, queue, step, reviewRound]);
 
   const submitWrite = () => {
     if (question.type !== 'write') return;
     const correct = question.blanks.every((accepted, gap) =>
       accepted.some((option) => normalize(option) === normalize(entries[gap] ?? '')),
     );
-    setVerdict({
+    judge({
       correct,
-      note: correct ? question.explanation : `${answerLine(question)} — ${question.explanation}`,
+      note: question.explanation,
+      given: correct ? undefined : writtenLine(question, entries),
+      expected: correct ? undefined : answerLine(question),
     });
   };
 
   const pick = (optionIndex: number) => {
     if (question.type !== 'choice' || verdict) return;
+    const correct = optionIndex === question.answerIndex;
     setAnswer(optionIndex);
-    setVerdict({
-      correct: optionIndex === question.answerIndex,
+    judge({
+      correct,
       note: question.explanation,
+      given: correct ? undefined : question.options[optionIndex],
+      expected: correct ? undefined : question.options[question.answerIndex],
     });
   };
 
@@ -117,24 +187,43 @@ export default function MissionRunner() {
     return <MissionComplete title={mission.title} questionCount={mission.questionCount} />;
   }
 
-  const nextLabel = position >= mission.questionCount ? 'Finish' : 'Next';
+  const lastOfRun = step + 1 >= queue.length && (reviewRound || missed.length === 0);
+  const nextLabel = lastOfRun ? 'Finish' : 'Next';
+
+  const header = (
+    <>
+      <NavBar title={mission.title} closeIcon onBack={() => router.replace('/(tabs)/review')} />
+      <View style={styles.progress}>
+        <StepProgress total={queue.length} completed={step + 1} />
+        {reviewRound ? (
+          <Text style={styles.roundNote}>Second pass — the ones you missed</Text>
+        ) : null}
+      </View>
+    </>
+  );
+
+  const panel = verdict ? (
+    <FeedbackPanel
+      correct={verdict.correct}
+      note={verdict.note}
+      given={verdict.given}
+      expected={verdict.expected}
+      nextLabel={nextLabel}
+      onNext={next}
+    />
+  ) : null;
 
   /**
-   * RV-2a / RV-2b are a fixed three-band screen in the comp, not a scroller:
-   * the card fills whatever the scene leaves (`flex:1`), the verdict sits
-   * between the card and the mic, and the waveform + mic own the bottom.
+   * RV-2a / RV-2b — a fixed three-band screen: prompt card, waveform, mic. The
+   * bottom two step aside once the verdict is in, so the panel has the room.
    */
   if (question.type === 'speak') {
     return (
       <ScreenShell>
-        <NavBar title={mission.title} closeIcon onBack={() => router.replace('/(tabs)/review')} />
+        {header}
 
-        <View style={styles.progress}>
-          <StepProgress total={mission.questionCount} completed={position} />
-        </View>
-
-        <View style={styles.scene}>
-          <Card elevation="card" radiusToken="card" padding={24} style={styles.speakCard}>
+        <View style={styles.speakScene}>
+          <Card elevation="card" radiusToken="card" padding={24} style={styles.promptCard}>
             <View style={styles.speaker}>
               <SpeakerIcon size={18} />
             </View>
@@ -146,131 +235,177 @@ export default function MissionRunner() {
               captionStyle={styles.sentenceMeaning}
             />
           </Card>
-
-          {verdict ? (
-            <View style={styles.verdict}>
-              <View style={styles.verdictRow}>
-                <Text
-                  style={[
-                    styles.verdictBadge,
-                    verdict.correct ? styles.verdictBadgeGood : styles.verdictBadgeBad,
-                  ]}
-                >
-                  {verdict.correct ? 'Correct' : 'Try again'}
-                </Text>
-                <Text style={styles.verdictNote} numberOfLines={2}>
-                  {verdict.note}
-                </Text>
-              </View>
-
-              <View style={styles.verdictActions}>
-                {verdict.correct ? null : (
-                  <Button
-                    label="Try again"
-                    variant="elevated"
-                    height={48}
-                    style={styles.verdictButton}
-                    onPress={reset}
-                  />
-                )}
-                <Button
-                  label={nextLabel}
-                  height={48}
-                  style={styles.verdictButton}
-                  onPress={next}
-                />
-              </View>
-            </View>
-          ) : null}
         </View>
 
-        <Waveband active={recording} />
-        <MicDock
-          recording={recording}
-          onSpeak={() => {
-            setSpokenCount(0);
-            setRecording(true);
-          }}
-          disabled={verdict !== null || recording}
-        />
+        {verdict ? null : (
+          <>
+            <Waveband active={recording} />
+            <MicDock
+              recording={recording}
+              onSpeak={() => {
+                setSpokenCount(0);
+                setRecording(true);
+              }}
+            />
+          </>
+        )}
+
+        {panel}
+      </ScreenShell>
+    );
+  }
+
+  /**
+   * RV-2c / RV-2d / RV-2e — the learner types the Korean into the gaps. The
+   * body lifts with the keyboard so neither the sentence nor `Submit` is buried.
+   */
+  if (question.type === 'write') {
+    return (
+      <ScreenShell>
+        {header}
+
+        <KeyboardAvoidingView
+          style={styles.fill}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.scene}>
+            <WriteCard
+              question={question}
+              entries={entries}
+              judged={verdict !== null}
+              correct={verdict?.correct ?? false}
+              onChange={(gap, value) =>
+                setEntries((current) => {
+                  const draft = [...current];
+                  draft[gap] = value;
+                  return draft;
+                })
+              }
+            />
+
+            {verdict ? null : (
+              <View style={styles.submit}>
+                <Button
+                  label="Submit"
+                  height={52}
+                  disabled={question.blanks.some((_, gap) => (entries[gap] ?? '').trim() === '')}
+                  onPress={submitWrite}
+                />
+              </View>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+
+        {panel}
       </ScreenShell>
     );
   }
 
   return (
     <ScreenShell>
-      <NavBar title={mission.title} closeIcon onBack={() => router.replace('/(tabs)/review')} />
+      {header}
 
-      <View style={styles.progress}>
-        <StepProgress total={mission.questionCount} completed={position} />
+      <View style={styles.scene}>
+        <ChoiceCard question={question} answer={answer} />
       </View>
 
-      <Screen scroll background="surface-alt" contentStyle={styles.content}>
-        {question.type === 'write' ? (
-          <WriteStep
-            question={question}
-            entries={entries}
-            judged={verdict !== null}
-            correct={verdict?.correct ?? false}
-            onChange={(gap, value) =>
-              setEntries((current) => {
-                const draft = [...current];
-                draft[gap] = value;
-                return draft;
-              })
-            }
-            onCheck={submitWrite}
-          />
-        ) : (
-          <ChoiceStep question={question} answer={answer} />
-        )}
-      </Screen>
-
-      {question.type === 'choice' ? (
-        <View style={styles.options}>
-          {question.options.map((option, optionIndex) => {
-            const selected = answer === optionIndex;
-            const isAnswer = optionIndex === question.answerIndex;
-            const judged = verdict !== null;
-            return (
-              <Pressable
-                key={option}
-                onPress={() => pick(optionIndex)}
-                accessibilityRole="radio"
-                accessibilityState={{ selected, disabled: judged }}
-                style={[
-                  styles.option,
-                  selected && !isAnswer ? styles.optionWrong : null,
-                  judged && isAnswer ? styles.optionRight : null,
-                ]}
+      <View style={styles.options}>
+        {question.options.map((option, optionIndex) => {
+          const selected = answer === optionIndex;
+          const isAnswer = optionIndex === question.answerIndex;
+          const judged = verdict !== null;
+          return (
+            <Pressable
+              key={option}
+              onPress={() => pick(optionIndex)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected, disabled: judged }}
+              style={[
+                styles.option,
+                selected && !isAnswer ? styles.optionWrong : null,
+                judged && isAnswer ? styles.optionRight : null,
+              ]}
+            >
+              <Text
+                style={
+                  judged && isAnswer
+                    ? styles.optionLabelRight
+                    : selected
+                      ? styles.optionLabelWrong
+                      : styles.optionLabel
+                }
               >
-                <Text
-                  style={
-                    judged && isAnswer
-                      ? styles.optionLabelRight
-                      : selected
-                        ? styles.optionLabelWrong
-                        : styles.optionLabel
-                  }
-                >
-                  {option}
-                </Text>
-              </Pressable>
-            );
-          })}
+                {option}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {panel}
+    </ScreenShell>
+  );
+}
+
+/**
+ * The one verdict surface for all three drills: it rises from the foot of the
+ * screen, green when the answer was right and red when it was not, and carries
+ * the only `Next` on the screen. A miss shows what was written against what was
+ * expected; it is not re-asked here, it comes back in the second pass.
+ */
+function FeedbackPanel({
+  correct,
+  note,
+  given,
+  expected,
+  nextLabel,
+  onNext,
+}: {
+  correct: boolean;
+  note: string;
+  given?: string;
+  expected?: string;
+  nextLabel: string;
+  onNext: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const tone = correct ? colors.success : colors.danger;
+
+  return (
+    <Animated.View
+      entering={SlideInDown.duration(260)}
+      style={[
+        styles.panel,
+        {
+          backgroundColor: correct ? colors.successBg : colors.dangerBg,
+          paddingBottom: insets.bottom + spacing.lg,
+        },
+      ]}
+    >
+      <Text style={[styles.panelTitle, { color: tone }]}>{correct ? 'Nice!' : 'Not quite'}</Text>
+
+      {expected ? (
+        <View style={styles.panelFacts}>
+          <View style={styles.panelFact}>
+            <Text style={styles.panelFactLabel}>You wrote</Text>
+            <Text style={styles.panelFactGiven}>{given}</Text>
+          </View>
+          <View style={styles.panelFact}>
+            <Text style={styles.panelFactLabel}>Answer</Text>
+            <Text style={styles.panelFactExpected}>{expected}</Text>
+          </View>
         </View>
       ) : null}
 
-      {verdict ? (
-        <FeedbackPanel
-          correct={verdict.correct}
-          note={verdict.note}
-          nextLabel={nextLabel}
-          onNext={next}
-          onRetry={verdict.correct ? undefined : reset}
-        />
-      ) : null}
-    </ScreenShell>
+      <Text style={styles.panelNote}>{note}</Text>
+
+      <Button
+        label={nextLabel}
+        height={52}
+        style={{ backgroundColor: tone }}
+        onPress={onNext}
+      />
+    </Animated.View>
   );
 }
 
@@ -313,103 +448,37 @@ function Waveband({ active }: { active: boolean }) {
  * The mic band: `20px 24px 12px` over the home indicator, with the comp's two
  * empty 63×44 slots holding the 84px button dead centre.
  */
-function MicDock({
-  recording,
-  disabled,
-  onSpeak,
-}: {
-  recording: boolean;
-  disabled: boolean;
-  onSpeak: () => void;
-}) {
+function MicDock({ recording, onSpeak }: { recording: boolean; onSpeak: () => void }) {
   const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.micDock, { paddingBottom: 12 + insets.bottom }]}>
       <View style={styles.micSlot} />
-      <MicButton size={84} active={recording} onPress={disabled ? undefined : onSpeak} />
+      <MicButton size={84} active={recording} onPress={recording ? undefined : onSpeak} />
       <View style={styles.micSlot} />
     </View>
   );
 }
 
 /**
- * The verdict rises from the foot of the screen — green when it is right, red
- * when it is not — and carries the only `Next` on the screen.
+ * RV-2c / RV-2d / RV-2e — the situation or meaning first, then the Korean
+ * sentence with only the part being drilled left open. A template splits into a
+ * field per gap; without one the learner writes the whole sentence.
  */
-function FeedbackPanel({
-  correct,
-  note,
-  nextLabel,
-  onNext,
-  onRetry,
-}: {
-  correct: boolean;
-  note: string;
-  nextLabel: string;
-  onNext: () => void;
-  onRetry?: () => void;
-}) {
-  const insets = useSafeAreaInsets();
-  const tone = correct ? colors.success : colors.danger;
-
-  return (
-    <Animated.View
-      entering={SlideInDown.duration(260)}
-      style={[
-        styles.panel,
-        {
-          backgroundColor: correct ? colors.successBg : colors.dangerBg,
-          paddingBottom: insets.bottom + spacing.lg,
-        },
-      ]}
-    >
-      <Text style={[styles.panelTitle, { color: tone }]}>{correct ? 'Nice!' : 'Not quite'}</Text>
-      <Text style={styles.panelNote}>{note}</Text>
-
-      <View style={styles.panelActions}>
-        {onRetry ? (
-          <Button
-            label="Try again"
-            variant="elevated"
-            height={52}
-            style={styles.panelButton}
-            onPress={onRetry}
-          />
-        ) : null}
-        <Button
-          label={nextLabel}
-          height={52}
-          style={[styles.panelButton, { backgroundColor: tone }]}
-          onPress={onNext}
-        />
-      </View>
-    </Animated.View>
-  );
-}
-
-/**
- * RV-2c / RV-2d / RV-2e — the learner produces the Korean. A template splits
- * into a field per gap; without one they write the whole sentence. `Check` sits
- * with the exercise rather than in a dock, because it is part of answering.
- */
-function WriteStep({
+function WriteCard({
   question,
   entries,
   judged,
   correct,
   onChange,
-  onCheck,
 }: {
   question: WriteQuestion;
   entries: string[];
   judged: boolean;
   correct: boolean;
   onChange: (gap: number, value: string) => void;
-  onCheck: () => void;
 }) {
   const segments = question.template ? question.template.split('___') : null;
-  const filled = question.blanks.every((_, gap) => (entries[gap] ?? '').trim() !== '');
 
   // A fixed gap clips a 4-syllable ending, so each one takes its answer's width.
   const gapWidth = (gap: number) =>
@@ -432,35 +501,29 @@ function WriteStep({
   );
 
   return (
-    <View style={styles.step}>
-      <Card elevation="card" radiusToken="card" padding={24} style={styles.promptCard}>
-        <Text style={styles.promptLabel}>{question.promptLabel}</Text>
-        <Text style={styles.writePrompt}>{question.prompt}</Text>
-        {question.source ? <Text style={styles.writeSource}>{question.source}</Text> : null}
+    <Card elevation="card" radiusToken="card" padding={24} style={styles.promptCard}>
+      <Text style={styles.promptLabel}>{question.promptLabel}</Text>
+      <Text style={styles.writePrompt}>{question.prompt}</Text>
+      {question.source ? <Text style={styles.writeSource}>{question.source}</Text> : null}
 
-        {segments ? (
-          <View style={styles.gapLine}>
-            {segments.map((part, gap) => (
-              <View key={`seg-${gap}`} style={styles.gapSegment}>
-                {part ? <Text style={styles.gapText}>{part}</Text> : null}
-                {gap < question.blanks.length ? field(gap, true) : null}
-              </View>
-            ))}
-          </View>
-        ) : (
-          field(0, false)
-        )}
-      </Card>
-
-      {judged ? null : (
-        <Button label="Check" height={52} disabled={!filled} onPress={onCheck} />
+      {segments ? (
+        <View style={styles.gapLine}>
+          {segments.map((part, gap) => (
+            <View key={`seg-${gap}`} style={styles.gapSegment}>
+              {part ? <Text style={styles.gapText}>{part}</Text> : null}
+              {gap < question.blanks.length ? field(gap, true) : null}
+            </View>
+          ))}
+        </View>
+      ) : (
+        field(0, false)
       )}
-    </View>
+    </Card>
   );
 }
 
-/** RV-2c / RV-2d / RV-2e — pick the option that fits. */
-function ChoiceStep({ question, answer }: { question: ChoiceQuestion; answer: number | null }) {
+/** RV-2f — pick the answer that fits. */
+function ChoiceCard({ question, answer }: { question: ChoiceQuestion; answer: number | null }) {
   const [showMeaning, setShowMeaning] = useState(false);
 
   // The comp draws the answer sentence word by word, each on its own dotted rule.
@@ -487,39 +550,36 @@ function ChoiceStep({ question, answer }: { question: ChoiceQuestion; answer: nu
   }, [question, answer]);
 
   return (
-    <View style={styles.step}>
-      <Card elevation="card" radiusToken="card" padding={24} style={styles.promptCard}>
-        <View style={styles.promptHeader}>
-          <View style={styles.promptHeaderLeft}>
-            <View style={styles.speaker}>
-              <SpeakerIcon size={18} />
-            </View>
-            <Text style={styles.promptLabel}>{question.promptLabel}</Text>
+    <Card elevation="card" radiusToken="card" padding={24} style={styles.promptCard}>
+      <View style={styles.promptHeader}>
+        <View style={styles.promptHeaderLeft}>
+          <View style={styles.speaker}>
+            <SpeakerIcon size={18} />
           </View>
-          <Pressable
-            onPress={() => setShowMeaning((value) => !value)}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: showMeaning }}
-            style={styles.meaningPill}
-          >
-            <Text style={styles.meaningLabel}>Meaning</Text>
-            <DropdownChevronIcon color={colors.textSecondary} />
-          </Pressable>
+          <Text style={styles.promptLabel}>{question.promptLabel}</Text>
         </View>
+        <Pressable
+          onPress={() => setShowMeaning((value) => !value)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showMeaning }}
+          style={styles.meaningPill}
+        >
+          <Text style={styles.meaningLabel}>Meaning</Text>
+          <DropdownChevronIcon color={colors.textSecondary} />
+        </Pressable>
+      </View>
 
-        <KoreanText tokens={question.promptTokens} />
-        {showMeaning ? <Text style={type.caption}>{question.promptEnglish}</Text> : null}
+      <KoreanText tokens={question.promptTokens} />
+      {showMeaning ? <Text style={type.caption}>{question.promptEnglish}</Text> : null}
 
-        {sentenceTokens.length > 0 ? (
-          <KoreanText
-            tokens={sentenceTokens}
-            underlineColor={colors.primary}
-            style={styles.answerSentence}
-          />
-        ) : null}
-      </Card>
-
-    </View>
+      {sentenceTokens.length > 0 ? (
+        <KoreanText
+          tokens={sentenceTokens}
+          underlineColor={colors.primary}
+          style={styles.answerSentence}
+        />
+      ) : null}
+    </Card>
   );
 }
 
@@ -571,109 +631,42 @@ function MissionComplete({
 }
 
 const styles = StyleSheet.create({
+  fill: {
+    flex: 1,
+  },
   progress: {
     paddingHorizontal: spacing.gutter,
     paddingTop: 25,
+    gap: 8,
   },
+  roundNote: text(12, 18, '400', colors.textTertiary),
   /**
-   * RV-2a/RV-2b scene — `flex:1; padding:30px 24px 0; gap:24; margin-bottom:20`.
-   * It is the whole band between the progress bar and the waveform, so the card
-   * inside it fills rather than hugs.
+   * The band between the progress bar and whatever the drill puts at the foot.
+   * RV-2a declares `padding:30px 24px 0; gap:24; margin-bottom:20`; the written
+   * and choice comps use the same band at gap 16.
    */
-  scene: {
+  speakScene: {
     flex: 1,
     paddingTop: 30,
     paddingHorizontal: spacing.gutter,
     marginBottom: 20,
     gap: 24,
   },
-  speakCard: {
+  scene: {
     flex: 1,
-    gap: 8,
-  },
-  /** `12/18/400 #B0B8C1` — the meaning line, where the tap hint used to be. */
-  sentenceMeaning: text(12, 18, '400', colors.textTertiary),
-  verdict: {
-    gap: 12,
-  },
-  /** `align-items:center; gap:8; padding:12; radius:12` on white. */
-  verdictRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    borderRadius: radius.input,
-    backgroundColor: colors.surface,
-  },
-  verdictBadge: {
-    ...text(11, 16, '600', colors.success),
-    borderRadius: radius.badge,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    overflow: 'hidden',
-  },
-  verdictBadgeGood: {
-    backgroundColor: colors.successBg,
-    color: colors.success,
-  },
-  verdictBadgeBad: {
-    backgroundColor: colors.primary100,
-    color: colors.primary,
-  },
-  verdictNote: {
-    ...text(13, 18, '500', colors.textSecondary),
-    flex: 1,
-  },
-  verdictActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  verdictButton: {
-    flex: 1,
-  },
-  /** `height:40` of bars over `padding:16px 24px 0`, so the band is 56 tall. */
-  waveband: {
-    height: 56,
-    paddingTop: 16,
-    paddingHorizontal: spacing.gutter,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    backgroundColor: colors.surface,
-    ...shadows.bottomNav,
-  },
-  waveBar: {
-    width: 4,
-    borderRadius: radius.pill,
-  },
-  waveBarIdle: {
-    opacity: 0.45,
-  },
-  /** `padding:20px 24px 12px`; the 12 sits on top of the home indicator. */
-  micDock: {
-    paddingTop: 20,
-    paddingHorizontal: spacing.gutter,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-  },
-  /** The comp's empty side slots — 27px wide inside 18px padding — centre the mic. */
-  micSlot: {
-    width: 63,
-    height: 44,
-  },
-  content: {
-    gap: 16,
     paddingTop: 30,
-    paddingBottom: 20,
-  },
-  step: {
+    paddingHorizontal: spacing.gutter,
+    marginBottom: 20,
     gap: 16,
   },
+  /** One height for every drill, so the screen does not jump between axes. */
   promptCard: {
+    height: MISSION_CARD_HEIGHT,
     gap: 8,
+  },
+  /** `Submit` sits at the foot of the band and rides up with the keyboard. */
+  submit: {
+    marginTop: 'auto',
   },
   promptHeader: {
     flexDirection: 'row',
@@ -712,6 +705,8 @@ const styles = StyleSheet.create({
   answerSentence: {
     marginTop: 4,
   },
+  /** `12/18/400 #B0B8C1` — the meaning line under a spoken sentence. */
+  sentenceMeaning: text(12, 18, '400', colors.textTertiary),
   writePrompt: {
     ...type.section,
     marginTop: 2,
@@ -761,8 +756,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.successBg,
   },
   fieldWrong: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary100,
+    borderColor: colors.danger,
+    backgroundColor: colors.dangerBg,
   },
   options: {
     backgroundColor: colors.surface,
@@ -784,31 +779,78 @@ const styles = StyleSheet.create({
     borderColor: colors.success,
   },
   optionWrong: {
-    backgroundColor: colors.primary100,
+    backgroundColor: colors.dangerBg,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.danger,
   },
   optionLabel: text(16, 22, '500', colors.inkAlt),
   optionLabelRight: text(16, 22, '600', colors.success),
-  optionLabelWrong: text(16, 22, '600', colors.primary),
+  optionLabelWrong: text(16, 22, '600', colors.danger),
+  /** `height:40` of bars over `padding:16px 24px 0`, so the band is 56 tall. */
+  waveband: {
+    height: 56,
+    paddingTop: 16,
+    paddingHorizontal: spacing.gutter,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: colors.surface,
+    ...shadows.bottomNav,
+  },
+  waveBar: {
+    width: 4,
+    borderRadius: radius.pill,
+  },
+  waveBarIdle: {
+    opacity: 0.45,
+  },
+  /** `padding:20px 24px 12px`; the 12 sits on top of the home indicator. */
+  micDock: {
+    paddingTop: 20,
+    paddingHorizontal: spacing.gutter,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+  },
+  /** The comp's empty side slots — 27px wide inside 18px padding — centre the mic. */
+  micSlot: {
+    width: 63,
+    height: 44,
+  },
   panel: {
     paddingHorizontal: spacing.gutter,
     paddingTop: spacing.xl,
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,
-    gap: 6,
+    gap: 10,
   },
   panelTitle: text(18, 26, '700', colors.success),
-  panelNote: {
-    ...text(14, 21, '500', colors.inkAlt),
-    paddingBottom: 10,
+  panelFacts: {
+    gap: 4,
   },
-  panelActions: {
+  panelFact: {
     flexDirection: 'row',
+    alignItems: 'baseline',
     gap: 8,
   },
-  panelButton: {
+  panelFactLabel: {
+    ...text(12, 18, '600', colors.textSecondary),
+    width: 66,
+  },
+  panelFactGiven: {
+    ...text(15, 22, '500', colors.danger),
+    textDecorationLine: 'line-through',
     flex: 1,
+  },
+  panelFactExpected: {
+    ...text(15, 22, '600', colors.inkAlt),
+    flex: 1,
+  },
+  panelNote: {
+    ...text(14, 21, '500', colors.inkAlt),
+    paddingBottom: 6,
   },
   completeContent: {
     flex: 1,
