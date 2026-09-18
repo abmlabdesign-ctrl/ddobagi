@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
+  Dimensions,
   Pressable,
   StyleSheet,
   Text,
@@ -114,6 +115,9 @@ export function KoreanText({
   );
 }
 
+/** Keeps the tooltip clear of the screen edges. */
+const TOOLTIP_MARGIN = 16;
+
 function KoreanToken({
   token,
   textStyle,
@@ -131,8 +135,24 @@ function KoreanToken({
   underlineColor: string;
   spoken: boolean;
 }) {
-  const [tooltipWidth, setTooltipWidth] = useState(0);
+  // `shift` nudges the card back on screen near an edge; the tail stays on the
+  // word, so it keeps pointing at what was tapped.
+  const [tip, setTip] = useState({ width: 0, shift: 0 });
+  const wrapRef = useRef<View>(null);
   const gap = spaced ? styles.spaced : null;
+
+  const measureTooltip = (width: number) => {
+    wrapRef.current?.measureInWindow((x, _y, wordWidth) => {
+      const centre = x + wordWidth / 2;
+      const half = width / 2;
+      const screen = Dimensions.get('window').width;
+      const clamped = Math.min(
+        Math.max(centre, TOOLTIP_MARGIN + half),
+        screen - TOOLTIP_MARGIN - half,
+      );
+      setTip({ width, shift: clamped - centre });
+    });
+  };
   // The rule is what tells the learner a word can be tapped, so every word gets
   // one. Punctuation keeps the same box — a clear rule — so baselines still line up.
   if (token.blank) {
@@ -151,14 +171,16 @@ function KoreanToken({
   }
 
   return (
-    <View style={[styles.tokenWrap, gap]}>
+    <View ref={wrapRef} style={[styles.tokenWrap, gap]}>
       {open ? (
         <View
-          onLayout={(event) => setTooltipWidth(event.nativeEvent.layout.width)}
-          style={[styles.tooltip, { transform: [{ translateX: -tooltipWidth / 2 }] }]}
+          onLayout={(event) => measureTooltip(event.nativeEvent.layout.width)}
+          style={[styles.tooltip, { transform: [{ translateX: -tip.width / 2 + tip.shift }] }]}
           pointerEvents="none"
         >
-          <Text style={styles.tooltipText}>{token.romanization}</Text>
+          <View style={[styles.tooltipTail, { left: tip.width / 2 - tip.shift - 5 }]} />
+          <Text style={styles.tooltipWord}>{token.text}</Text>
+          <Text style={styles.tooltipRoman}>{token.romanization}</Text>
         </View>
       ) : null}
       <Pressable
@@ -243,23 +265,43 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.primary,
     paddingBottom: 1,
   },
+  /**
+   * The comp hangs the tooltip under the word — `top: calc(100% + 8px)`, r10,
+   * padding 8/12 — with a 10px square rotated 45° for the tail.
+   */
   tooltip: {
     position: 'absolute',
-    bottom: '100%',
+    top: '100%',
     left: '50%',
-    marginBottom: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: radius.badge,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
     backgroundColor: colors.ink,
+    gap: 1,
+    zIndex: 2,
     ...shadows.modal,
   },
-  tooltipText: {
+  tooltipTail: {
+    position: 'absolute',
+    top: -5,
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+    backgroundColor: colors.ink,
+    transform: [{ rotate: '45deg' }],
+  },
+  tooltipWord: {
+    fontFamily: fontFamily.sansSemiBold,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.surface,
+  },
+  tooltipRoman: {
     fontFamily: fontFamily.numeric,
     fontSize: 12,
     lineHeight: 16,
-    fontWeight: '500',
-    color: colors.surface,
+    color: colors.textTertiary,
   },
   meaningToggle: {
     alignSelf: 'flex-start',
