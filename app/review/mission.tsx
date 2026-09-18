@@ -79,6 +79,7 @@ type Verdict = {
 export default function MissionRunner() {
   const { missionId } = useLocalSearchParams<{ missionId: string }>();
   const mission = missionById[missionId] ?? missions[0];
+  const insets = useSafeAreaInsets();
 
   const [queue, setQueue] = useState<number[]>(() => buildQueue(mission));
   const [step, setStep] = useState(0);
@@ -268,7 +269,7 @@ export default function MissionRunner() {
           style={styles.fill}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.scene}>
+          <View style={[styles.scene, { paddingBottom: insets.bottom }]}>
             <WriteCard
               question={question}
               entries={entries}
@@ -309,7 +310,7 @@ export default function MissionRunner() {
         <ChoiceCard question={question} answer={answer} />
       </View>
 
-      <View style={styles.options}>
+      <View style={[styles.options, { paddingBottom: 24 + insets.bottom }]}>
         {question.options.map((option, optionIndex) => {
           const selected = answer === optionIndex;
           const isAnswer = optionIndex === question.answerIndex;
@@ -819,12 +820,23 @@ const styles = StyleSheet.create({
     width: 63,
     height: 44,
   },
+  /**
+   * The verdict is a layer, not a row: it rises from the bottom edge and covers
+   * whatever the drill had down there — the option rows on a choice question,
+   * the mic band on a spoken one.
+   */
   panel: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 10,
     paddingHorizontal: spacing.gutter,
     paddingTop: spacing.xl,
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,
     gap: 10,
+    ...shadows.dock,
   },
   panelTitle: text(18, 26, '700', colors.success),
   panelFacts: {
