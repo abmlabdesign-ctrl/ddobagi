@@ -137,6 +137,11 @@ export type SpeakQuestion = {
   type: 'speak';
   /** Sentence the learner reads aloud, split into tappable tokens. */
   tokens: Token[];
+  /**
+   * What the sentence means. RV-2a/RV-2b print it under the Korean — it answers
+   * "what am I saying", which is a different job from the per-word tooltip.
+   */
+  english: string;
   /** Shown after the learner speaks. */
   feedback: { correct: boolean; label: string; explanation: string };
 };

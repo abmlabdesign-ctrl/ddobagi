@@ -36,8 +36,6 @@ type Props = {
   textStyle?: StyleProp<TextStyle>;
   captionStyle?: StyleProp<TextStyle>;
   style?: StyleProp<ViewStyle>;
-  /** Shown under the sentence when any token can be tapped. */
-  tapHint?: string;
   /** Colour of the dotted rule under each word. RV-2c uses primary. */
   underlineColor?: string;
   /** RV-2b live caption: how many tokens the learner has read so far. */
@@ -52,7 +50,6 @@ export function KoreanText({
   textStyle,
   captionStyle,
   style,
-  tapHint,
   underlineColor = colors.border,
   spokenCount = 0,
 }: Props) {
@@ -60,7 +57,6 @@ export function KoreanText({
   const [showMeaning, setShowMeaning] = useState(false);
 
   const meaningVisible = meaning === 'always' || (meaning === 'toggle' && showMeaning);
-  const hasRomanization = tokens.some((token) => token.romanization);
 
   return (
     <View style={[styles.root, style]}>
@@ -109,8 +105,6 @@ export function KoreanText({
       {meaningVisible && english ? (
         <Text style={[type.secondary, captionStyle]}>{english}</Text>
       ) : null}
-
-      {hasRomanization && tapHint ? <Text style={type.caption}>{tapHint}</Text> : null}
     </View>
   );
 }
@@ -171,7 +165,7 @@ function KoreanToken({
   }
 
   return (
-    <View ref={wrapRef} style={[styles.tokenWrap, gap]}>
+    <View ref={wrapRef} style={[styles.tokenWrap, open ? styles.tokenWrapOpen : null, gap]}>
       {open ? (
         <View
           onLayout={(event) => measureTooltip(event.nativeEvent.layout.width)}
@@ -227,6 +221,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
+    // RN paints siblings in tree order, so without this the English caption
+    // below would cover an open tooltip. The row, and the open word inside it,
+    // have to out-rank everything drawn after them.
+    zIndex: 2,
   },
   replay: {
     width: 24,
@@ -248,6 +246,9 @@ const styles = StyleSheet.create({
   },
   tokenWrap: {
     position: 'relative',
+  },
+  tokenWrapOpen: {
+    zIndex: 3,
   },
   token: {
     ...type.korean,
@@ -279,7 +280,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: colors.ink,
     gap: 1,
-    zIndex: 2,
+    zIndex: 4,
     ...shadows.modal,
   },
   tooltipTail: {

@@ -31,6 +31,7 @@ export const missions: Mission[] = [
           { text: '얼마예요' },
           { text: '?' },
         ],
+        english: 'How much is it?',
         feedback: {
           correct: true,
           label: 'Correct',
@@ -46,6 +47,7 @@ export const missions: Mission[] = [
           { text: '주세요', romanization: 'juseyo' },
           { text: '.' },
         ],
+        english: 'Please pack it to go.',
         feedback: {
           correct: true,
           label: 'Correct',
@@ -73,6 +75,7 @@ export const missions: Mission[] = [
           { text: '가요' },
           { text: '.' },
         ],
+        english: 'On weekends I meet a friend and we go to a café.',
         feedback: {
           correct: false,
           label: 'Try again',

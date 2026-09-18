@@ -13,9 +13,9 @@ import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { StepProgress } from '@/components/StepProgress';
 import { missionById, missions } from '@/data/missions';
-import type { ChoiceQuestion, SpeakQuestion, Token, WriteQuestion } from '@/data/types';
+import type { ChoiceQuestion, Token, WriteQuestion } from '@/data/types';
 import { DropdownChevronIcon, SpeakerIcon } from '@/icons';
-import { colors, radius, spacing } from '@/theme/tokens';
+import { colors, radius, shadows, spacing } from '@/theme/tokens';
 import { text, type } from '@/theme/typography';
 
 /** Spacing and punctuation are noise for every axis these drills grade. */
@@ -117,6 +117,86 @@ export default function MissionRunner() {
     return <MissionComplete title={mission.title} questionCount={mission.questionCount} />;
   }
 
+  const nextLabel = position >= mission.questionCount ? 'Finish' : 'Next';
+
+  /**
+   * RV-2a / RV-2b are a fixed three-band screen in the comp, not a scroller:
+   * the card fills whatever the scene leaves (`flex:1`), the verdict sits
+   * between the card and the mic, and the waveform + mic own the bottom.
+   */
+  if (question.type === 'speak') {
+    return (
+      <ScreenShell>
+        <NavBar title={mission.title} closeIcon onBack={() => router.replace('/(tabs)/review')} />
+
+        <View style={styles.progress}>
+          <StepProgress total={mission.questionCount} completed={position} />
+        </View>
+
+        <View style={styles.scene}>
+          <Card elevation="card" radiusToken="card" padding={24} style={styles.speakCard}>
+            <View style={styles.speaker}>
+              <SpeakerIcon size={18} />
+            </View>
+            <KoreanText
+              tokens={question.tokens}
+              spokenCount={mission.kind === 'fluency' ? spokenCount : 0}
+              english={question.english}
+              meaning="always"
+              captionStyle={styles.sentenceMeaning}
+            />
+          </Card>
+
+          {verdict ? (
+            <View style={styles.verdict}>
+              <View style={styles.verdictRow}>
+                <Text
+                  style={[
+                    styles.verdictBadge,
+                    verdict.correct ? styles.verdictBadgeGood : styles.verdictBadgeBad,
+                  ]}
+                >
+                  {verdict.correct ? 'Correct' : 'Try again'}
+                </Text>
+                <Text style={styles.verdictNote} numberOfLines={2}>
+                  {verdict.note}
+                </Text>
+              </View>
+
+              <View style={styles.verdictActions}>
+                {verdict.correct ? null : (
+                  <Button
+                    label="Try again"
+                    variant="elevated"
+                    height={48}
+                    style={styles.verdictButton}
+                    onPress={reset}
+                  />
+                )}
+                <Button
+                  label={nextLabel}
+                  height={48}
+                  style={styles.verdictButton}
+                  onPress={next}
+                />
+              </View>
+            </View>
+          ) : null}
+        </View>
+
+        <Waveband active={recording} />
+        <MicDock
+          recording={recording}
+          onSpeak={() => {
+            setSpokenCount(0);
+            setRecording(true);
+          }}
+          disabled={verdict !== null || recording}
+        />
+      </ScreenShell>
+    );
+  }
+
   return (
     <ScreenShell>
       <NavBar title={mission.title} closeIcon onBack={() => router.replace('/(tabs)/review')} />
@@ -126,19 +206,7 @@ export default function MissionRunner() {
       </View>
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>
-        {question.type === 'speak' ? (
-          <SpeakStep
-            question={question}
-            recording={recording}
-            spokenCount={spokenCount}
-            live={mission.kind === 'fluency'}
-            judged={verdict !== null}
-            onSpeak={() => {
-              setSpokenCount(0);
-              setRecording(true);
-            }}
-          />
-        ) : question.type === 'write' ? (
+        {question.type === 'write' ? (
           <WriteStep
             question={question}
             entries={entries}
@@ -197,12 +265,71 @@ export default function MissionRunner() {
         <FeedbackPanel
           correct={verdict.correct}
           note={verdict.note}
-          nextLabel={position >= mission.questionCount ? 'Finish' : 'Next'}
+          nextLabel={nextLabel}
           onNext={next}
           onRetry={verdict.correct ? undefined : reset}
         />
       ) : null}
     </ScreenShell>
+  );
+}
+
+/**
+ * The comp's ten-bar band above the mic: `0 -4px 24px` top shadow, 16px of
+ * padding over a 40px bar box. Bar heights and tints are the declared values.
+ */
+const WAVE_BARS = [
+  { height: 10, color: colors.primary200 },
+  { height: 22, color: colors.primary300 },
+  { height: 32, color: colors.primary },
+  { height: 16, color: colors.primary300 },
+  { height: 26, color: colors.primary },
+  { height: 12, color: colors.primary200 },
+  { height: 22, color: colors.primary300 },
+  { height: 36, color: colors.primary },
+  { height: 18, color: colors.primary300 },
+  { height: 9, color: colors.primary200 },
+];
+
+function Waveband({ active }: { active: boolean }) {
+  return (
+    <View style={styles.waveband}>
+      {WAVE_BARS.map((bar, index) => (
+        <View
+          key={index}
+          style={[
+            styles.waveBar,
+            { height: bar.height, backgroundColor: bar.color },
+            // Idle the band reads as a hint; while the mic is open it is live.
+            active ? null : styles.waveBarIdle,
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
+/**
+ * The mic band: `20px 24px 12px` over the home indicator, with the comp's two
+ * empty 63×44 slots holding the 84px button dead centre.
+ */
+function MicDock({
+  recording,
+  disabled,
+  onSpeak,
+}: {
+  recording: boolean;
+  disabled: boolean;
+  onSpeak: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View style={[styles.micDock, { paddingBottom: 12 + insets.bottom }]}>
+      <View style={styles.micSlot} />
+      <MicButton size={84} active={recording} onPress={disabled ? undefined : onSpeak} />
+      <View style={styles.micSlot} />
+    </View>
   );
 }
 
@@ -258,54 +385,6 @@ function FeedbackPanel({
         />
       </View>
     </Animated.View>
-  );
-}
-
-/**
- * RV-2a / RV-2b — read the sentence aloud. The mic sits under the card, and on
- * the fluency drill the sentence lights up word by word as it is read, so the
- * card doubles as a live caption.
- */
-function SpeakStep({
-  question,
-  recording,
-  spokenCount,
-  live,
-  judged,
-  onSpeak,
-}: {
-  question: SpeakQuestion;
-  recording: boolean;
-  spokenCount: number;
-  live: boolean;
-  judged: boolean;
-  onSpeak: () => void;
-}) {
-  return (
-    <View style={styles.step}>
-      <Card elevation="card" radiusToken="card" padding={24} style={styles.promptCard}>
-        <View style={styles.speakHeader}>
-          <View style={styles.speaker}>
-            <SpeakerIcon size={18} />
-          </View>
-          <Text style={styles.promptLabel}>
-            {live ? 'Read it straight through' : 'Listen, then repeat'}
-          </Text>
-        </View>
-        <KoreanText
-          tokens={question.tokens}
-          spokenCount={live ? spokenCount : 0}
-          tapHint="Tap a word to see how it sounds"
-        />
-      </Card>
-
-      <View style={styles.micBlock}>
-        <MicButton active={recording} onPress={judged || recording ? undefined : onSpeak} />
-        <Text style={styles.micHint}>
-          {recording ? 'Listening…' : judged ? '' : 'Tap to speak'}
-        </Text>
-      </View>
-    </View>
   );
 }
 
@@ -496,6 +575,95 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.gutter,
     paddingTop: 25,
   },
+  /**
+   * RV-2a/RV-2b scene — `flex:1; padding:30px 24px 0; gap:24; margin-bottom:20`.
+   * It is the whole band between the progress bar and the waveform, so the card
+   * inside it fills rather than hugs.
+   */
+  scene: {
+    flex: 1,
+    paddingTop: 30,
+    paddingHorizontal: spacing.gutter,
+    marginBottom: 20,
+    gap: 24,
+  },
+  speakCard: {
+    flex: 1,
+    gap: 8,
+  },
+  /** `12/18/400 #B0B8C1` — the meaning line, where the tap hint used to be. */
+  sentenceMeaning: text(12, 18, '400', colors.textTertiary),
+  verdict: {
+    gap: 12,
+  },
+  /** `align-items:center; gap:8; padding:12; radius:12` on white. */
+  verdictRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: radius.input,
+    backgroundColor: colors.surface,
+  },
+  verdictBadge: {
+    ...text(11, 16, '600', colors.success),
+    borderRadius: radius.badge,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    overflow: 'hidden',
+  },
+  verdictBadgeGood: {
+    backgroundColor: colors.successBg,
+    color: colors.success,
+  },
+  verdictBadgeBad: {
+    backgroundColor: colors.primary100,
+    color: colors.primary,
+  },
+  verdictNote: {
+    ...text(13, 18, '500', colors.textSecondary),
+    flex: 1,
+  },
+  verdictActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  verdictButton: {
+    flex: 1,
+  },
+  /** `height:40` of bars over `padding:16px 24px 0`, so the band is 56 tall. */
+  waveband: {
+    height: 56,
+    paddingTop: 16,
+    paddingHorizontal: spacing.gutter,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: colors.surface,
+    ...shadows.bottomNav,
+  },
+  waveBar: {
+    width: 4,
+    borderRadius: radius.pill,
+  },
+  waveBarIdle: {
+    opacity: 0.45,
+  },
+  /** `padding:20px 24px 12px`; the 12 sits on top of the home indicator. */
+  micDock: {
+    paddingTop: 20,
+    paddingHorizontal: spacing.gutter,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+  },
+  /** The comp's empty side slots — 27px wide inside 18px padding — centre the mic. */
+  micSlot: {
+    width: 63,
+    height: 44,
+  },
   content: {
     gap: 16,
     paddingTop: 30,
@@ -511,11 +679,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  speakHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
   },
   promptHeaderLeft: {
     flexDirection: 'row',
@@ -628,11 +791,6 @@ const styles = StyleSheet.create({
   optionLabel: text(16, 22, '500', colors.inkAlt),
   optionLabelRight: text(16, 22, '600', colors.success),
   optionLabelWrong: text(16, 22, '600', colors.primary),
-  micHint: {
-    ...text(13, 18, '500', colors.textTertiary),
-    marginTop: 12,
-    minHeight: 18,
-  },
   panel: {
     paddingHorizontal: spacing.gutter,
     paddingTop: spacing.xl,
@@ -651,9 +809,6 @@ const styles = StyleSheet.create({
   },
   panelButton: {
     flex: 1,
-  },
-  micBlock: {
-    alignItems: 'center',
   },
   completeContent: {
     flex: 1,
