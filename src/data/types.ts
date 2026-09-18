@@ -1,0 +1,139 @@
+import type { ImageSourcePropType } from 'react-native';
+
+export type SkillId =
+  | 'pronunciation'
+  | 'fluency'
+  | 'particles'
+  | 'endings'
+  | 'politeness'
+  | 'context';
+
+/** Band drives the badge colour: strong → success, medium → info, needs-work → primary. */
+export type SkillBand = 'strong' | 'medium' | 'needs-work';
+
+export type SkillScore = {
+  skill: SkillId;
+  score: number;
+  band: SkillBand;
+};
+
+export type Difficulty = 'Easy' | 'Medium' | 'Hard';
+
+export type CategoryId =
+  | 'shopping'
+  | 'clinic'
+  | 'school'
+  | 'transit'
+  | 'government'
+  | 'part-time-job'
+  | 'airport'
+  | 'accommodation'
+  | 'directions'
+  | 'friends'
+  | 'k-content';
+
+export type Category = {
+  id: CategoryId;
+  /** Chip and breadcrumb label. */
+  name: string;
+  /** `clothes · refunds · exchanges` */
+  blurb: string;
+  illustration: ImageSourcePropType;
+};
+
+export type Situation = {
+  id: string;
+  categoryId: CategoryId;
+  title: string;
+  difficulty: Difficulty;
+  minutes: number;
+  /** Second half of the RP-2 breadcrumb, e.g. `Clinic · Pharmacy`. */
+  place?: string;
+  /** Shown on the home and browse cards when the learner has started it. */
+  progress?: { completed: number; total: number; percent: number };
+  /** Featured situations lead the unfiltered browse list and the home rail. */
+  featured?: boolean;
+  detail: ScenarioDetail;
+};
+
+export type ScenarioDetail = {
+  /** `The situation` card. */
+  situation: string;
+  /** `AI plays` card. */
+  aiRole: string;
+  aiRoleDescription: string;
+  /** `Your goals` checklist — always three. */
+  goals: [string, string, string];
+};
+
+/** One line of a roleplay conversation. English is a caption, hidden by default. */
+export type Turn = {
+  id: string;
+  speaker: 'ai' | 'user';
+  korean: string;
+  english: string;
+  /** Marks a learner line the report flagged. */
+  mistake?: Omit<Mistake, 'id' | 'situationId' | 'date' | 'fixed'>;
+};
+
+export type ConversationScript = {
+  situationId: string;
+  turns: Turn[];
+  /** Suggested learner reply for the current AI turn (RP-3 `Hint`). */
+  hint: { korean: string; english: string };
+};
+
+export type SentenceFix = {
+  said: { korean: string; english: string };
+  suggested: { korean: string; english: string };
+};
+
+export type Report = {
+  situationId: string;
+  /** When the learner last finished this situation, e.g. `Sep 12`. */
+  completedOn: string;
+  goalsMet: number;
+  goalsTotal: number;
+  score: number;
+  scoreDelta: number;
+  skills: SkillScore[];
+  fixes: SentenceFix[];
+};
+
+export type Mistake = {
+  id: string;
+  situationId: string;
+  skill: Extract<SkillId, 'endings' | 'politeness' | 'particles' | 'context'>;
+  date: string;
+  said: { korean: string; english: string; note: string };
+  suggested: { korean: string; english: string };
+  why: string;
+  fixed: boolean;
+};
+
+export type SavedPhrase = {
+  id: string;
+  situationId: string;
+  korean: string;
+  english: string;
+  /** When it went into the scrapbook, e.g. `Aug 22`. */
+  savedOn: string;
+  /** The learner's own note, written from the phrase's detail screen. */
+  note?: string;
+};
+
+export type StatsPeriod = 'weekly' | 'monthly';
+
+export type Stats = {
+  period: StatsPeriod;
+  /** `This week's overall score` / `This month's overall score` */
+  heading: string;
+  score: number;
+  delta: number;
+  /** `Aug, week 4` */
+  rangeLabel: string;
+  insights: [string, string];
+  skills: { skill: SkillId; score: number }[];
+  biggestGain: { skill: SkillId; delta: number; note: string };
+  practiceNext: { skill: SkillId; score: number; delta: number; note: string };
+};
