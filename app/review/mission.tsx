@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { CountBadge } from '@/components/Badge';
 import { Button } from '@/components/Button';
@@ -12,14 +12,19 @@ import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { StepProgress } from '@/components/StepProgress';
 import { missionById, missions } from '@/data/missions';
-import type { ChoiceQuestion, SpeakQuestion, Token } from '@/data/types';
+import type { ChoiceQuestion, SpeakQuestion, Token, WriteQuestion } from '@/data/types';
 import { DropdownChevronIcon, SpeakerIcon } from '@/icons';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { text, type } from '@/theme/typography';
 
+/** Spacing and punctuation are noise for every axis these drills grade. */
+const normalize = (value: string) => value.replace(/[\s.,!?~]/g, '');
+
 /**
- * RV-2 … RV-2f. One runner covers all six mission types: speaking drills use
- * the mic, choice drills grade on tap and then show the explanation.
+ * RV-2 … RV-2f. One runner, three ways to drill: speaking missions use the mic,
+ * writing missions grade what the learner typed, choice missions grade on tap.
+ * Whatever the mode, the header, the progress bar, the feedback block and the
+ * dock are the same.
  */
 export default function MissionRunner() {
   const { missionId } = useLocalSearchParams<{ missionId: string }>();
@@ -28,6 +33,8 @@ export default function MissionRunner() {
   const [index, setIndex] = useState(0);
   const [answer, setAnswer] = useState<number | null>(null);
   const [spoken, setSpoken] = useState(false);
+  const [entries, setEntries] = useState<string[]>([]);
+  const [checked, setChecked] = useState(false);
   const [done, setDone] = useState(false);
 
   const question = mission.questions[index % mission.questions.length];
@@ -41,7 +48,34 @@ export default function MissionRunner() {
     setIndex((value) => value + 1);
     setAnswer(null);
     setSpoken(false);
+    setEntries([]);
+    setChecked(false);
   };
+
+  // A written answer is right when every gap matches one of its accepted forms.
+  const writeCorrect =
+    question.type === 'write' &&
+    question.blanks.every((accepted, gap) =>
+      accepted.some((option) => normalize(option) === normalize(entries[gap] ?? '')),
+    );
+
+  const writeFilled =
+    question.type === 'write' &&
+    question.blanks.every((_, gap) => (entries[gap] ?? '').trim() !== '');
+
+  const ctaLabel =
+    question.type === 'write' && !checked
+      ? 'Check'
+      : position >= mission.questionCount
+        ? 'Finish'
+        : 'Next';
+
+  const ctaDisabled =
+    question.type === 'speak'
+      ? !spoken
+      : question.type === 'write'
+        ? !writeFilled
+        : answer === null;
 
   if (done) {
     return <MissionComplete title={mission.title} questionCount={mission.questionCount} />;
@@ -58,6 +92,20 @@ export default function MissionRunner() {
       <Screen scroll background="surface-alt" contentStyle={styles.content}>
         {question.type === 'speak' ? (
           <SpeakStep question={question} answered={spoken} onSpeak={() => setSpoken(true)} />
+        ) : question.type === 'write' ? (
+          <WriteStep
+            question={question}
+            entries={entries}
+            checked={checked}
+            correct={writeCorrect}
+            onChange={(gap, value) =>
+              setEntries((current) => {
+                const draft = [...current];
+                draft[gap] = value;
+                return draft;
+              })
+            }
+          />
         ) : (
           <ChoiceStep question={question} answer={answer} onAnswer={setAnswer} />
         )}
@@ -100,9 +148,9 @@ export default function MissionRunner() {
 
       <CtaDock>
         <Button
-          label={position >= mission.questionCount ? 'Finish' : 'Next'}
-          onPress={next}
-          disabled={question.type === 'speak' ? !spoken : answer === null}
+          label={ctaLabel}
+          onPress={question.type === 'write' && !checked ? () => setChecked(true) : next}
+          disabled={ctaDisabled}
         />
       </CtaDock>
     </ScreenShell>
@@ -146,6 +194,85 @@ function SpeakStep({
       <View style={styles.micBlock}>
         <MicButton active={!answered} onPress={onSpeak} />
       </View>
+    </View>
+  );
+}
+
+/**
+ * RV-2c / RV-2d — the learner produces the Korean. A template splits into a
+ * field per gap; without one they write the whole sentence. Feedback is about
+ * the axis being drilled, not how complete the sentence is.
+ */
+function WriteStep({
+  question,
+  entries,
+  checked,
+  correct,
+  onChange,
+}: {
+  question: WriteQuestion;
+  entries: string[];
+  checked: boolean;
+  correct: boolean;
+  onChange: (gap: number, value: string) => void;
+}) {
+  const segments = question.template ? question.template.split('___') : null;
+  const answerLine = question.template
+    ? question.template
+        .split('___')
+        .reduce(
+          (line, part, gap) =>
+            line + part + (gap < question.blanks.length ? question.blanks[gap][0] : ''),
+          '',
+        )
+    : question.blanks[0][0];
+
+  const field = (gap: number, inline: boolean) => (
+    <TextInput
+      key={`gap-${gap}`}
+      value={entries[gap] ?? ''}
+      onChangeText={(value) => onChange(gap, value)}
+      editable={!checked}
+      placeholder={inline ? '' : 'Write it in Korean'}
+      placeholderTextColor={colors.textTertiary}
+      accessibilityLabel={question.template ? `Blank ${gap + 1}` : 'Your sentence'}
+      style={[
+        inline ? styles.gapField : styles.writeField,
+        checked ? (correct ? styles.fieldRight : styles.fieldWrong) : null,
+      ]}
+    />
+  );
+
+  return (
+    <View style={styles.step}>
+      <Card elevation="card" radiusToken="card" padding={24} style={styles.promptCard}>
+        <Text style={styles.promptLabel}>{question.promptLabel}</Text>
+        <Text style={styles.writePrompt}>{question.prompt}</Text>
+        {question.source ? <Text style={styles.writeSource}>{question.source}</Text> : null}
+
+        {segments ? (
+          <View style={styles.gapLine}>
+            {segments.map((part, gap) => (
+              <View key={`seg-${gap}`} style={styles.gapSegment}>
+                {part ? <Text style={styles.gapText}>{part}</Text> : null}
+                {gap < question.blanks.length ? field(gap, true) : null}
+              </View>
+            ))}
+          </View>
+        ) : (
+          field(0, false)
+        )}
+      </Card>
+
+      {checked ? (
+        <Feedback
+          correct={correct}
+          label={correct ? 'Correct' : 'Try again'}
+          explanation={
+            correct ? question.explanation : `${answerLine} — ${question.explanation}`
+          }
+        />
+      ) : null}
     </View>
   );
 }
@@ -351,6 +478,59 @@ const styles = StyleSheet.create({
   meaningLabel: text(11, 16, '600', colors.textSecondary),
   answerSentence: {
     marginTop: 4,
+  },
+  writePrompt: {
+    ...type.section,
+    marginTop: 2,
+  },
+  writeSource: {
+    ...text(16, 24, '500', colors.textSecondary),
+    marginTop: -2,
+  },
+  writeField: {
+    ...text(18, 26, '600', colors.inkAlt),
+    marginTop: 8,
+    minHeight: 52,
+    borderRadius: radius.search,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  gapLine: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  gapSegment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  gapText: text(22, 34, '600', colors.inkAlt),
+  gapField: {
+    ...text(22, 34, '600', colors.primary),
+    // Fixed, or the field grows to the row and breaks the sentence apart.
+    width: 64,
+    flexGrow: 0,
+    flexShrink: 0,
+    height: 40,
+    borderRadius: radius.badge,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 8,
+    textAlign: 'center',
+    marginHorizontal: 2,
+  },
+  fieldRight: {
+    borderColor: colors.success,
+    backgroundColor: colors.successBg,
+  },
+  fieldWrong: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary100,
   },
   options: {
     backgroundColor: colors.surface,

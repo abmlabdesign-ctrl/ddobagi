@@ -105,12 +105,21 @@ export type MissionKind =
   | 'fluency'
   | 'particles'
   | 'endings'
+  | 'politeness'
   | 'context';
+
+/**
+ * How a mission is drilled. Each skill gets the form that actually exercises it:
+ * `speak` for the two ears-and-mouth axes, `write` where the learner has to
+ * produce the grammar, `choice` where the point is reading a situation.
+ */
+export type MissionMode = 'speak' | 'write' | 'choice';
 
 export type MissionSummary = {
   id: string;
   title: string;
   kind: MissionKind;
+  mode: MissionMode;
   questionCount: number;
   minutes: number;
 };
@@ -132,6 +141,26 @@ export type SpeakQuestion = {
   feedback: { correct: boolean; label: string; explanation: string };
 };
 
+export type WriteQuestion = {
+  id: string;
+  type: 'write';
+  /** What the learner is being asked to do, e.g. `Write it in Korean`. */
+  promptLabel: string;
+  /** The English meaning, or the situation the sentence has to fit. */
+  prompt: string;
+  /** The casual Korean a politeness drill rewrites. */
+  source?: string;
+  /**
+   * A sentence with `___` marking each gap — one field per gap. Without it the
+   * learner writes the whole sentence into a single field.
+   */
+  template?: string;
+  /** Accepted answers per gap, in order; the first is the one shown on a miss. */
+  blanks: string[][];
+  /** Why, in terms of the axis being drilled rather than the whole sentence. */
+  explanation: string;
+};
+
 export type ChoiceQuestion = {
   id: string;
   type: 'choice';
@@ -149,7 +178,7 @@ export type ChoiceQuestion = {
   explanation: string;
 };
 
-export type MissionQuestion = SpeakQuestion | ChoiceQuestion;
+export type MissionQuestion = SpeakQuestion | WriteQuestion | ChoiceQuestion;
 
 export type Mission = MissionSummary & {
   questions: MissionQuestion[];
