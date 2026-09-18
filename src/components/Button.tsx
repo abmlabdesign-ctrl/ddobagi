@@ -1,4 +1,12 @@
-import { Pressable, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
 
 import { colors, radius, shadows } from '@/theme/tokens';
 import { type } from '@/theme/typography';
@@ -22,7 +30,7 @@ type Props = {
   height?: number;
   glow?: boolean;
   icon?: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 };
 
 export function Button({

@@ -28,6 +28,7 @@ export const colors = {
 
   /** The red the mistake flag already uses — destructive actions take it too. */
   danger: '#F04452',
+  dangerBg: '#FDECEF',
 
   success: '#27A376',
   successBg: '#EAF8EE',

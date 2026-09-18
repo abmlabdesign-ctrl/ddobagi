@@ -39,6 +39,8 @@ type Props = {
   tapHint?: string;
   /** Colour of the dotted rule under each word. RV-2c uses primary. */
   underlineColor?: string;
+  /** RV-2b live caption: how many tokens the learner has read so far. */
+  spokenCount?: number;
 };
 
 export function KoreanText({
@@ -51,6 +53,7 @@ export function KoreanText({
   style,
   tapHint,
   underlineColor = colors.border,
+  spokenCount = 0,
 }: Props) {
   const [openToken, setOpenToken] = useState<number | null>(null);
   const [showMeaning, setShowMeaning] = useState(false);
@@ -80,6 +83,7 @@ export function KoreanText({
               token={token}
               textStyle={textStyle}
               underlineColor={underlineColor}
+              spoken={index < spokenCount}
               spaced={index > 0 && !isPunctuation(token.text)}
               open={openToken === index}
               onToggle={() => setOpenToken(openToken === index ? null : index)}
@@ -117,6 +121,7 @@ function KoreanToken({
   open,
   onToggle,
   underlineColor,
+  spoken,
 }: {
   token: Token;
   textStyle?: StyleProp<TextStyle>;
@@ -124,6 +129,7 @@ function KoreanToken({
   open: boolean;
   onToggle: () => void;
   underlineColor: string;
+  spoken: boolean;
 }) {
   const [tooltipWidth, setTooltipWidth] = useState(0);
   const gap = spaced ? styles.spaced : null;
@@ -136,6 +142,8 @@ function KoreanToken({
   const rule = [
     styles.rule,
     { borderBottomColor: isPunctuation(token.text) ? 'transparent' : underlineColor },
+    // RV-2b lights the sentence up as the learner reads through it.
+    spoken ? styles.spokenToken : null,
   ];
 
   if (!token.romanization) {
@@ -221,6 +229,9 @@ const styles = StyleSheet.create({
   },
   token: {
     ...type.korean,
+  },
+  spokenToken: {
+    color: colors.primary,
   },
   rule: {
     borderBottomWidth: 2,
