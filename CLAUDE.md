@@ -37,13 +37,12 @@ RP-1 타이틀은 `Choose a situation`.
 - **타이포는 `text()` / `numeral()` 헬퍼로.** React Native는 weight가 아니라 패밀리 이름으로 폰트를 고르므로
   `fontWeight`를 직접 쓰지 말고 `text(16, 22, '600')` 형태로 씁니다. 숫자는 전부 Inter(`numeral`)입니다.
 - **카드 그림자는 기본이 없음.** 시안에서 `0 0 20px`가 선언된 카드에만 `elevation="card"`를 줍니다.
-- **학습 콘텐츠는 `KoreanText`를 거친다.** 한국어/영어/로마자 노출 규칙(README "정보 노출 원칙")이 이 컴포넌트에 있습니다.
-  한국어 문장을 `<Text>`로 직접 찍지 마세요.
+- **학습 콘텐츠는 노출 규칙을 따른다.** 한국어/영어/로마자 노출 규칙은 README "정보 노출 원칙"에 있습니다.
 - **UI 문구는 미국식 영어·구어체·문장 대문자.** 버튼은 동사 1~2단어(`Save`, `Try again`).
-  도메인 용어는 고정입니다: Mistake log / Scrapbook / Saved phrases / Level check / Micro missions /
+  도메인 용어는 고정입니다: Mistake log / Scrapbook / Saved phrases / Level check /
   6-skill breakdown / Show meaning · Hide meaning / Replay.
 - **목 데이터는 `src/data/`에만.** 화면 파일에 데이터를 인라인하지 않습니다.
-- **라우트는 `app/` 파일 구조.** 화면을 추가하면 README의 화면 표도 함께 갱신합니다.
+- **라우트는 `app/` 파일 구조.** 화면을 추가·삭제하면 README의 화면 표도 함께 갱신합니다.
 - 주석은 "왜"를 적습니다. 핸드오프 수치를 그대로 옮긴 곳은 출처를 남겨두세요.
 
 ## 브랜치 & 커밋
@@ -79,12 +78,11 @@ RP-1 타이틀은 `Choose a situation`.
 | `components/Card` | 카드를 쓰는 11개 화면 |
 | `components/Button` · `CtaDock` | 하단 CTA가 있는 6~7개 화면 |
 | `components/Controls` | ON-2 · RP-1 · MY-1 · MY-2 · MY-3 |
-| `components/Chip` | ON-2 · RP-1 · RV-1 · MY-1b (variant별로 분리돼 있어 variant 단위 수정은 안전) |
+| `components/Chip` | ON-2 · RP-1 · RV-3a · MY-1b (variant별로 분리돼 있어 variant 단위 수정은 안전) |
 | `components/SkillBar` | ON-4 · RP-4 · MY-2 |
 | `components/SituationCard` | HM-1 · RP-1 |
-| `components/KoreanText` | RV-2 · RV-2a~RV-2e (미션 러너 전용) |
 
-`Waveform`(ON-3) · `StepProgress`(RV-2) · `HomeParts`(HM-1)는 단일 화면 전용이라 자유롭게 고쳐도 됩니다.
+`Waveform`(ON-3) · `HomeParts`(HM-1)는 단일 화면 전용이라 자유롭게 고쳐도 됩니다.
 
 ## 작업 규칙
 
