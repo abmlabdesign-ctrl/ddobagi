@@ -450,23 +450,33 @@ function WriteCard({
   const gapOk = (gap: number) =>
     question.blanks[gap].some((option) => normalize(option) === normalize(entries[gap] ?? ''));
 
-  // A fixed gap clips a 4-syllable ending, so each one takes its answer's width.
+  /**
+   * The blank is as wide as the answer it takes — one syllable for 를, two for
+   * 에서 — so the sentence still reads as a sentence while it is being filled.
+   * 22px is the sentence size, which is one Korean syllable wide.
+   */
   const gapWidth = (gap: number) =>
-    Math.min(240, Math.max(64, Math.max(...question.blanks[gap].map((a) => a.length)) * 22 + 22));
+    Math.min(240, Math.max(30, Math.max(...question.blanks[gap].map((a) => a.length)) * 22 + 8));
+
+  /** Once it is graded the sentence reads as written: only a wrong gap is red. */
+  const filled = (gap: number) => (
+    <Text
+      key={`gap-${gap}`}
+      style={[styles.gapText, gapOk(gap) ? null : styles.gapTextWrong]}
+    >
+      {(entries[gap] ?? '').trim()}
+    </Text>
+  );
 
   const field = (gap: number, inline: boolean) => (
     <TextInput
       key={`gap-${gap}`}
       value={entries[gap] ?? ''}
       onChangeText={(value) => onChange(gap, value)}
-      editable={!judged}
       placeholder={inline ? '' : 'Write it in Korean'}
       placeholderTextColor={colors.textTertiary}
       accessibilityLabel={question.template ? `Blank ${gap + 1}` : 'Your sentence'}
-      style={[
-        inline ? [styles.gapField, { width: gapWidth(gap) }] : styles.writeField,
-        judged ? (gapOk(gap) ? styles.fieldRight : styles.fieldWrong) : null,
-      ]}
+      style={inline ? [styles.gapField, { width: gapWidth(gap) }] : styles.writeField}
     />
   );
 
@@ -481,10 +491,12 @@ function WriteCard({
           {segments.map((part, gap) => (
             <View key={`seg-${gap}`} style={styles.gapSegment}>
               {part ? <Text style={styles.gapText}>{part}</Text> : null}
-              {gap < question.blanks.length ? field(gap, true) : null}
+              {gap < question.blanks.length ? (judged ? filled(gap) : field(gap, true)) : null}
             </View>
           ))}
         </View>
+      ) : judged ? (
+        filled(0)
       ) : (
         field(0, false)
       )}
@@ -707,27 +719,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   gapText: text(22, 34, '600', colors.inkAlt),
+  gapTextWrong: {
+    color: colors.danger,
+  },
+  /**
+   * An inline blank, not a field: the orange rule under it is the only chrome,
+   * so the gap sits in the sentence the way the comp draws it.
+   */
   gapField: {
     ...text(22, 34, '600', colors.primary),
     // Never flexible, or the field grows to the row and breaks the sentence apart.
     flexGrow: 0,
     flexShrink: 0,
-    height: 40,
-    borderRadius: radius.badge,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 8,
+    height: 34,
+    paddingVertical: 0,
+    paddingHorizontal: 2,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.primary,
     textAlign: 'center',
-    marginHorizontal: 2,
-  },
-  fieldRight: {
-    borderColor: colors.success,
-    backgroundColor: colors.successBg,
-  },
-  fieldWrong: {
-    borderColor: colors.danger,
-    backgroundColor: colors.dangerBg,
   },
   options: {
     backgroundColor: colors.surface,
