@@ -28,6 +28,7 @@ type AppActions = {
   markMistakeFixed: (id: string) => void;
   savePhrase: (phrase: SavedPhrase) => void;
   removePhrase: (id: string) => void;
+  setPhraseNote: (id: string, note: string) => void;
 };
 
 const AppContext = createContext<(AppState & AppActions) | null>(null);
@@ -69,6 +70,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSavedPhrases((current) => current.filter((phrase) => phrase.id !== id));
   }, []);
 
+  const setPhraseNote = useCallback((id: string, note: string) => {
+    const trimmed = note.trim();
+    setSavedPhrases((current) =>
+      current.map((phrase) =>
+        phrase.id === id ? { ...phrase, note: trimmed === '' ? undefined : trimmed } : phrase,
+      ),
+    );
+  }, []);
+
   const value = useMemo(
     () => ({
       onboarded,
@@ -86,6 +96,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       markMistakeFixed,
       savePhrase,
       removePhrase,
+      setPhraseNote,
     }),
     [
       onboarded,
@@ -98,6 +109,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       markMistakeFixed,
       savePhrase,
       removePhrase,
+      setPhraseNote,
     ],
   );
 

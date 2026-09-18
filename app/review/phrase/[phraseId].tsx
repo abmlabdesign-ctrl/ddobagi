@@ -1,4 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
@@ -11,7 +12,7 @@ import { SpeakerIcon } from '@/icons';
 import { useApp } from '@/store/AppStore';
 import { colors, radius, selectedOutline, shadows, spacing } from '@/theme/tokens';
 import { text, type } from '@/theme/typography';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 /** Quotes differ between the report's fixes and the script's own lines. */
 const bare = (value: string) => value.replace(/["“”]/g, '').trim();
@@ -21,10 +22,17 @@ const bare = (value: string) => value.replace(/["“”]/g, '').trim();
  * out of — with a way through to the whole transcript.
  */
 export default function SavedPhraseDetail() {
-  const { phraseId } = useLocalSearchParams<{ phraseId: string }>();
-  const { savedPhrases } = useApp();
+  const { phraseId, note: noteParam } = useLocalSearchParams<{
+    phraseId: string;
+    note?: string;
+  }>();
+  const { savedPhrases, setPhraseNote } = useApp();
 
   const phrase = savedPhrases.find((entry) => entry.id === phraseId);
+
+  // `?note=1` comes from the card's More menu, which opens straight into editing.
+  const [editing, setEditing] = useState(noteParam === '1');
+  const [draft, setDraft] = useState(phrase?.note ?? '');
 
   if (!phrase) {
     return (
@@ -71,7 +79,61 @@ export default function SavedPhraseDetail() {
           </Text>
         </Card>
 
-        <View style={styles.contextBlock}>
+        <View style={styles.block}>
+          <Text style={type.label}>Note</Text>
+          {editing ? (
+            <Card radiusToken="group" padding={16} style={styles.note}>
+              <TextInput
+                value={draft}
+                onChangeText={setDraft}
+                multiline
+                autoFocus
+                placeholder="What do you want to remember about this phrase?"
+                placeholderTextColor={colors.textTertiary}
+                style={styles.noteInput}
+                accessibilityLabel="Note"
+              />
+              <View style={styles.noteActions}>
+                <Button
+                  label="Cancel"
+                  variant="tonal"
+                  height={44}
+                  style={styles.noteButton}
+                  onPress={() => {
+                    setDraft(phrase.note ?? '');
+                    setEditing(false);
+                  }}
+                />
+                <Button
+                  label="Save"
+                  height={44}
+                  style={styles.noteButton}
+                  onPress={() => {
+                    setPhraseNote(phrase.id, draft);
+                    setEditing(false);
+                  }}
+                />
+              </View>
+            </Card>
+          ) : (
+            <Pressable
+              onPress={() => {
+                setDraft(phrase.note ?? '');
+                setEditing(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={phrase.note ? 'Edit the note' : 'Add a note'}
+            >
+              <Card radiusToken="group" padding={16}>
+                <Text style={phrase.note ? styles.noteText : styles.notePlaceholder}>
+                  {phrase.note ?? 'Add a note'}
+                </Text>
+              </Card>
+            </Pressable>
+          )}
+        </View>
+
+        <View style={styles.block}>
           <Text style={type.label}>From this conversation</Text>
           <View style={styles.bubbles}>
             {context.map((turn) => {
@@ -136,9 +198,27 @@ const styles = StyleSheet.create({
     ...text(12, 16, '400', colors.textTertiary),
     paddingTop: 2,
   },
-  contextBlock: {
+  block: {
     gap: 12,
   },
+  note: {
+    gap: 12,
+  },
+  noteInput: {
+    ...text(14, 21, '400', colors.inkAlt),
+    minHeight: 66,
+    padding: 0,
+    textAlignVertical: 'top',
+  },
+  noteActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  noteButton: {
+    flex: 1,
+  },
+  noteText: text(14, 21, '400', colors.inkAlt),
+  notePlaceholder: text(14, 21, '400', colors.textTertiary),
   bubbles: {
     gap: 12,
   },

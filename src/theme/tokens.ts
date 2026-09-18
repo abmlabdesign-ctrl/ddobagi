@@ -26,6 +26,9 @@ export const colors = {
   track: '#E6E8EE',
   divider: '#F0F2F7',
 
+  /** The red the mistake flag already uses — destructive actions take it too. */
+  danger: '#F04452',
+
   success: '#27A376',
   successBg: '#EAF8EE',
   info: '#0091FF',

@@ -173,6 +173,8 @@ export type SavedPhrase = {
   english: string;
   /** When it went into the scrapbook, e.g. `Aug 22`. */
   savedOn: string;
+  /** The learner's own note, written from the phrase's detail screen. */
+  note?: string;
 };
 
 export type StatsPeriod = 'weekly' | 'monthly';

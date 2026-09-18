@@ -116,6 +116,7 @@ export const savedPhrases: SavedPhrase[] = [
     korean: '여기서 먹을게요.',
     english: "I'll eat here.",
     savedOn: 'Aug 20',
+    note: '에서 marks where the action happens — 여기서, not 여기.',
   },
   {
     id: 'sp-2',

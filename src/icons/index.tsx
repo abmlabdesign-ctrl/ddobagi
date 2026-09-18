@@ -367,3 +367,14 @@ export function TrophyIcon({ size = 24, color = colors.primary }: IconProps) {
     </Svg>
   );
 }
+
+/** The overflow menu's three dots. */
+export function MoreIcon({ size = 18, color = colors.textSecondary }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 18 18">
+      <Circle cx={3} cy={9} r={1.6} fill={color} />
+      <Circle cx={9} cy={9} r={1.6} fill={color} />
+      <Circle cx={15} cy={9} r={1.6} fill={color} />
+    </Svg>
+  );
+}
