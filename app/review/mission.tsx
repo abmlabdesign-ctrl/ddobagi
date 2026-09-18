@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { CtaDock } from '@/components/CtaDock';
-import { KoreanText } from '@/components/KoreanText';
+import { KoreanText, joinTokens } from '@/components/KoreanText';
 import { MicButton } from '@/components/MicButton';
 import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
@@ -32,40 +32,40 @@ const MISSION_CARD_HEIGHT = 300;
 /** Spacing and punctuation are noise for every axis these drills grade. */
 const normalize = (value: string) => value.replace(/[\s.,!?~]/g, '');
 
-/** The finished sentence, used to show the learner what they should have written. */
-const answerLine = (question: WriteQuestion) =>
-  question.template
-    ? question.template
-        .split('___')
-        .reduce(
-          (line, part, gap) =>
-            line + part + (gap < question.blanks.length ? question.blanks[gap][0] : ''),
-          '',
-        )
-    : question.blanks[0][0];
-
-/** What the learner actually wrote, in the shape of the sentence they were given. */
-const writtenLine = (question: WriteQuestion, entries: string[]) =>
-  question.template
-    ? question.template
-        .split('___')
-        .reduce(
-          (line, part, gap) =>
-            line + part + (gap < question.blanks.length ? (entries[gap] ?? '').trim() : ''),
-          '',
-        )
-    : (entries[0] ?? '').trim();
+/**
+ * Rebuilds the sentence around the gaps, marking the ones that were missed.
+ * Both the written line and the answer line are built this way, so they line up
+ * word for word and only the drilled part reads differently.
+ */
+const sentenceParts = (
+  question: WriteQuestion,
+  fill: (gap: number) => string,
+  wrong: boolean[],
+): Part[] => {
+  if (!question.template) return [{ text: fill(0), mark: true }];
+  return question.template.split('___').flatMap((chunk, gap) => [
+    ...(chunk ? [{ text: chunk }] : []),
+    ...(gap < question.blanks.length ? [{ text: fill(gap), mark: wrong[gap] }] : []),
+  ]);
+};
 
 /** The run order: the authored items, cycled up to the mission's designed length. */
 const buildQueue = (mission: Mission) =>
   Array.from({ length: mission.questionCount }, (_, i) => i % mission.questions.length);
 
+/** A sentence split so the part being drilled can be picked out of it. */
+type Part = { text: string; mark?: boolean };
+
 type Verdict = {
   correct: boolean;
+  /** Names the right answer outright, e.g. `The answer is 를.` */
+  headline?: string;
+  /** One line, about the axis this mission drills — not the whole sentence. */
   note: string;
-  /** Wrong answers show what was written next to what was expected. */
-  given?: string;
-  expected?: string;
+  /** What the learner produced, with the part they got wrong marked. */
+  given?: { label: string; parts: Part[] };
+  /** The right version, with the corrected part marked. */
+  expected?: { label: string; parts: Part[] };
 };
 
 /**
@@ -149,6 +149,13 @@ export default function MissionRunner() {
       setVerdict({
         correct: question.feedback.correct,
         note: question.feedback.explanation,
+        // Nothing was typed, so the model reading is the answer to show.
+        expected: question.feedback.correct
+          ? undefined
+          : {
+              label: 'Say this',
+              parts: [{ text: joinTokens(question.tokens.map((token) => token.text)) }],
+            },
       });
       if (!question.feedback.correct && !reviewRound) {
         setMissed((current) =>
@@ -161,14 +168,29 @@ export default function MissionRunner() {
 
   const submitWrite = () => {
     if (question.type !== 'write') return;
-    const correct = question.blanks.every((accepted, gap) =>
-      accepted.some((option) => normalize(option) === normalize(entries[gap] ?? '')),
+    const wrong = question.blanks.map(
+      (accepted, gap) =>
+        !accepted.some((option) => normalize(option) === normalize(entries[gap] ?? '')),
     );
+    if (!wrong.some(Boolean)) {
+      judge({ correct: true, note: question.explanation });
+      return;
+    }
+    // The headline and the note follow the first gap that was missed, so the
+    // explanation stays about the one thing this mission is drilling.
+    const missedGap = wrong.indexOf(true);
     judge({
-      correct,
-      note: question.explanation,
-      given: correct ? undefined : writtenLine(question, entries),
-      expected: correct ? undefined : answerLine(question),
+      correct: false,
+      headline: `The answer is ${question.blanks[missedGap][0]}.`,
+      note: question.blankNotes?.[missedGap] ?? question.explanation,
+      given: {
+        label: 'You wrote',
+        parts: sentenceParts(question, (gap) => (entries[gap] ?? '').trim(), wrong),
+      },
+      expected: {
+        label: 'Answer',
+        parts: sentenceParts(question, (gap) => question.blanks[gap][0], wrong),
+      },
     });
   };
 
@@ -179,8 +201,15 @@ export default function MissionRunner() {
     judge({
       correct,
       note: question.explanation,
-      given: correct ? undefined : question.options[optionIndex],
-      expected: correct ? undefined : question.options[question.answerIndex],
+      given: correct
+        ? undefined
+        : { label: 'You picked', parts: [{ text: question.options[optionIndex], mark: true }] },
+      expected: correct
+        ? undefined
+        : {
+            label: 'Answer',
+            parts: [{ text: question.options[question.answerIndex], mark: true }],
+          },
     });
   };
 
@@ -206,6 +235,7 @@ export default function MissionRunner() {
   const panel = verdict ? (
     <FeedbackPanel
       correct={verdict.correct}
+      headline={verdict.headline}
       note={verdict.note}
       given={verdict.given}
       expected={verdict.expected}
@@ -274,7 +304,6 @@ export default function MissionRunner() {
               question={question}
               entries={entries}
               judged={verdict !== null}
-              correct={verdict?.correct ?? false}
               onChange={(gap, value) =>
                 setEntries((current) => {
                   const draft = [...current];
@@ -356,6 +385,7 @@ export default function MissionRunner() {
  */
 function FeedbackPanel({
   correct,
+  headline,
   note,
   given,
   expected,
@@ -363,9 +393,10 @@ function FeedbackPanel({
   onNext,
 }: {
   correct: boolean;
+  headline?: string;
   note: string;
-  given?: string;
-  expected?: string;
+  given?: { label: string; parts: Part[] };
+  expected?: { label: string; parts: Part[] };
   nextLabel: string;
   onNext: () => void;
 }) {
@@ -385,20 +416,17 @@ function FeedbackPanel({
     >
       <Text style={[styles.panelTitle, { color: tone }]}>{correct ? 'Nice!' : 'Not quite'}</Text>
 
-      {expected ? (
-        <View style={styles.panelFacts}>
-          <View style={styles.panelFact}>
-            <Text style={styles.panelFactLabel}>You wrote</Text>
-            <Text style={styles.panelFactGiven}>{given}</Text>
-          </View>
-          <View style={styles.panelFact}>
-            <Text style={styles.panelFactLabel}>Answer</Text>
-            <Text style={styles.panelFactExpected}>{expected}</Text>
-          </View>
+      {headline ? <Text style={styles.panelHeadline}>{headline}</Text> : null}
+      <Text style={styles.panelNote}>{note}</Text>
+
+      {given || expected ? (
+        <View style={styles.compare}>
+          {given ? <CompareLine label={given.label} parts={given.parts} tone="given" /> : null}
+          {expected ? (
+            <CompareLine label={expected.label} parts={expected.parts} tone="expected" />
+          ) : null}
         </View>
       ) : null}
-
-      <Text style={styles.panelNote}>{note}</Text>
 
       <Button
         label={nextLabel}
@@ -407,6 +435,39 @@ function FeedbackPanel({
         onPress={onNext}
       />
     </Animated.View>
+  );
+}
+
+/**
+ * One side of the miss: the sentence with only the drilled part picked out —
+ * struck through in red on what was produced, bold green on what it should be.
+ */
+function CompareLine({
+  label,
+  parts,
+  tone,
+}: {
+  label: string;
+  parts: Part[];
+  tone: 'given' | 'expected';
+}) {
+  const given = tone === 'given';
+  return (
+    <View style={styles.compareRow}>
+      <Text style={styles.compareLabel}>{label}</Text>
+      <Text style={given ? styles.compareGiven : styles.compareExpected}>
+        {parts.map((part, index) => (
+          <Text
+            key={index}
+            style={
+              part.mark ? (given ? styles.compareMarkGiven : styles.compareMarkExpected) : null
+            }
+          >
+            {part.text}
+          </Text>
+        ))}
+      </Text>
+    </View>
   );
 }
 
@@ -470,16 +531,19 @@ function WriteCard({
   question,
   entries,
   judged,
-  correct,
   onChange,
 }: {
   question: WriteQuestion;
   entries: string[];
   judged: boolean;
-  correct: boolean;
   onChange: (gap: number, value: string) => void;
 }) {
   const segments = question.template ? question.template.split('___') : null;
+
+  // Each gap is marked on its own: getting the particle wrong should not paint
+  // the one the learner got right.
+  const gapOk = (gap: number) =>
+    question.blanks[gap].some((option) => normalize(option) === normalize(entries[gap] ?? ''));
 
   // A fixed gap clips a 4-syllable ending, so each one takes its answer's width.
   const gapWidth = (gap: number) =>
@@ -496,7 +560,7 @@ function WriteCard({
       accessibilityLabel={question.template ? `Blank ${gap + 1}` : 'Your sentence'}
       style={[
         inline ? [styles.gapField, { width: gapWidth(gap) }] : styles.writeField,
-        judged ? (correct ? styles.fieldRight : styles.fieldWrong) : null,
+        judged ? (gapOk(gap) ? styles.fieldRight : styles.fieldWrong) : null,
       ]}
     />
   );
@@ -839,31 +903,37 @@ const styles = StyleSheet.create({
     ...shadows.dock,
   },
   panelTitle: text(18, 26, '700', colors.success),
-  panelFacts: {
-    gap: 4,
+  panelHeadline: text(16, 24, '600', colors.inkAlt),
+  panelNote: text(14, 21, '500', colors.textSecondary),
+  compare: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.input,
+    padding: 12,
+    gap: 6,
+    marginBottom: 2,
   },
-  panelFact: {
+  compareRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: 8,
   },
-  panelFactLabel: {
-    ...text(12, 18, '600', colors.textSecondary),
-    width: 66,
+  compareLabel: {
+    ...text(12, 22, '600', colors.textTertiary),
+    width: 74,
   },
-  panelFactGiven: {
-    ...text(15, 22, '500', colors.danger),
+  compareGiven: {
+    ...text(15, 24, '500', colors.textSecondary),
+    flex: 1,
+  },
+  compareMarkGiven: {
+    ...text(15, 24, '600', colors.danger),
     textDecorationLine: 'line-through',
+  },
+  compareExpected: {
+    ...text(15, 24, '500', colors.inkAlt),
     flex: 1,
   },
-  panelFactExpected: {
-    ...text(15, 22, '600', colors.inkAlt),
-    flex: 1,
-  },
-  panelNote: {
-    ...text(14, 21, '500', colors.inkAlt),
-    paddingBottom: 6,
-  },
+  compareMarkExpected: text(15, 24, '700', colors.success),
   completeContent: {
     flex: 1,
     justifyContent: 'center',

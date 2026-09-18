@@ -99,6 +99,10 @@ export const missions: Mission[] = [
         prompt: 'I met a friend at school.',
         template: '학교___ 친구___ 만났어요.',
         blanks: [['에서'], ['를']],
+        blankNotes: [
+          '학교 is where the meeting happens, so it takes 에서, not 에.',
+          '친구 has no final consonant, so it takes 를, not 을.',
+        ],
         explanation: '에서 marks where the action happens, 를 marks what it happens to',
       },
       {
@@ -108,6 +112,10 @@ export const missions: Mission[] = [
         prompt: 'On weekends I go to a café.',
         template: '주말___ 카페___ 가요.',
         blanks: [['에는', '에'], ['에']],
+        blankNotes: [
+          '주말 is when it happens, so it takes 에 — 에는 adds "as for weekends".',
+          '카페 is where you are heading, so it takes 에, not 에서.',
+        ],
         explanation: '에 marks the destination — 에서 would mean you act there, not go there',
       },
     ],

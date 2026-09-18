@@ -162,6 +162,11 @@ export type WriteQuestion = {
   template?: string;
   /** Accepted answers per gap, in order; the first is the one shown on a miss. */
   blanks: string[][];
+  /**
+   * One line per gap about the axis being drilled, used when that gap is the
+   * one the learner missed. Falls back to `explanation`.
+   */
+  blankNotes?: string[];
   /** Why, in terms of the axis being drilled rather than the whole sentence. */
   explanation: string;
 };
