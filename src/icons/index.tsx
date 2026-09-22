@@ -262,6 +262,24 @@ export function ListChevronIcon({ color = colors.textTertiary }: { color?: Color
   );
 }
 
+/**
+ * MY-2's period stepper. The comp draws it at 6×11 on a 7×12 grid with a 1.8
+ * stroke, and greys the arrow out rather than hiding it when it can't be used.
+ */
+export function StepChevronIcon({
+  back = false,
+  color = colors.inkAlt,
+}: {
+  back?: boolean;
+  color?: ColorValue;
+}) {
+  return (
+    <Svg width={6} height={11} viewBox="0 0 7 12">
+      <Path d={back ? 'M6 1L1 6L6 11' : 'M1 1L6 6L1 11'} {...strokeProps(color, 1.8)} />
+    </Svg>
+  );
+}
+
 export function DropdownChevronIcon({ color = colors.inkAlt }: { color?: ColorValue }) {
   return (
     <Svg width={10} height={6} viewBox="0 0 10 6">

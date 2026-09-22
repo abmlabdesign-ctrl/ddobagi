@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, Line, Polyline, Text as SvgText } from 'react-native-svg';
 
 import { Button } from '@/components/Button';
@@ -13,6 +13,7 @@ import { missions } from '@/data/missions';
 import { stats } from '@/data/profile';
 import { skillLabels } from '@/data/skills';
 import type { SkillId, StatsPeriod } from '@/data/types';
+import { StepChevronIcon } from '@/icons';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { fontFamily, numeral, text, type } from '@/theme/typography';
 
@@ -28,7 +29,13 @@ const periods = ['Weekly', 'Monthly'] as const;
  */
 export default function Stats() {
   const [period, setPeriod] = useState<(typeof periods)[number]>('Weekly');
+  // How far back the 6-skill card is looking; 0 is the period the header shows.
+  const [back, setBack] = useState(0);
   const data = stats[period.toLowerCase() as StatsPeriod];
+
+  const index = Math.min(Math.max(data.trend.length - 1 - back, 0), data.trend.length - 1);
+  const viewing = data.trend[index];
+  const atLatest = index === data.trend.length - 1;
 
   const practiceMission = missions.find((mission) => mission.kind === data.practiceNext.skill);
 
@@ -37,7 +44,14 @@ export default function Stats() {
       <NavBar title="Stats" />
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>
-        <Segmented options={periods} value={period} onChange={setPeriod} />
+        <Segmented
+          options={periods}
+          value={period}
+          onChange={(next) => {
+            setPeriod(next);
+            setBack(0);
+          }}
+        />
 
         {/* The comp puts the score outside any card, with the range on the right. */}
         <View style={styles.scoreRow}>
@@ -71,15 +85,43 @@ export default function Stats() {
         >
           <View style={styles.blockHead}>
             <Text style={type.label}>6-skill scores</Text>
-            <Text style={styles.blockMeta}>{data.rangeLabel}</Text>
+            {/* `gap:8` between two 24px round hit boxes and a 12/600 label. */}
+            <View style={styles.stepper}>
+              <Pressable
+                onPress={() => setBack((value) => Math.min(value + 1, data.trend.length - 1))}
+                disabled={index === 0}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: index === 0 }}
+                accessibilityLabel={`Previous ${period === 'Weekly' ? 'week' : 'month'}`}
+                style={styles.stepperArrow}
+              >
+                <StepChevronIcon
+                  back
+                  color={index === 0 ? colors.textTertiary : colors.inkAlt}
+                />
+              </Pressable>
+              <Text style={styles.stepperLabel}>{viewing.rangeLabel}</Text>
+              <Pressable
+                onPress={() => setBack((value) => Math.max(value - 1, 0))}
+                disabled={atLatest}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: atLatest }}
+                accessibilityLabel={`Next ${period === 'Weekly' ? 'week' : 'month'}`}
+                style={styles.stepperArrow}
+              >
+                <StepChevronIcon color={atLatest ? colors.textTertiary : colors.inkAlt} />
+              </Pressable>
+            </View>
           </View>
           <View style={styles.skillsList}>
-            {data.skills.map((entry) => (
+            {viewing.skills.map((entry) => (
               <SkillBarCompact
                 key={entry.skill}
                 skill={entry.skill}
                 score={entry.score}
-                highlight={entry.skill === data.biggestGain.skill}
+                // The gain is a fact about the period the header shows, so the
+                // orange row only means something while that period is up.
+                highlight={atLatest && entry.skill === data.biggestGain.skill}
               />
             ))}
           </View>
@@ -235,6 +277,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   blockMeta: text(12, 16, '600', colors.textSecondary),
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  stepperArrow: {
+    width: 24,
+    height: 24,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperLabel: text(12, 16, '600', colors.inkAlt),
   skillsList: {
     gap: 8,
   },

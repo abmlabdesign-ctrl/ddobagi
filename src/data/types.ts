@@ -228,11 +228,19 @@ export type Stats = {
   /** `Last 6 weeks` / `Last 6 months` — what the trend chart covers. */
   trendLabel: string;
   /**
-   * Overall score per period, oldest first. The last entry is the period the
-   * screen is showing, so the line ends on the headline number.
+   * One entry per period, oldest first; the last is the period the header
+   * shows, so the trend line ends on the headline number. The chart reads
+   * `label` and `score`; the 6-skill stepper reads `rangeLabel` and `skills`,
+   * which is how the same six periods serve both jobs.
    */
-  trend: { label: string; score: number }[];
-  skills: { skill: SkillId; score: number }[];
+  trend: {
+    /** Chart tick, e.g. `Aug 4`. */
+    label: string;
+    /** Stepper label, e.g. `Aug, week 4`. */
+    rangeLabel: string;
+    score: number;
+    skills: { skill: SkillId; score: number }[];
+  }[];
   /** The one change number the screen still spells out, in the insight row. */
   biggestGain: { skill: SkillId; delta: number; note: string };
   practiceNext: { skill: SkillId; note: string };
