@@ -12,6 +12,8 @@ export const colors = {
 
   ink: '#191F28',
   inkAlt: '#1A1A1C',
+  /** RV-2f's centred body copy — darker than the usual secondary grey. */
+  textBody: '#5F6773',
   textSecondary: '#95989C',
   textTertiary: '#B0B8C1',
 
@@ -21,6 +23,8 @@ export const colors = {
 
   fill: '#F2F3F5',
   fillAlt: '#F0F2F7',
+  /** The warm-neutral panel behind RV-2f's Time / Politeness pair. */
+  fillSoft: '#F6F6F6',
   border: '#D1D5D9',
   /** Progress/skill track and card-row dividers, straight from the comps. */
   track: '#E6E8EE',
@@ -60,6 +64,8 @@ export const radius = {
   badge: 8,
   /** 12 — selects, inline blocks. */
   input: 12,
+  /** 13 — RV-2f's stat panel. */
+  stat: 13,
   /** 14 — search field, mission options, live-session pills. */
   search: 14,
   /** 16 — prompt cards, option rows, transcript card. */

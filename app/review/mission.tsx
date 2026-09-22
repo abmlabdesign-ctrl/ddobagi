@@ -18,13 +18,13 @@ import { CtaDock } from '@/components/CtaDock';
 import { KoreanText } from '@/components/KoreanText';
 import { MicButton } from '@/components/MicButton';
 import { NavBar } from '@/components/NavBar';
-import { Screen, ScreenShell } from '@/components/Screen';
+import { ScreenShell } from '@/components/Screen';
 import { StepProgress } from '@/components/StepProgress';
 import { missionById, missions } from '@/data/missions';
 import type { ChoiceQuestion, Mission, Token, WriteQuestion } from '@/data/types';
-import { DropdownChevronIcon, SpeakerIcon } from '@/icons';
-import { colors, radius, shadows, spacing } from '@/theme/tokens';
-import { text, type } from '@/theme/typography';
+import { BackChevronIcon, CheckIcon, DropdownChevronIcon, SpeakerIcon } from '@/icons';
+import { colors, layout, radius, shadows, spacing } from '@/theme/tokens';
+import { numeral, text, type } from '@/theme/typography';
 
 /** Every RV-2 prompt card is the same height, whichever way the axis is drilled. */
 const MISSION_CARD_HEIGHT = 300;
@@ -569,7 +569,11 @@ function ChoiceCard({ question, answer }: { question: ChoiceQuestion; answer: nu
   );
 }
 
-/** RV-2f Mission complete */
+/**
+ * RV-2f Mission complete. The comp is a white screen with only a close control
+ * at the top right, the result stack optically centred in what is left, and a
+ * two-button dock at the foot.
+ */
 function MissionComplete({
   title,
   questionCount,
@@ -577,40 +581,60 @@ function MissionComplete({
   title: string;
   questionCount: number;
 }) {
+  const leave = () => router.replace('/(tabs)/review');
+
   return (
-    <ScreenShell background="surface">
-      <Screen contentStyle={styles.completeContent}>
-        <View style={styles.completeText}>
-          <Text style={type.screenTitle}>Mission complete!</Text>
-          <Text style={type.secondary}>
-            You finished all {questionCount} questions of{'\n'}the {title.toLowerCase()} mission.
-          </Text>
+    <ScreenShell background="surface" bottomEdge="dock">
+      <View style={styles.completeBar}>
+        <Pressable
+          onPress={leave}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          style={styles.completeClose}
+        >
+          <BackChevronIcon close color={colors.textTertiary} />
+        </Pressable>
+      </View>
+
+      <View style={styles.completeBody}>
+        <View style={styles.completeHead}>
+          <View style={styles.completeRing}>
+            {/*
+              The comp draws the tick in a 56 viewBox rendered at 98: 42px wide
+              with a 7px stroke. Our 24-unit glyph spans 14 units, so size 72
+              and weight 2.3 land on the same geometry.
+            */}
+            <CheckIcon size={72} weight={2.3} color={colors.primary} />
+          </View>
+
+          <View style={styles.completeText}>
+            <Text style={styles.completeTitle}>Mission complete!</Text>
+            <Text style={styles.completeCaption}>
+              You finished all {questionCount} questions of{'\n'}the {title.toLowerCase()} mission.
+            </Text>
+          </View>
         </View>
 
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryCell}>
-            <Text style={styles.summaryValue}>4:12</Text>
-            <Text style={type.caption}>Time</Text>
+        <View style={styles.statPanel}>
+          <View style={styles.statCell}>
+            <Text style={styles.statValue}>4:12</Text>
+            <Text style={styles.statLabel}>Time</Text>
           </View>
-          <View style={styles.summaryCell}>
-            <Text style={[styles.summaryValue, styles.summaryValueGood]}>↑6</Text>
-            <Text style={type.caption}>Politeness</Text>
+          <View style={styles.statDivider} />
+          <View style={styles.statCell}>
+            <Text style={[styles.statValue, styles.statValueUp]}>↑6</Text>
+            <Text style={styles.statLabel}>Politeness</Text>
           </View>
         </View>
-      </Screen>
+      </View>
 
-      <CtaDock row gap={10}>
-        <Button
-          label="Retry"
-          variant="elevated"
-          style={styles.completeButton}
-          onPress={() => router.replace('/(tabs)/review')}
-        />
-        <Button
-          label="Done"
-          style={styles.completeButton}
-          onPress={() => router.replace('/(tabs)/review')}
-        />
+      {/* The comp's dock carries no top shadow — the screen is white throughout. */}
+      <CtaDock paddingTop={12} gap={10} style={styles.completeDock}>
+        <Button label="Done" onPress={leave} />
+        <Pressable onPress={leave} accessibilityRole="button" style={styles.retry}>
+          <Text style={styles.retryLabel}>Retry</Text>
+        </Pressable>
       </CtaDock>
     </ScreenShell>
   );
@@ -828,30 +852,90 @@ const styles = StyleSheet.create({
     ...text(14, 21, '500', colors.textSecondary),
     paddingBottom: 4,
   },
-  completeContent: {
-    flex: 1,
+  /** `height:52; padding:0 20; justify-content:flex-end` — close control only. */
+  completeBar: {
+    height: layout.navBarHeight,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  completeClose: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.huge,
+  },
+  /** `flex:1; padding:0 34; gap:28; centred` — the comp's optical centre. */
+  completeBody: {
+    flex: 1,
+    paddingHorizontal: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xxl,
+  },
+  completeHead: {
+    alignItems: 'center',
+    gap: spacing.xl,
+  },
+  completeRing: {
+    width: 90,
+    height: 90,
+    borderRadius: radius.pill,
+    borderWidth: 5,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   completeText: {
-    gap: spacing.md,
+    alignItems: 'center',
+    gap: spacing.sm,
   },
-  summaryRow: {
+  completeTitle: {
+    ...text(28, 38, '700', colors.primary),
+    textAlign: 'center',
+  },
+  completeCaption: {
+    ...text(15, 23, '400', colors.textBody),
+    textAlign: 'center',
+  },
+  /** `width:232; radius:13; padding:18 20` on `#F6F6F6`, two cells either side of a rule. */
+  statPanel: {
+    width: 232,
+    borderRadius: radius.stat,
+    paddingVertical: 18,
+    paddingHorizontal: spacing.xl,
+    backgroundColor: colors.fillSoft,
     flexDirection: 'row',
-    gap: spacing.huge,
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  summaryCell: {
+  statCell: {
+    flex: 1,
+    alignItems: 'center',
     gap: spacing.xs,
   },
-  summaryValue: {
-    ...type.timer,
-    fontSize: 28,
-    lineHeight: 36,
+  statValue: numeral(20, 28, '700', colors.inkAlt),
+  statValueUp: {
+    color: colors.primary,
   },
-  summaryValueGood: {
-    color: colors.success,
+  statLabel: text(12, 16, '500', colors.textSecondary),
+  statDivider: {
+    width: 1,
+    height: 34,
+    backgroundColor: colors.divider,
   },
-  completeButton: {
-    flex: 1,
+  completeDock: {
+    shadowOpacity: 0,
+    elevation: 0,
   },
+  /** `height:44; radius:16` on `#F2F3F5` with a 14/600 label. */
+  retry: {
+    height: 44,
+    borderRadius: radius.card,
+    backgroundColor: colors.fill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retryLabel: text(14, 20, '600', colors.inkAlt),
 });
