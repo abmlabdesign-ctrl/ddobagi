@@ -1,23 +1,34 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '@/components/Card';
-import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { conversationBySituation, fallbackSituationId } from '@/data/conversations';
 import { situationById } from '@/data/situations';
-import { SpeakerIcon } from '@/icons';
-import { colors, radius, shadows, spacing } from '@/theme/tokens';
-import { gloss, text, type } from '@/theme/typography';
+import {
+  BackChevronIcon,
+  BookmarkIcon,
+  PlayIcon,
+  SkipBackIcon,
+  SkipForwardIcon,
+  SpeakerIcon,
+} from '@/icons';
+import { colors, layout, radius, shadows, spacing } from '@/theme/tokens';
+import { gloss, numeral, text, type } from '@/theme/typography';
 
 /**
  * RV-6 Mistake script + RV-7 inline detail.
- * Flagged learner lines carry a red marker; tapping one expands the correction
- * in place rather than pushing a new screen.
+ *
+ * The comp gives both states the same shell: a left-aligned title beside the
+ * back chevron, the script scrolling under it, and a playback bar pinned to the
+ * foot. A flagged learner line carries a red `!`; tapping it turns the bubble
+ * orange and opens the correction in place rather than pushing a new screen.
  */
 export default function MistakeScript() {
   const { situationId } = useLocalSearchParams<{ situationId: string }>();
+  const insets = useSafeAreaInsets();
   const id = conversationBySituation[situationId] ? situationId : fallbackSituationId;
   const script = conversationBySituation[id];
   const situation = situationById[id];
@@ -25,8 +36,22 @@ export default function MistakeScript() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
-    <ScreenShell bottomEdge="content">
-      <NavBar title={situation?.title ?? 'Script'} />
+    <ScreenShell>
+      {/* `height:52; padding:0 20; gap:4` — the title sits next to the chevron,
+          not centred the way the other screens set it. */}
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/review'))}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          style={styles.headerBack}
+        >
+          <BackChevronIcon />
+        </Pressable>
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {situation?.title ?? 'Script'}
+        </Text>
+      </View>
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>
         {script.turns.map((turn) => {
@@ -35,14 +60,20 @@ export default function MistakeScript() {
           const isUser = turn.speaker === 'user';
 
           const bubble = (
-            <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAi]}>
-              {flagged ? (
+            <View
+              style={[
+                styles.bubble,
+                isUser ? styles.bubbleUser : styles.bubbleAi,
+                expanded ? styles.bubbleExpanded : null,
+              ]}
+            >
+              {flagged && !expanded ? (
                 <View style={styles.flag}>
                   <Text style={styles.flagLabel}>!</Text>
                 </View>
               ) : null}
-              <View style={styles.bubbleText}>
-                <Text style={flagged ? styles.koreanFlagged : styles.korean}>{turn.korean}</Text>
+              <View style={[styles.bubbleText, expanded ? styles.bubbleTextExpanded : null]}>
+                <Text style={expanded ? styles.koreanFlagged : styles.korean}>{turn.korean}</Text>
                 <Text style={styles.gloss}>{turn.english}</Text>
               </View>
             </View>
@@ -67,7 +98,12 @@ export default function MistakeScript() {
               {expanded && turn.mistake ? (
                 <View style={styles.detailBlock}>
                   <Text style={styles.detailLabel}>Mistake detail</Text>
-                  <Card elevation="card" paddingHorizontal={18} paddingVertical={16} style={styles.detail}>
+                  <Card
+                    elevation="card"
+                    paddingHorizontal={18}
+                    paddingVertical={16}
+                    style={styles.detail}
+                  >
                     <View style={styles.detailSection}>
                       <Text style={styles.suggestedLabel}>Suggested sentence</Text>
                       <View style={styles.suggestedRow}>
@@ -87,10 +123,10 @@ export default function MistakeScript() {
                     <View style={styles.detailActions}>
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Say it again"
+                        accessibilityLabel="Save this phrase"
                         style={styles.detailSecondary}
                       >
-                        <SpeakerIcon size={16} color={colors.inkAlt} />
+                        <BookmarkIcon size={24} color={colors.ink} />
                       </Pressable>
                       <Pressable
                         onPress={() => setExpandedId(null)}
@@ -107,18 +143,64 @@ export default function MistakeScript() {
           );
         })}
       </Screen>
+
+      {/* `padding:20px 24px 16px; gap:44` over the home indicator. */}
+      <View style={[styles.controls, { paddingBottom: 16 + insets.bottom }]}>
+        <Pressable
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Back 10 seconds"
+          style={styles.skip}
+        >
+          <SkipBackIcon />
+          <Text style={styles.skipLabel}>10</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Play" style={styles.play}>
+          <PlayIcon size={18} />
+        </Pressable>
+        <Pressable
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Forward 10 seconds"
+          style={styles.skip}
+        >
+          <SkipForwardIcon />
+          <Text style={styles.skipLabel}>10</Text>
+        </Pressable>
+      </View>
     </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
+  header: {
+    height: layout.navBarHeight,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  headerBack: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    ...text(16, 22, '600', colors.ink),
+    flex: 1,
+  },
+  /**
+   * `padding:12px 24px 0; gap:14`. The comp stops at 0, but a real scroller
+   * needs the last bubble to clear the playback bar's shadow.
+   */
   content: {
-    gap: 16,
+    gap: 14,
     paddingTop: 12,
-    paddingBottom: spacing.huge,
+    paddingBottom: spacing.lg,
   },
   turn: {
-    gap: 12,
+    gap: 14,
   },
   alignStart: {
     alignSelf: 'flex-start',
@@ -149,15 +231,24 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: radius.card,
     borderBottomRightRadius: 4,
   },
+  /** Open, the bubble itself carries the flag: tinted fill, orange rule, orange text. */
+  bubbleExpanded: {
+    backgroundColor: colors.primary100,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
   bubbleText: {
     flexShrink: 1,
     gap: 2,
+  },
+  bubbleTextExpanded: {
+    gap: 4,
   },
   flag: {
     width: 20,
     height: 20,
     borderRadius: radius.pill,
-    backgroundColor: '#F04452',
+    backgroundColor: colors.danger,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -218,4 +309,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   detailPrimaryLabel: text(15, 22, '600', colors.surface),
+  controls: {
+    backgroundColor: colors.surface,
+    paddingTop: spacing.xl,
+    paddingHorizontal: spacing.gutter,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 44,
+    ...shadows.bottomNav,
+  },
+  skip: {
+    alignItems: 'center',
+    gap: 1,
+  },
+  skipLabel: numeral(11, 14, '700', colors.ink),
+  play: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.primaryGlow,
+  },
 });

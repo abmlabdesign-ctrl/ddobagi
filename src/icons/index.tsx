@@ -346,6 +346,28 @@ export function ProfileTabIcon({ color }: { color: ColorValue }) {
 }
 
 /** Solid play triangle used on the home resume card. */
+/**
+ * RV-6/RV-7 playback: an arrow curling back into the timeline. The comp draws
+ * it on its own 20×14 grid, not the 24 one, so it keeps its own viewBox.
+ */
+export function SkipBackIcon({ color = colors.ink }: { color?: ColorValue }) {
+  return (
+    <Svg width={20} height={14} viewBox="0 0 20 14">
+      <Path d="M5 1L1 5L5 9" {...strokeProps(color, 1.8)} />
+      <Path d="M1 5H12C15.866 5 19 8.134 19 12" {...strokeProps(color, 1.8)} />
+    </Svg>
+  );
+}
+
+export function SkipForwardIcon({ color = colors.ink }: { color?: ColorValue }) {
+  return (
+    <Svg width={20} height={14} viewBox="0 0 20 14">
+      <Path d="M15 1L19 5L15 9" {...strokeProps(color, 1.8)} />
+      <Path d="M19 5H8C4.134 5 1 8.134 1 12" {...strokeProps(color, 1.8)} />
+    </Svg>
+  );
+}
+
 export function PlayIcon({ size = 8, color = colors.surface }: IconProps) {
   return (
     <Svg width={size * 0.875} height={size} viewBox="0 0 7 8">
