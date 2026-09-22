@@ -49,14 +49,18 @@ type Verdict = {
  * writing missions grade what the learner typed into the gaps, choice missions
  * grade on tap. The header, the progress bar, the 300px prompt card and the
  * feedback panel are the same in all three, and `Next` lives only inside that
- * panel. A miss is shown the answer and the run moves on.
+ * panel. A miss is shown the answer and then comes back at the end of the run,
+ * inside the same flow — the learner never crosses into a separate round.
  */
 export default function MissionRunner() {
   const { missionId } = useLocalSearchParams<{ missionId: string }>();
   const mission = missionById[missionId] ?? missions[0];
   const insets = useSafeAreaInsets();
 
-  const queue = useMemo(() => buildQueue(mission), [mission]);
+  // The run is one queue. A miss is appended to its tail, so the questions the
+  // learner got wrong simply keep coming until the queue is through — there is
+  // no second round to announce, just a longer run.
+  const [queue, setQueue] = useState<number[]>(() => buildQueue(mission));
   const [step, setStep] = useState(0);
 
   const [answer, setAnswer] = useState<number | null>(null);
@@ -74,6 +78,19 @@ export default function MissionRunner() {
     setRecording(false);
     setSpokenCount(0);
     setVerdict(null);
+  };
+
+  /**
+   * A missed question goes to the back of the queue, once. A retry that misses
+   * again is not re-appended: with the scoring still mocked, a question that
+   * always grades wrong would never let the run end.
+   */
+  const judge = (result: Verdict) => {
+    setVerdict(result);
+    if (result.correct || step >= mission.questionCount) return;
+    setQueue((current) =>
+      current.includes(current[step], mission.questionCount) ? current : [...current, current[step]],
+    );
   };
 
   const next = () => {
@@ -103,9 +120,15 @@ export default function MissionRunner() {
         correct: question.feedback.correct,
         note: question.feedback.explanation,
       });
+      if (question.feedback.correct || step >= mission.questionCount) return;
+      setQueue((current) =>
+        current.includes(current[step], mission.questionCount)
+          ? current
+          : [...current, current[step]],
+      );
     }, 420);
     return () => clearInterval(id);
-  }, [recording, question]);
+  }, [recording, question, step, mission.questionCount]);
 
   const submitWrite = () => {
     if (question.type !== 'write') return;
@@ -114,13 +137,13 @@ export default function MissionRunner() {
         !accepted.some((option) => normalize(option) === normalize(entries[gap] ?? '')),
     );
     if (!wrong.some(Boolean)) {
-      setVerdict({ correct: true, note: question.explanation });
+      judge({ correct: true, note: question.explanation });
       return;
     }
     // The headline and the note follow the first gap that was missed, so the
     // explanation stays about the one thing this mission is drilling.
     const missedGap = wrong.indexOf(true);
-    setVerdict({
+    judge({
       correct: false,
       headline: `The answer is ${question.blanks[missedGap][0]}.`,
       note: question.blankNotes?.[missedGap] ?? question.explanation,
@@ -131,7 +154,7 @@ export default function MissionRunner() {
     if (question.type !== 'choice' || verdict) return;
     const correct = optionIndex === question.answerIndex;
     setAnswer(optionIndex);
-    setVerdict({
+    judge({
       correct,
       note: question.explanation,
       headline: correct ? undefined : `The answer is ${question.options[question.answerIndex]}`,
