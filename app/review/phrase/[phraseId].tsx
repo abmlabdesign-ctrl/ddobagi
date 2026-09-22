@@ -6,20 +6,17 @@ import { Card } from '@/components/Card';
 import { CtaDock } from '@/components/CtaDock';
 import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
-import { conversationBySituation } from '@/data/conversations';
 import { situationById } from '@/data/situations';
 import { EditIcon, SpeakerIcon } from '@/icons';
 import { useApp } from '@/store/AppStore';
-import { colors, radius, selectedOutline, shadows, spacing } from '@/theme/tokens';
+import { colors, spacing } from '@/theme/tokens';
 import { text, type } from '@/theme/typography';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-/** Quotes differ between the report's fixes and the script's own lines. */
-const bare = (value: string) => value.replace(/["“”]/g, '').trim();
-
 /**
- * RV-5b Saved phrase. What was saved, what it means, and the exchange it came
- * out of — with a way through to the whole transcript.
+ * RV-5b Saved phrase. What was saved, what it means, where it came from and
+ * what the learner wants to remember about it. The exchange itself is one tap
+ * away behind `View transcript` rather than previewed here.
  */
 export default function SavedPhraseDetail() {
   const { phraseId } = useLocalSearchParams<{ phraseId: string }>();
@@ -44,16 +41,6 @@ export default function SavedPhraseDetail() {
   }
 
   const situation = situationById[phrase.situationId];
-  const turns = conversationBySituation[phrase.situationId]?.turns ?? [];
-
-  // A saved phrase is either a line as spoken or the correction suggested for
-  // one, so the exchange it belongs to can be found under either.
-  const at = turns.findIndex(
-    (turn) =>
-      bare(turn.korean) === bare(phrase.korean) ||
-      (turn.mistake ? bare(turn.mistake.suggested.korean) === bare(phrase.korean) : false),
-  );
-  const context = at >= 0 ? turns.slice(Math.max(0, at - 1), at + 2) : turns.slice(0, 3);
 
   return (
     <ScreenShell>
@@ -135,29 +122,6 @@ export default function SavedPhraseDetail() {
             </Card>
           )}
         </View>
-
-        <View style={styles.block}>
-          <Text style={type.label}>From this conversation</Text>
-          <View style={styles.bubbles}>
-            {context.map((turn) => {
-              const isUser = turn.speaker === 'user';
-              const isSource = at >= 0 && turn === turns[at];
-              return (
-                <View
-                  key={turn.id}
-                  style={[
-                    styles.bubble,
-                    isUser ? styles.bubbleUser : styles.bubbleAi,
-                    isSource ? selectedOutline : null,
-                  ]}
-                >
-                  <Text style={styles.bubbleKorean}>{turn.korean}</Text>
-                  <Text style={styles.bubbleGloss}>{turn.english}</Text>
-                </View>
-              );
-            })}
-          </View>
-        </View>
       </Screen>
 
       <CtaDock paddingTop={12}>
@@ -172,9 +136,9 @@ export default function SavedPhraseDetail() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: 20,
-    paddingTop: 8,
-    paddingBottom: spacing.huge,
+    gap: spacing.gutter,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.gutter,
   },
   phrase: {
     gap: 6,
@@ -230,32 +194,4 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   noteText: text(14, 21, '400', colors.inkAlt),
-  bubbles: {
-    gap: 12,
-  },
-  bubble: {
-    maxWidth: 290,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    gap: 2,
-    ...shadows.card,
-  },
-  bubbleAi: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: radius.card,
-    borderBottomLeftRadius: radius.card,
-    borderBottomRightRadius: radius.card,
-  },
-  bubbleUser: {
-    alignSelf: 'flex-end',
-    backgroundColor: colors.bubbleUserStrong,
-    borderTopLeftRadius: radius.card,
-    borderTopRightRadius: radius.card,
-    borderBottomLeftRadius: radius.card,
-    borderBottomRightRadius: 4,
-  },
-  bubbleKorean: text(15, 23, '500', colors.inkAlt),
-  bubbleGloss: text(12, 18, '400', colors.textSecondary),
 });
