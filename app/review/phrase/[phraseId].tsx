@@ -8,7 +8,7 @@ import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { conversationBySituation } from '@/data/conversations';
 import { situationById } from '@/data/situations';
-import { SpeakerIcon } from '@/icons';
+import { EditIcon, SpeakerIcon } from '@/icons';
 import { useApp } from '@/store/AppStore';
 import { colors, radius, selectedOutline, shadows, spacing } from '@/theme/tokens';
 import { text, type } from '@/theme/typography';
@@ -22,16 +22,14 @@ const bare = (value: string) => value.replace(/["“”]/g, '').trim();
  * out of — with a way through to the whole transcript.
  */
 export default function SavedPhraseDetail() {
-  const { phraseId, note: noteParam } = useLocalSearchParams<{
-    phraseId: string;
-    note?: string;
-  }>();
+  const { phraseId } = useLocalSearchParams<{ phraseId: string }>();
   const { savedPhrases, setPhraseNote } = useApp();
 
   const phrase = savedPhrases.find((entry) => entry.id === phraseId);
 
-  // `?note=1` comes from the card's More menu, which opens straight into editing.
-  const [editing, setEditing] = useState(noteParam === '1');
+  // Editing starts from the pencil next to the section header; there is no
+  // other way in, so the note reads as a note until it is asked to be a field.
+  const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(phrase?.note ?? '');
 
   if (!phrase) {
@@ -80,7 +78,22 @@ export default function SavedPhraseDetail() {
         </Card>
 
         <View style={styles.block}>
-          <Text style={type.label}>Note</Text>
+          <View style={styles.blockHead}>
+            <Text style={type.label}>Note</Text>
+            {editing ? null : (
+              <Pressable
+                onPress={() => {
+                  setDraft(phrase.note ?? '');
+                  setEditing(true);
+                }}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={phrase.note ? 'Edit the note' : 'Write a note'}
+              >
+                <EditIcon size={18} />
+              </Pressable>
+            )}
+          </View>
           {editing ? (
             <Card radiusToken="group" padding={16} style={styles.note}>
               <TextInput
@@ -116,20 +129,10 @@ export default function SavedPhraseDetail() {
               </View>
             </Card>
           ) : (
-            <Pressable
-              onPress={() => {
-                setDraft(phrase.note ?? '');
-                setEditing(true);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={phrase.note ? 'Edit the note' : 'Add a note'}
-            >
-              <Card radiusToken="group" padding={16}>
-                <Text style={phrase.note ? styles.noteText : styles.notePlaceholder}>
-                  {phrase.note ?? 'Add a note'}
-                </Text>
-              </Card>
-            </Pressable>
+            // Nothing written yet reads as blank space, not as a prompt.
+            <Card radiusToken="group" padding={16} style={styles.noteBox}>
+              {phrase.note ? <Text style={styles.noteText}>{phrase.note}</Text> : null}
+            </Card>
           )}
         </View>
 
@@ -201,6 +204,15 @@ const styles = StyleSheet.create({
   block: {
     gap: 12,
   },
+  blockHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  /** An empty note keeps the same footprint it will have once it is written. */
+  noteBox: {
+    minHeight: 58,
+  },
   note: {
     gap: 12,
   },
@@ -218,7 +230,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   noteText: text(14, 21, '400', colors.inkAlt),
-  notePlaceholder: text(14, 21, '400', colors.textTertiary),
   bubbles: {
     gap: 12,
   },

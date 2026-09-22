@@ -369,6 +369,20 @@ export function TrophyIcon({ size = 24, color = colors.primary }: IconProps) {
 }
 
 /** The overflow menu's three dots. */
+/** Pencil — opens an existing field for editing (RV-5b's note). */
+export function EditIcon(props: IconProps) {
+  const { size, color, weight } = base({ color: colors.textSecondary, ...props });
+  return (
+    <Icon size={size}>
+      <Path
+        d="M4.5 19.5l3.4-.9L19 7.5a1.9 1.9 0 0 0-2.7-2.7L5.4 16.1l-.9 3.4z"
+        {...strokeProps(color, weight)}
+      />
+      <Path d="M14.6 6.6l2.8 2.8" {...strokeProps(color, weight)} />
+    </Icon>
+  );
+}
+
 export function MoreIcon({ size = 18, color = colors.textSecondary }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 18 18">

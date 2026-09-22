@@ -219,10 +219,6 @@ function ScrapbookTab() {
         <PhraseMenu
           phrase={menuPhrase}
           onClose={() => setMenuId(null)}
-          onNote={() => {
-            setMenuId(null);
-            router.push(`/review/phrase/${menuPhrase.id}?note=1`);
-          }}
           onDelete={() => {
             setMenuId(null);
             removePhrase(menuPhrase.id);
@@ -277,16 +273,17 @@ function PhraseCard({ phrase, onMore }: { phrase: SavedPhrase; onMore: () => voi
   );
 }
 
-/** The card's `···` sheet. Two actions, so it stays a list rather than a menu. */
+/**
+ * The card's `···` sheet. Deleting is the only thing it does — the note lives
+ * on the phrase's own screen, where there is room to read it while writing.
+ */
 function PhraseMenu({
   phrase,
   onClose,
-  onNote,
   onDelete,
 }: {
   phrase: SavedPhrase;
   onClose: () => void;
-  onNote: () => void;
   onDelete: () => void;
 }) {
   const insets = useSafeAreaInsets();
@@ -303,10 +300,6 @@ function PhraseMenu({
         <Text style={styles.menuTitle} numberOfLines={1}>
           {phrase.korean}
         </Text>
-        <Pressable onPress={onNote} accessibilityRole="button" style={styles.menuRow}>
-          <Text style={styles.menuLabel}>{phrase.note ? 'Edit note' : 'Add note'}</Text>
-        </Pressable>
-        <RowDivider />
         <Pressable onPress={onDelete} accessibilityRole="button" style={styles.menuRow}>
           <Text style={styles.menuDelete}>Delete</Text>
         </Pressable>
@@ -468,7 +461,6 @@ const styles = StyleSheet.create({
     height: 52,
     justifyContent: 'center',
   },
-  menuLabel: type.row,
   menuDelete: {
     ...type.row,
     color: colors.danger,
