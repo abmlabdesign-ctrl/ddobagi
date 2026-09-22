@@ -49,7 +49,9 @@ npm run export:web # 웹 번들 — 모든 라우트가 컴파일되는지 확�
 | Scenario detail | RP-2 | `app/roleplay/[situationId].tsx` |
 | Live AI conversation + Live script | RP-3 / RP-3b | `app/roleplay/session.tsx` |
 | Report | RP-4 | `app/roleplay/report.tsx` |
-| Mistake log · Scrapbook | RV-3a / RV-5 | `app/(tabs)/review.tsx` |
+| Micro missions · Mistake log · Scrapbook | RV-1 / RV-3a / RV-5 | `app/(tabs)/review.tsx` |
+| 미션 유형 6종 + 완료 | RV-2 ~ RV-2f | `app/review/mission.tsx` |
+| Mistakes by situation | RV-3 | `app/review/mistakes/[situationId].tsx` |
 | Saved phrase 상세 | RV-5b | `app/review/phrase/[phraseId].tsx` |
 | Mistake script + 인라인 상세 | RV-6 / RV-7 | `app/review/script/[situationId].tsx` |
 | My Page | MY-1 | `app/(tabs)/my.tsx` |
@@ -61,15 +63,15 @@ npm run export:web # 웹 번들 — 모든 라우트가 컴파일되는지 확�
 
 ## 정보 노출 원칙 (핸드오프 §6)
 
-이 규칙을 전담하던 `KoreanText`는 미션 러너(RV-2)와 함께 삭제됐습니다. 남은 화면은 각자 아래를 지킵니다.
+`src/components/KoreanText.tsx`가 이 규칙을 담당합니다. 학습 콘텐츠를 쓰는 화면은 이 컴포넌트를 거칩니다.
 
 1. **한국어를 항상 먼저 읽게 한다.** 1차 텍스트는 한국어이고 가장 큰 타이포(18~22/600)를 씁니다.
-2. **영어는 캡션이다.** 화면마다 노출 정책이 다릅니다.
-   - 항상 — ON-3 레벨 체크 (질문을 못 알아들으면 진단이 불가)
-   - 토글 — RP-3 실전 대화 (`Show meaning` / `Hide meaning`)
-   - 숨김 — 발화가 목적인 구간
-3. **로마자는 기본 노출하지 않는다.**
-4. **Replay는 모든 한국어 발화에 제공한다.**
+2. **영어는 캡션이다.** `meaning` prop으로 노출 정책을 정합니다.
+   - `always` — ON-3 레벨 체크 (질문을 못 알아들으면 진단이 불가)
+   - `toggle` — RP-3 실전 대화, RV-2c/2e 선택형 미션 (`Show meaning` / `Hide meaning`)
+   - `none` — RV-2a/2b 발화형 미션
+3. **로마자는 기본 노출하지 않는다.** `romanization`이 있는 토큰만 점선 밑줄이 붙고, 탭하면 툴팁으로 보여줍니다.
+4. **Replay는 모든 한국어 발화에 제공한다.** `onReplay`를 넘기면 스피커 버튼이 붙습니다.
 
 ## 디렉터리
 
@@ -78,10 +80,10 @@ app/                     expo-router 라우트 = 화면
 src/
   theme/tokens.ts        색상·간격·라운드·섀도우 토큰
   theme/typography.ts    타입 스케일
-  components/            Button, Chip, Card, Badge, SkillBar, MicButton …
+  components/            Button, Chip, Card, Badge, SkillBar, KoreanText, MicButton …
   components/art/        핸드오프 SVG를 react-native-svg 컴포넌트로 변환한 것
   icons/                 stroke 1.8 / round cap 아이콘 세트
-  data/                  카탈로그·대화·오답·통계 목 데이터 + 타입
+  data/                  카탈로그·대화·미션·오답·통계 목 데이터 + 타입
   store/AppStore.tsx     앱 상태 (프로필, 설정, 오답, 저장한 표현)
 assets/                  일러스트·아바타·로고·음성 파형
 docs/design-handoff.md   원본 디자인 핸드오프 문서
@@ -107,6 +109,7 @@ docs/design-handoff.md   원본 디자인 핸드오프 문서
 - **TTS** — `Replay` / `Listen again` / 스피커 버튼은 핸들러가 비어 있습니다.
 - **AI 대화 생성** — `src/data/conversations.ts`의 스크립트를 재생합니다.
 - **발화 채점** — 6개 스킬 점수와 문장 교정은 `src/data/conversations.ts`의 고정 리포트입니다.
+- **로마자 변환** — `src/data/missions.ts`에 토큰별로 하드코딩되어 있습니다.
 
 상황 카탈로그는 11개 카테고리 × 6개 = 66개 + 대표 상황 2개로, 제목·난이도·소요시간은 핸드오프 값 그대로입니다.
 카테고리별로 핸드오프에 상세 화면이 명시된 상황은 문구를 그대로 옮겼고, 나머지 상세 문구는 같은 카피 규칙

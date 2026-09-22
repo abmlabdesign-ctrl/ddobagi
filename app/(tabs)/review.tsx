@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -10,6 +11,7 @@ import { ScreenTitleBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { categoryById } from '@/data/categories';
+import { missions, todayFocus } from '@/data/missions';
 import { mistakeGroups, mistakesSummary } from '@/data/review';
 import { situationById } from '@/data/situations';
 import type { SavedPhrase } from '@/data/types';
@@ -18,18 +20,19 @@ import { useApp } from '@/store/AppStore';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
 
-const tabs = ['Mistake log', 'Scrapbook'] as const;
+const tabs = ['Micro missions', 'Mistake log', 'Scrapbook'] as const;
 type Tab = (typeof tabs)[number];
 
 const tabByParam: Record<string, Tab> = {
+  missions: 'Micro missions',
   mistakes: 'Mistake log',
   scrapbook: 'Scrapbook',
 };
 
-/** RV-3a / RV-5 — the two review tabs. */
+/** RV-1 / RV-3a / RV-5 — the three review tabs. */
 export default function Review() {
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
-  const [tab, setTab] = useState<Tab>(tabByParam[tabParam ?? ''] ?? 'Mistake log');
+  const [tab, setTab] = useState<Tab>(tabByParam[tabParam ?? ''] ?? 'Micro missions');
 
   return (
     <ScreenShell bottomEdge="tabs">
@@ -48,10 +51,60 @@ export default function Review() {
       </View>
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>
+        {tab === 'Micro missions' ? <MissionsTab /> : null}
         {tab === 'Mistake log' ? <MistakesTab /> : null}
         {tab === 'Scrapbook' ? <ScrapbookTab /> : null}
       </Screen>
     </ScreenShell>
+  );
+}
+
+function MissionsTab() {
+  return (
+    <View style={styles.tabBody}>
+      <LinearGradient
+        colors={['#D8E7FF', '#FFF0EC']}
+        locations={[0.08, 0.96]}
+        start={{ x: 0, y: 0.35 }}
+        end={{ x: 1, y: 0.65 }}
+        style={styles.focusCard}
+      >
+        <View style={styles.focusText}>
+          <Text style={styles.focusLabel}>
+            Today&apos;s focus {todayFocus.skills.map((skill) => `· ${skill}`).join(' ')}
+          </Text>
+          <Text style={type.lead}>{todayFocus.description}</Text>
+        </View>
+        <Pressable
+          onPress={() => router.push(`/review/mission?missionId=${missions[0].id}`)}
+          accessibilityRole="button"
+          style={styles.focusCta}
+        >
+          <Text style={styles.focusCtaLabel}>{todayFocus.cta}</Text>
+        </Pressable>
+      </LinearGradient>
+
+      <Card elevation="card" paddingHorizontal={18} paddingVertical={4}>
+        {missions.map((mission, index) => (
+          <View key={mission.id}>
+            {index > 0 ? <RowDivider /> : null}
+            <Pressable
+              onPress={() => router.push(`/review/mission?missionId=${mission.id}`)}
+              accessibilityRole="button"
+              style={styles.listRow}
+            >
+              <View style={styles.listText}>
+                <Text style={type.listTitleTight}>{mission.title}</Text>
+                <Text style={type.caption}>
+                  {mission.questionCount} questions · {mission.minutes} min
+                </Text>
+              </View>
+              <ListChevronIcon />
+            </Pressable>
+          </View>
+        ))}
+      </Card>
+    </View>
   );
 }
 
@@ -83,7 +136,7 @@ function MistakesTab() {
             <View key={group.situationId}>
               {index > 0 ? <RowDivider /> : null}
               <Pressable
-                onPress={() => router.push(`/review/script/${group.situationId}`)}
+                onPress={() => router.push(`/review/mistakes/${group.situationId}`)}
                 accessibilityRole="button"
                 style={styles.mistakeRow}
               >
@@ -275,6 +328,29 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.huge,
   },
   tabBody: {
+    gap: 12,
+  },
+  focusCard: {
+    borderRadius: radius.group,
+    padding: 20,
+    gap: 14,
+  },
+  focusText: {
+    gap: 6,
+  },
+  focusLabel: text(13, 19, '600', colors.primary),
+  focusCta: {
+    height: 48,
+    borderRadius: radius.search,
+    backgroundColor: 'rgba(255,255,255,0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  focusCtaLabel: text(16, 22, '600', colors.primary),
+  listRow: {
+    height: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
   listText: {

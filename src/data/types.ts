@@ -100,6 +100,100 @@ export type Report = {
   fixes: SentenceFix[];
 };
 
+export type MissionKind =
+  | 'pronunciation'
+  | 'fluency'
+  | 'particles'
+  | 'endings'
+  | 'politeness'
+  | 'context';
+
+/**
+ * How a mission is drilled. Each skill gets the form that actually exercises it:
+ * `speak` for the two ears-and-mouth axes, `write` where the learner has to
+ * produce the grammar, `choice` where the point is reading a situation.
+ */
+export type MissionMode = 'speak' | 'write' | 'choice';
+
+export type MissionSummary = {
+  id: string;
+  title: string;
+  kind: MissionKind;
+  mode: MissionMode;
+  questionCount: number;
+  minutes: number;
+};
+
+/** A Korean token; `romanization` powers the tap-to-reveal tooltip. */
+export type Token = {
+  text: string;
+  romanization?: string;
+  /** The unfilled gap in a fill-in sentence (RV-2c … RV-2e): an orange rule, no text. */
+  blank?: boolean;
+};
+
+export type SpeakQuestion = {
+  id: string;
+  type: 'speak';
+  /** Sentence the learner reads aloud, split into tappable tokens. */
+  tokens: Token[];
+  /**
+   * What the sentence means. RV-2a/RV-2b print it under the Korean — it answers
+   * "what am I saying", which is a different job from the per-word tooltip.
+   */
+  english: string;
+  /** Shown after the learner speaks. */
+  feedback: { correct: boolean; label: string; explanation: string };
+};
+
+export type WriteQuestion = {
+  id: string;
+  type: 'write';
+  /** What the learner is being asked to do, e.g. `Write it in Korean`. */
+  promptLabel: string;
+  /** The English meaning, or the situation the sentence has to fit. */
+  prompt: string;
+  /** The casual Korean a politeness drill rewrites. */
+  source?: string;
+  /**
+   * A sentence with `___` marking each gap — one field per gap. Without it the
+   * learner writes the whole sentence into a single field.
+   */
+  template?: string;
+  /** Accepted answers per gap, in order; the first is the one shown on a miss. */
+  blanks: string[][];
+  /**
+   * One line per gap about the axis being drilled, used when that gap is the
+   * one the learner missed. Falls back to `explanation`.
+   */
+  blankNotes?: string[];
+  /** Why, in terms of the axis being drilled rather than the whole sentence. */
+  explanation: string;
+};
+
+export type ChoiceQuestion = {
+  id: string;
+  type: 'choice';
+  /** `The barista asks` */
+  promptLabel: string;
+  promptTokens: Token[];
+  /** English caption behind `Show meaning`. */
+  promptEnglish: string;
+  /** Sentence with a blank; `null` marks the gap. */
+  sentenceTokens: (Token | null)[];
+  /** Particles attach to the word before them, so the filled gap takes no space. */
+  blankAttachesLeft?: boolean;
+  options: string[];
+  answerIndex: number;
+  explanation: string;
+};
+
+export type MissionQuestion = SpeakQuestion | WriteQuestion | ChoiceQuestion;
+
+export type Mission = MissionSummary & {
+  questions: MissionQuestion[];
+};
+
 export type Mistake = {
   id: string;
   situationId: string;
