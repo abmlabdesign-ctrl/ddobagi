@@ -49,18 +49,15 @@ type Verdict = {
  * writing missions grade what the learner typed into the gaps, choice missions
  * grade on tap. The header, the progress bar, the 300px prompt card and the
  * feedback panel are the same in all three, and `Next` lives only inside that
- * panel. A miss is not re-asked on the spot — it comes back in a second pass
- * once the run is through.
+ * panel. A miss is shown the answer and the run moves on.
  */
 export default function MissionRunner() {
   const { missionId } = useLocalSearchParams<{ missionId: string }>();
   const mission = missionById[missionId] ?? missions[0];
   const insets = useSafeAreaInsets();
 
-  const [queue, setQueue] = useState<number[]>(() => buildQueue(mission));
+  const queue = useMemo(() => buildQueue(mission), [mission]);
   const [step, setStep] = useState(0);
-  const [missed, setMissed] = useState<number[]>([]);
-  const [reviewRound, setReviewRound] = useState(false);
 
   const [answer, setAnswer] = useState<number | null>(null);
   const [entries, setEntries] = useState<string[]>([]);
@@ -79,29 +76,9 @@ export default function MissionRunner() {
     setVerdict(null);
   };
 
-  /** Records a miss so the second pass can re-ask it. */
-  const judge = (result: Verdict) => {
-    if (!result.correct && !reviewRound) {
-      setMissed((current) =>
-        current.includes(queue[step]) ? current : [...current, queue[step]],
-      );
-    }
-    setVerdict(result);
-  };
-
   const next = () => {
     if (step + 1 < queue.length) {
       setStep(step + 1);
-      reset();
-      return;
-    }
-    // One second pass over the misses, then the run is over — a drill that
-    // keeps re-asking a miss it just showed the answer to is a loop, not practice.
-    if (!reviewRound && missed.length) {
-      setQueue(missed);
-      setMissed([]);
-      setReviewRound(true);
-      setStep(0);
       reset();
       return;
     }
@@ -126,14 +103,9 @@ export default function MissionRunner() {
         correct: question.feedback.correct,
         note: question.feedback.explanation,
       });
-      if (!question.feedback.correct && !reviewRound) {
-        setMissed((current) =>
-          current.includes(queue[step]) ? current : [...current, queue[step]],
-        );
-      }
     }, 420);
     return () => clearInterval(id);
-  }, [recording, question, queue, step, reviewRound]);
+  }, [recording, question]);
 
   const submitWrite = () => {
     if (question.type !== 'write') return;
@@ -142,13 +114,13 @@ export default function MissionRunner() {
         !accepted.some((option) => normalize(option) === normalize(entries[gap] ?? '')),
     );
     if (!wrong.some(Boolean)) {
-      judge({ correct: true, note: question.explanation });
+      setVerdict({ correct: true, note: question.explanation });
       return;
     }
     // The headline and the note follow the first gap that was missed, so the
     // explanation stays about the one thing this mission is drilling.
     const missedGap = wrong.indexOf(true);
-    judge({
+    setVerdict({
       correct: false,
       headline: `The answer is ${question.blanks[missedGap][0]}.`,
       note: question.blankNotes?.[missedGap] ?? question.explanation,
@@ -159,7 +131,7 @@ export default function MissionRunner() {
     if (question.type !== 'choice' || verdict) return;
     const correct = optionIndex === question.answerIndex;
     setAnswer(optionIndex);
-    judge({
+    setVerdict({
       correct,
       note: question.explanation,
       headline: correct ? undefined : `The answer is ${question.options[question.answerIndex]}`,
@@ -170,17 +142,13 @@ export default function MissionRunner() {
     return <MissionComplete title={mission.title} questionCount={mission.questionCount} />;
   }
 
-  const lastOfRun = step + 1 >= queue.length && (reviewRound || missed.length === 0);
-  const nextLabel = lastOfRun ? 'Finish' : 'Next';
+  const nextLabel = step + 1 >= queue.length ? 'Finish' : 'Next';
 
   const header = (
     <>
       <NavBar title={mission.title} closeIcon onBack={() => router.replace('/(tabs)/review')} />
       <View style={styles.progress}>
         <StepProgress total={queue.length} completed={step + 1} />
-        {reviewRound ? (
-          <Text style={styles.roundNote}>Second pass — the ones you missed</Text>
-        ) : null}
       </View>
     </>
   );
@@ -647,9 +615,7 @@ const styles = StyleSheet.create({
   progress: {
     paddingHorizontal: spacing.gutter,
     paddingTop: 25,
-    gap: 8,
   },
-  roundNote: text(12, 18, '400', colors.textTertiary),
   /**
    * The band between the progress bar and whatever the drill puts at the foot.
    * RV-2a declares `padding:30px 24px 0; gap:24; margin-bottom:20`; the written

@@ -136,7 +136,7 @@ function MistakesTab() {
             <View key={group.situationId}>
               {index > 0 ? <RowDivider /> : null}
               <Pressable
-                onPress={() => router.push(`/review/mistakes/${group.situationId}`)}
+                onPress={() => router.push(`/review/script/${group.situationId}`)}
                 accessibilityRole="button"
                 style={styles.mistakeRow}
               >
