@@ -223,11 +223,17 @@ export type Stats = {
   /** `This week's overall score` / `This month's overall score` */
   heading: string;
   score: number;
-  delta: number;
   /** `Aug, week 4` */
   rangeLabel: string;
-  insights: [string, string];
+  /** `Last 6 weeks` / `Last 6 months` — what the trend chart covers. */
+  trendLabel: string;
+  /**
+   * Overall score per period, oldest first. The last entry is the period the
+   * screen is showing, so the line ends on the headline number.
+   */
+  trend: { label: string; score: number }[];
   skills: { skill: SkillId; score: number }[];
+  /** The one change number the screen still spells out, in the insight row. */
   biggestGain: { skill: SkillId; delta: number; note: string };
-  practiceNext: { skill: SkillId; score: number; delta: number; note: string };
+  practiceNext: { skill: SkillId; note: string };
 };

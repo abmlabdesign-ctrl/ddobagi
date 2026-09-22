@@ -49,9 +49,16 @@ export const stats: Record<Stats['period'], Stats> = {
     period: 'weekly',
     heading: "This week's overall score",
     score: 75,
-    delta: 5,
     rangeLabel: 'Aug, week 4',
-    insights: ['Context improved the most this week', '5 of 6 skills went up'],
+    trendLabel: 'Last 6 weeks',
+    trend: [
+      { label: 'Jul 3', score: 62 },
+      { label: 'Jul 4', score: 66 },
+      { label: 'Aug 1', score: 65 },
+      { label: 'Aug 2', score: 70 },
+      { label: 'Aug 3', score: 72 },
+      { label: 'Aug 4', score: 75 },
+    ],
     skills: [
       { skill: 'pronunciation', score: 72 },
       { skill: 'fluency', score: 68 },
@@ -67,18 +74,23 @@ export const stats: Record<Stats['period'], Stats> = {
     },
     practiceNext: {
       skill: 'particles',
-      score: 64,
-      delta: -2,
-      note: 'Keep practicing 은/는 and 이/가 when you build sentences.',
+      note: 'Particles are still the shakiest part of your sentences.',
     },
   },
   monthly: {
     period: 'monthly',
     heading: "This month's overall score",
     score: 84,
-    delta: 9,
     rangeLabel: 'August',
-    insights: ['Politeness improved the most this month', 'All 6 skills rose from last month'],
+    trendLabel: 'Last 6 months',
+    trend: [
+      { label: 'Mar', score: 62 },
+      { label: 'Apr', score: 66 },
+      { label: 'May', score: 71 },
+      { label: 'Jun', score: 74 },
+      { label: 'Jul', score: 79 },
+      { label: 'Aug', score: 84 },
+    ],
     skills: [
       { skill: 'pronunciation', score: 78 },
       { skill: 'fluency', score: 74 },
@@ -94,9 +106,7 @@ export const stats: Record<Stats['period'], Stats> = {
     },
     practiceNext: {
       skill: 'particles',
-      score: 68,
-      delta: 4,
-      note: 'Keep practicing 은/는 and 이/가 when you build sentences.',
+      note: 'Particles are still the shakiest part of your sentences.',
     },
   },
 };

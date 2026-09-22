@@ -1,25 +1,36 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import Svg, { Circle, Line, Polyline, Text as SvgText } from 'react-native-svg';
 
+import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Segmented } from '@/components/Controls';
 import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { SkillBarCompact } from '@/components/SkillBar';
+import { missions } from '@/data/missions';
 import { stats } from '@/data/profile';
 import { skillLabels } from '@/data/skills';
-import type { StatsPeriod } from '@/data/types';
-import { ListChevronIcon } from '@/icons';
-import { colors, radius, shadows, spacing } from '@/theme/tokens';
-import { numeral, text, type } from '@/theme/typography';
+import type { SkillId, StatsPeriod } from '@/data/types';
+import { colors, radius, spacing } from '@/theme/tokens';
+import { fontFamily, numeral, text, type } from '@/theme/typography';
 
 const periods = ['Weekly', 'Monthly'] as const;
 
-/** MY-2 / MY-2b Stats */
+/**
+ * MY-2 / MY-2b Stats.
+ *
+ * Reads top to bottom as a story rather than a scoreboard: where you are now,
+ * how you got here, where each axis stands, what improved, what to do next.
+ * Only one change number survives — the biggest gain — because a screen full of
+ * ↑/↓ makes the reader do the comparing the chart is there to do for them.
+ */
 export default function Stats() {
   const [period, setPeriod] = useState<(typeof periods)[number]>('Weekly');
   const data = stats[period.toLowerCase() as StatsPeriod];
+
+  const practiceMission = missions.find((mission) => mission.kind === data.practiceNext.skill);
 
   return (
     <ScreenShell bottomEdge="content">
@@ -32,97 +43,169 @@ export default function Stats() {
         <View style={styles.scoreRow}>
           <View style={styles.scoreText}>
             <Text style={styles.scoreLabel}>{data.heading}</Text>
-            <View style={styles.scoreValue}>
-              <Text style={type.timer}>{data.score}</Text>
-              <Delta value={data.delta} />
-            </View>
+            <Text style={type.timer}>{data.score}</Text>
           </View>
           <Text style={styles.rangeLabel}>{data.rangeLabel}</Text>
         </View>
-
-        <InsightCard headline={data.insights[0]} detail={data.insights[1]} />
 
         <Card
           radiusToken="group"
           elevation="card"
           paddingHorizontal={20}
-          paddingVertical={12}
-          style={styles.skillsCard}
+          paddingVertical={16}
+          style={styles.block}
         >
-          <View style={styles.skillsHeader}>
+          <View style={styles.blockHead}>
+            <Text style={type.label}>Overall progress</Text>
+            <Text style={styles.blockMeta}>{data.trendLabel}</Text>
+          </View>
+          <TrendChart points={data.trend} />
+        </Card>
+
+        <Card
+          radiusToken="group"
+          elevation="card"
+          paddingHorizontal={20}
+          paddingVertical={16}
+          style={styles.block}
+        >
+          <View style={styles.blockHead}>
             <Text style={type.label}>6-skill scores</Text>
-            <View style={styles.periodStepper}>
-              <ListChevronIcon color={colors.inkAlt} />
-              <Text style={styles.periodLabel}>{data.rangeLabel}</Text>
-            </View>
+            <Text style={styles.blockMeta}>{data.rangeLabel}</Text>
           </View>
           <View style={styles.skillsList}>
             {data.skills.map((entry) => (
-              <SkillBarCompact key={entry.skill} skill={entry.skill} score={entry.score} />
+              <SkillBarCompact
+                key={entry.skill}
+                skill={entry.skill}
+                score={entry.score}
+                highlight={entry.skill === data.biggestGain.skill}
+              />
             ))}
           </View>
         </Card>
 
-        <View style={styles.pair}>
-          <Card radiusToken="group" elevation="card" padding={20} style={styles.pairCard}>
-            <Text style={styles.pairLabel}>Biggest gain</Text>
-            <View style={styles.pairRow}>
-              <Text style={type.cardTitle}>{skillLabels[data.biggestGain.skill]}</Text>
-              <Delta value={data.biggestGain.delta} />
-            </View>
-            <Text style={type.description}>{data.biggestGain.note}</Text>
-          </Card>
+        <Card radiusToken="group" elevation="card" padding={20} style={styles.insight}>
+          <Text style={[styles.tag, styles.tagGain]}>Biggest gain</Text>
+          <View style={styles.insightRow}>
+            <Text style={type.cardTitle}>{skillLabels[data.biggestGain.skill]}</Text>
+            <Text style={styles.gainDelta}>↑{data.biggestGain.delta}</Text>
+          </View>
+          <Text style={styles.insightNote}>{data.biggestGain.note}</Text>
+        </Card>
 
-          <Card radiusToken="group" elevation="card" padding={20} style={styles.pairCard}>
-            <Text style={[styles.pairLabel, styles.pairLabelNext]}>Practice this next</Text>
-            <View style={styles.pairRow}>
-              <Text style={type.cardTitle}>{skillLabels[data.practiceNext.skill]}</Text>
-              <Text style={type.caption}>
-                {data.practiceNext.score} · {data.practiceNext.delta >= 0 ? '↑' : '↓'}
-                {Math.abs(data.practiceNext.delta)}
-              </Text>
-            </View>
-            <Text style={type.description}>{data.practiceNext.note}</Text>
-          </Card>
-        </View>
+        <Card radiusToken="group" elevation="card" padding={20} style={styles.insight}>
+          <Text style={[styles.tag, styles.tagNext]}>Practice this next</Text>
+          <Text style={type.cardTitle}>{skillLabels[data.practiceNext.skill]}</Text>
+          <Text style={styles.insightNote}>{data.practiceNext.note}</Text>
+          {practiceMission ? (
+            <Button
+              label={`Practice ${labelFor(data.practiceNext.skill)}`}
+              height={48}
+              style={styles.practiceCta}
+              onPress={() => router.push(`/review/mission?missionId=${practiceMission.id}`)}
+            />
+          ) : null}
+        </Card>
       </Screen>
     </ScreenShell>
   );
 }
 
-/** Gradient card with a primary hairline — the comp's headline insight. */
-function InsightCard({ headline, detail }: { headline: string; detail: string }) {
-  return (
-    <View style={styles.insight}>
-      <View style={styles.insightText}>
-        <Text style={styles.insightHeadline}>{headline}</Text>
-        <Text style={styles.insightDetail}>{detail}</Text>
-      </View>
-      <Svg width={76} height={76} viewBox="0 0 76 76">
-        <Circle cx={38} cy={38} r={32} stroke={colors.primary200} strokeWidth={8} fill="none" />
-        <Circle
-          cx={38}
-          cy={38}
-          r={32}
-          stroke={colors.primary}
-          strokeWidth={8}
-          strokeLinecap="round"
-          strokeDasharray={`${2 * Math.PI * 32 * 0.72} ${2 * Math.PI * 32}`}
-          transform="rotate(-90 38 38)"
-          fill="none"
-        />
-      </Svg>
-    </View>
-  );
-}
+/** `Practice particles`, not `Practice Particles` — the button is a sentence. */
+const labelFor = (skill: SkillId) => skillLabels[skill].toLowerCase();
 
-function Delta({ value }: { value: number }) {
-  const up = value >= 0;
+/**
+ * Room for the y labels on the left, and on the right for the end dot's ring
+ * plus half of the last tick label — otherwise `Aug 4` runs off the card.
+ */
+const PAD_LEFT = 28;
+const PAD_RIGHT = 24;
+const PLOT_TOP = 12;
+const PLOT_HEIGHT = 92;
+const LABEL_ROW = 20;
+
+/**
+ * One series, so no legend — the card title names it. A 2px line with a single
+ * end dot, two hairline rules carrying the range, and a tick per period: the
+ * shape does the comparing, so no point carries a number of its own.
+ */
+function TrendChart({ points }: { points: { label: string; score: number }[] }) {
+  const [width, setWidth] = useState(0);
+  const onLayout = (event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width);
+
+  const scores = points.map((point) => point.score);
+  // Snapped to tens so the two rules read as round numbers rather than data.
+  const low = Math.floor(Math.min(...scores) / 10) * 10;
+  const high = Math.ceil(Math.max(...scores) / 10) * 10;
+  const span = Math.max(1, high - low);
+
+  const height = PLOT_TOP + PLOT_HEIGHT + LABEL_ROW;
+  const innerWidth = Math.max(0, width - PAD_LEFT - PAD_RIGHT);
+  const step = points.length > 1 ? innerWidth / (points.length - 1) : 0;
+  const x = (index: number) => PAD_LEFT + step * index;
+  const y = (score: number) => PLOT_TOP + PLOT_HEIGHT * (1 - (score - low) / span);
+
+  const last = points.length - 1;
+
   return (
-    <Text style={styles.delta}>
-      {up ? '↑' : '↓'}
-      {Math.abs(value)}
-    </Text>
+    <View onLayout={onLayout} style={{ height }}>
+      {width > 0 ? (
+        <Svg width={width} height={height}>
+          {[high, low].map((value) => (
+            <Line
+              key={value}
+              x1={PAD_LEFT}
+              x2={width - PAD_RIGHT}
+              y1={y(value)}
+              y2={y(value)}
+              stroke={colors.divider}
+              strokeWidth={1}
+            />
+          ))}
+          {[high, low].map((value) => (
+            <SvgText
+              key={`label-${value}`}
+              x={PAD_LEFT - 8}
+              y={y(value) + 4}
+              textAnchor="end"
+              fontFamily={fontFamily.numericMedium}
+              fontSize={11}
+              fill={colors.textTertiary}
+            >
+              {value}
+            </SvgText>
+          ))}
+
+          <Polyline
+            points={points.map((point, index) => `${x(index)},${y(point.score)}`).join(' ')}
+            fill="none"
+            stroke={colors.primary}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+
+          {/* The surface ring keeps the end dot legible where it sits on the line. */}
+          <Circle cx={x(last)} cy={y(points[last].score)} r={6} fill={colors.surface} />
+          <Circle cx={x(last)} cy={y(points[last].score)} r={4} fill={colors.primary} />
+
+          {points.map((point, index) => (
+            <SvgText
+              key={point.label}
+              x={x(index)}
+              y={PLOT_TOP + PLOT_HEIGHT + 15}
+              textAnchor="middle"
+              fontFamily={index === last ? fontFamily.sansSemiBold : fontFamily.sans}
+              fontSize={11}
+              fill={index === last ? colors.inkAlt : colors.textTertiary}
+            >
+              {point.label}
+            </SvgText>
+          ))}
+        </Svg>
+      ) : null}
+    </View>
   );
 }
 
@@ -136,67 +219,56 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
+    paddingBottom: 2,
   },
   scoreText: {
     gap: 2,
   },
   scoreLabel: text(13, 19, '500', colors.textSecondary),
-  scoreValue: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-  },
   rangeLabel: text(12, 16, '500', colors.textSecondary),
-  delta: numeral(16, 22, '700', colors.primary),
-  insight: {
-    borderRadius: radius.group,
-    backgroundColor: colors.primary100,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 16,
-    ...shadows.insight,
-  },
-  insightText: {
-    flex: 1,
-    gap: 6,
-  },
-  insightHeadline: text(18, 27, '700', colors.inkAlt),
-  insightDetail: text(13, 19, '400', '#3C424C'),
-  skillsCard: {
+  block: {
     gap: 12,
   },
-  skillsHeader: {
+  blockHead: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  periodStepper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  periodLabel: text(12, 16, '600', colors.inkAlt),
+  blockMeta: text(12, 16, '600', colors.textSecondary),
   skillsList: {
     gap: 8,
   },
-  pair: {
-    gap: 10,
-  },
-  pairCard: {
+  insight: {
     gap: 6,
+    alignItems: 'flex-start',
   },
-  pairRow: {
+  /** The comp's pill: 22 high, 10 side padding, 11/600. */
+  tag: {
+    height: 22,
+    lineHeight: 22,
+    paddingHorizontal: 10,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+    fontFamily: fontFamily.sansSemiBold,
+    fontSize: 11,
+  },
+  tagGain: {
+    backgroundColor: colors.primary100,
+    color: colors.primary,
+  },
+  tagNext: {
+    backgroundColor: colors.surfaceAlt,
+    color: colors.textSecondary,
+  },
+  insightRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     gap: 8,
   },
-  pairLabel: text(12, 16, '600', colors.success),
-  pairLabelNext: {
-    color: colors.primary,
+  gainDelta: numeral(15, 22, '700', colors.primary),
+  insightNote: text(13, 20, '400', colors.textBody),
+  practiceCta: {
+    alignSelf: 'stretch',
+    marginTop: 6,
   },
 });

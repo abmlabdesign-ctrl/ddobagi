@@ -55,21 +55,37 @@ function BandLabel({ band }: { band: SkillBand }) {
 }
 
 /** MY-2 variant: label · 10px track · score, with no band. */
-export function SkillBarCompact({ skill, score }: { skill: SkillId; score: number }) {
+export function SkillBarCompact({
+  skill,
+  score,
+  highlight = false,
+}: {
+  skill: SkillId;
+  score: number;
+  /** MY-2 paints one row orange — the axis the screen wants read first. */
+  highlight?: boolean;
+}) {
   return (
     <View style={styles.compactRow}>
-      <Text style={styles.compactLabel} numberOfLines={1}>
+      <Text
+        style={[styles.compactLabel, highlight ? styles.compactLabelOn : null]}
+        numberOfLines={1}
+      >
         {skillLabels[skill]}
       </Text>
       <View style={styles.compactTrack}>
         <LinearGradient
-          colors={[colors.bubbleUser, colors.bubbleUserStrong]}
+          colors={
+            highlight
+              ? [colors.primary, colors.primary200]
+              : [colors.bubbleUser, colors.bubbleUserStrong]
+          }
           start={{ x: 1, y: 0 }}
           end={{ x: 0, y: 0 }}
           style={[styles.compactFill, { width: `${Math.max(0, Math.min(100, score))}%` }]}
         />
       </View>
-      <Text style={styles.compactScore}>{score}</Text>
+      <Text style={[styles.compactScore, highlight ? styles.compactScoreOn : null]}>{score}</Text>
     </View>
   );
 }
@@ -115,6 +131,7 @@ const styles = StyleSheet.create({
     ...text(12, 16, '500', colors.textSecondary),
     width: 86,
   },
+  compactLabelOn: text(12, 16, '600', colors.primary),
   compactTrack: {
     flex: 1,
     height: 10,
@@ -130,5 +147,8 @@ const styles = StyleSheet.create({
     ...numeral(13, 18, '700', colors.inkAlt),
     width: 24,
     textAlign: 'right',
+  },
+  compactScoreOn: {
+    color: colors.primary,
   },
 });
