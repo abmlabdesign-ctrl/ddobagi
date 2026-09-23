@@ -277,11 +277,16 @@ export default function MissionRunner() {
     <ScreenShell>
       {header}
 
-      <View style={styles.scene}>
+      {/*
+        The options sit right under the card rather than at the foot of the
+        screen: the verdict panel rises over the bottom of the screen, and the
+        learner has to be able to see which option they picked once it lands.
+      */}
+      <View style={styles.choiceScene}>
         <ChoiceCard question={question} answer={answer} />
       </View>
 
-      <View style={[styles.options, { paddingBottom: 24 + insets.bottom }]}>
+      <View style={styles.options}>
         {question.options.map((option, optionIndex) => {
           const selected = answer === optionIndex;
           const isAnswer = optionIndex === question.answerIndex;
@@ -313,6 +318,9 @@ export default function MissionRunner() {
           );
         })}
       </View>
+
+      {/* Empty room for the panel to rise into. */}
+      <View style={styles.fill} />
 
       {panel}
     </ScreenShell>
@@ -657,6 +665,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.gutter,
     marginBottom: 20,
     gap: 16,
+  },
+  /** Same band as `scene`, but hugging — the options follow it, not the screen foot. */
+  choiceScene: {
+    paddingTop: 30,
+    paddingHorizontal: spacing.gutter,
+    marginBottom: spacing.gutter,
   },
   /** One height for every drill, so the screen does not jump between axes. */
   promptCard: {
