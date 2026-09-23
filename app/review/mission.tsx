@@ -152,8 +152,12 @@ export default function MissionRunner() {
 
   const pick = (optionIndex: number) => {
     if (question.type !== 'choice' || verdict) return;
-    const correct = optionIndex === question.answerIndex;
     setAnswer(optionIndex);
+  };
+
+  const submitChoice = () => {
+    if (question.type !== 'choice' || answer === null) return;
+    const correct = answer === question.answerIndex;
     judge({
       correct,
       note: question.explanation,
@@ -277,12 +281,7 @@ export default function MissionRunner() {
     <ScreenShell>
       {header}
 
-      {/*
-        The options sit right under the card rather than at the foot of the
-        screen: the verdict panel rises over the bottom of the screen, and the
-        learner has to be able to see which option they picked once it lands.
-      */}
-      <View style={styles.choiceScene}>
+      <View style={styles.scene}>
         <ChoiceCard question={question} answer={answer} />
       </View>
 
@@ -299,7 +298,10 @@ export default function MissionRunner() {
               accessibilityState={{ selected, disabled: judged }}
               style={[
                 styles.option,
-                selected && !isAnswer ? styles.optionWrong : null,
+                // Chosen but not graded yet — the answer is still the learner's
+                // to change, so it reads as a choice rather than a result.
+                selected && !judged ? styles.optionPicked : null,
+                judged && selected && !isAnswer ? styles.optionWrong : null,
                 judged && isAnswer ? styles.optionRight : null,
               ]}
             >
@@ -307,9 +309,11 @@ export default function MissionRunner() {
                 style={
                   judged && isAnswer
                     ? styles.optionLabelRight
-                    : selected
+                    : judged && selected
                       ? styles.optionLabelWrong
-                      : styles.optionLabel
+                      : selected
+                        ? styles.optionLabelPicked
+                        : styles.optionLabel
                 }
               >
                 {option}
@@ -319,8 +323,14 @@ export default function MissionRunner() {
         })}
       </View>
 
-      {/* Empty room for the panel to rise into. */}
-      <View style={styles.fill} />
+      {/* The comp's dock, with `Submit` where the static mock draws `Next`. */}
+      <CtaDock paddingTop={16} style={styles.choiceDock}>
+        <Button
+          label="Submit"
+          disabled={answer === null || verdict !== null}
+          onPress={submitChoice}
+        />
+      </CtaDock>
 
       {panel}
     </ScreenShell>
@@ -666,12 +676,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     gap: 16,
   },
-  /** Same band as `scene`, but hugging — the options follow it, not the screen foot. */
-  choiceScene: {
-    paddingTop: 30,
-    paddingHorizontal: spacing.gutter,
-    marginBottom: spacing.gutter,
-  },
   /** One height for every drill, so the screen does not jump between axes. */
   promptCard: {
     height: MISSION_CARD_HEIGHT,
@@ -785,6 +789,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
+  optionPicked: {
+    backgroundColor: colors.primary100,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
   optionRight: {
     backgroundColor: colors.successBg,
     borderWidth: 1,
@@ -796,8 +805,14 @@ const styles = StyleSheet.create({
     borderColor: colors.danger,
   },
   optionLabel: text(16, 22, '500', colors.inkAlt),
+  optionLabelPicked: text(16, 22, '600', colors.primary),
   optionLabelRight: text(16, 22, '600', colors.success),
   optionLabelWrong: text(16, 22, '600', colors.danger),
+  /** The comp declares `0 0 0 0` on this dock — no shadow under the options. */
+  choiceDock: {
+    shadowOpacity: 0,
+    elevation: 0,
+  },
   /** `height:40` of bars over `padding:16px 24px 0`, so the band is 56 tall. */
   waveband: {
     height: 56,
