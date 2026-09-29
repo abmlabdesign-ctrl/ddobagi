@@ -14,7 +14,7 @@ import { text, type } from '@/theme/typography';
 
 /** MY-3 Settings */
 export default function Settings() {
-  const { profile, settings, updateProfile, updateSettings, resetOnboarding } = useApp();
+  const { profile, settings, isPlus, updateProfile, updateSettings, resetOnboarding } = useApp();
   const [sheet, setSheet] = useState<'language' | 'account' | null>(null);
   const close = () => setSheet(null);
 
@@ -60,6 +60,13 @@ export default function Settings() {
 
         <Group title="Account">
           <MenuRow label="Account info" height={56} onPress={() => router.push('/my/edit')} />
+          <RowDivider />
+          <MenuRow
+            label="Subscription"
+            value={isPlus ? 'Plus' : 'Free'}
+            height={56}
+            onPress={() => router.push('/my/subscription')}
+          />
           <RowDivider />
           <MenuRow
             label={

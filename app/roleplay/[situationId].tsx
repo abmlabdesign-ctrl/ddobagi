@@ -21,7 +21,7 @@ import { numeral, text, type } from '@/theme/typography';
 export default function ScenarioDetail() {
   const { situationId } = useLocalSearchParams<{ situationId: string }>();
   const situation = situationById[situationId];
-  const { sessions } = useApp();
+  const { sessions, isPlus, freeLeft } = useApp();
 
   if (!situation) {
     return (
@@ -120,6 +120,13 @@ export default function ScenarioDetail() {
             This conversation is on its way. Try Pharmacy or Café for now.
           </Text>
         )}
+        {playable && !isPlus ? (
+          <Text style={[type.caption, styles.soon]}>
+            {freeLeft.roleplays > 0
+              ? `${freeLeft.roleplays} free roleplay left today`
+              : 'No free roleplays left today. Plus has no limit.'}
+          </Text>
+        ) : null}
         <Button
           label={playable ? 'Start conversation' : 'Coming soon'}
           disabled={!playable}

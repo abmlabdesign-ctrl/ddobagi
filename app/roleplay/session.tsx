@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
@@ -24,6 +24,10 @@ import { gloss, numeral, text, type } from '@/theme/typography';
 export default function Session() {
   const { situationId } = useLocalSearchParams<{ situationId: string }>();
   const script = conversationBySituation[situationId];
+  const { freeLeft } = useApp();
+  // Judged once on entry: finishing this session uses up the allowance, and
+  // the screen must not turn into the paywall on its way to the report.
+  const [allowed] = useState(freeLeft.roleplays > 0);
 
   // No silent stand-in: a situation without a script says so instead of
   // playing another situation's conversation under its title.
@@ -37,6 +41,8 @@ export default function Session() {
       </ScreenShell>
     );
   }
+
+  if (!allowed) return <Redirect href="/plus?reason=roleplays" />;
 
   return <Conversation script={script} />;
 }

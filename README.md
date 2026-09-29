@@ -71,8 +71,18 @@ npm run export:web # 웹 번들 — 모든 라우트가 컴파일되는지 확�
 | About Ddobak | `app/my/about.tsx` |
 | Open-source licenses | `app/my/licenses.tsx` |
 | Delete account | `app/my/delete-account.tsx` |
+| Ddobak Plus (결제·무료 한도 초과) | `app/plus/index.tsx` |
+| Plus 가입 완료 | `app/plus/success.tsx` |
+| Subscription (구독 관리·결제 내역) | `app/my/subscription.tsx` |
 | Terms / Privacy / Voice recordings | `app/legal/[doc].tsx` |
 | 없는 주소 | `app/+not-found.tsx` |
+
+**수익화 — Ddobak Plus.** 무료는 하루 롤플레이 1회·미션 3회(`src/data/plans.ts`의 `freeLimits`), Plus는
+무제한입니다. 요금제는 연간 $59.99(7일 무료 체험)·월간 $9.99이며 같은 파일에서 바꿉니다. 한도를 넘으면
+세션·미션 화면이 Paywall로 넘어가고, RP-2와 My Page·Settings에서도 진입합니다. 결제는
+`src/services/billing.ts`를 거치며, 지금은 `sandbox` 모드라 **실제로 청구되지 않고** 화면에 테스트 모드가
+표시됩니다. 실제 판매는 스토어 SDK(RevenueCat 또는 StoreKit/Play Billing)를 이 파일에 연결하고
+`billingMode`를 `store`로 바꾸면 되며, 구독 상태는 서버에서 검증해야 합니다.
 
 오프라인이 되면 모든 화면 위에 안내 띠가 뜹니다(`src/components/OfflineBanner.tsx`).
 약관·개인정보·음성 문서(`src/data/legal.ts`)는 **초안**이라 화면에 초안 표시가 붙습니다. 검토된 문안으로

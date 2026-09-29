@@ -18,7 +18,7 @@ import { type } from '@/theme/typography';
  * clears it; with an account server, `remove` also calls its delete endpoint.
  */
 export default function DeleteAccount() {
-  const { profile, mistakes, savedPhrases, resetOnboarding } = useApp();
+  const { profile, mistakes, savedPhrases, isPlus, subscription, resetOnboarding } = useApp();
   const [confirmed, setConfirmed] = useState(false);
 
   const lost = [
@@ -53,6 +53,14 @@ export default function DeleteAccount() {
             ))}
           </View>
         </Card>
+
+        {/* Deleting the account doesn't stop a store subscription — say so first. */}
+        {isPlus && subscription?.autoRenew ? (
+          <Text style={styles.warning}>
+            Your Plus subscription keeps renewing until you cancel it. Cancel it in Subscription
+            first.
+          </Text>
+        ) : null}
 
         <CheckRow
           label="I understand my progress will be gone"
@@ -102,5 +110,9 @@ const styles = StyleSheet.create({
   },
   danger: {
     backgroundColor: colors.danger,
+  },
+  warning: {
+    ...type.description,
+    color: colors.danger,
   },
 });

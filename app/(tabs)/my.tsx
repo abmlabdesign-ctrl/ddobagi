@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -12,13 +13,14 @@ import { numeral, text, type } from '@/theme/typography';
 
 const MENU = [
   { label: 'Stats', href: '/my/stats' },
+  { label: 'Subscription', href: '/my/subscription' },
   { label: 'Scrapbook', href: '/(tabs)/review?tab=scrapbook' },
   { label: 'Settings', href: '/my/settings' },
 ] as const;
 
 /** MY-1 My Page */
 export default function MyPage() {
-  const { profile } = useApp();
+  const { profile, isPlus } = useApp();
   const avatar = avatars.find((entry) => entry.id === profile.avatarId) ?? avatars[0];
   const goal = profile.weeklyGoal;
   const percent = Math.min(100, Math.round((goal.completed / goal.total) * 100));
@@ -85,11 +87,39 @@ export default function MyPage() {
           </View>
         </Card>
 
+        {isPlus ? null : (
+          <Pressable
+            onPress={() => router.push('/plus')}
+            accessibilityRole="button"
+            accessibilityLabel="Get Ddobak Plus"
+          >
+            <LinearGradient
+              colors={['#D8E7FF', '#FFF0EC']}
+              locations={[0.08, 0.96]}
+              start={{ x: 0, y: 0.35 }}
+              end={{ x: 1, y: 0.65 }}
+              style={styles.plus}
+            >
+              <View style={styles.plusText}>
+                <Text style={type.listTitle}>Get Ddobak Plus</Text>
+                <Text style={type.caption}>Unlimited roleplays and missions</Text>
+              </View>
+              <View style={styles.plusCta}>
+                <Text style={styles.plusCtaLabel}>See plans</Text>
+              </View>
+            </LinearGradient>
+          </Pressable>
+        )}
+
         <Card radiusToken="group" elevation="card" paddingHorizontal={20} paddingVertical={6}>
           {MENU.map((entry, index) => (
             <View key={entry.label}>
               {index > 0 ? <RowDivider /> : null}
-              <MenuRow label={entry.label} onPress={() => router.push(entry.href)} />
+              <MenuRow
+                label={entry.label}
+                value={entry.label === 'Subscription' ? (isPlus ? 'Plus' : 'Free') : undefined}
+                onPress={() => router.push(entry.href)}
+              />
             </View>
           ))}
         </Card>
@@ -114,6 +144,27 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
+  plus: {
+    borderRadius: radius.group,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  plusText: {
+    flex: 1,
+    gap: 2,
+  },
+  plusCta: {
+    height: 36,
+    paddingHorizontal: 14,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  plusCtaLabel: text(13, 18, '600', colors.surface),
   content: {
     gap: 10,
     paddingTop: 8,

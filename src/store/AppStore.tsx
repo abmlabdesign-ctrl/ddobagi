@@ -2,8 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { mistakes as seedMistakes, savedPhrases as seedPhrases } from '@/data/review';
+import { freeLimits, type PlanId } from '@/data/plans';
 import { defaultProfile } from '@/data/profile';
 import type { Mistake, SavedPhrase } from '@/data/types';
+import { renewalFrom, type Receipt } from '@/services/billing';
 import { normalizeSpeech } from '@/services/recognition';
 import { setSpeechSpeed } from '@/services/speech';
 
@@ -36,6 +38,18 @@ export type JudgedLine = {
   mistake?: Omit<Mistake, 'id' | 'situationId' | 'date' | 'fixed'>;
 };
 
+export type Subscription = {
+  planId: PlanId;
+  trial: boolean;
+  startedAt: number;
+  /** Next renewal — or, once cancelled, when access ends. Epoch ms. */
+  renewsAt: number;
+  autoRenew: boolean;
+};
+
+/** Today's free-tier use. Resets when `day` isn't today. */
+type Usage = { day: string; roleplays: number; missions: number };
+
 type AppState = {
   onboarded: boolean;
   profile: Profile;
@@ -47,6 +61,9 @@ type AppState = {
   lastPracticeDay: string | null;
   /** Monday of the week `weeklyGoal.completed` counts, so it resets weekly. */
   goalWeek: string | null;
+  subscription: Subscription | null;
+  receipts: Receipt[];
+  usage: Usage;
 };
 
 type AppActions = {
@@ -65,9 +82,20 @@ type AppActions = {
     minutes: number;
   }) => void;
   finishMission: (input: { minutes: number }) => void;
+  subscribe: (receipt: Receipt) => void;
+  /** Turn off auto-renew; access runs to the end of the paid period. */
+  cancelSubscription: () => void;
+  resumeSubscription: () => void;
 };
 
-const AppContext = createContext<(AppState & AppActions) | null>(null);
+type Derived = {
+  /** Plus is active right now. */
+  isPlus: boolean;
+  /** Free uses left today; Infinity on Plus. */
+  freeLeft: { roleplays: number; missions: number };
+};
+
+const AppContext = createContext<(AppState & AppActions & Derived) | null>(null);
 
 const STORAGE_KEY = 'ddobak/state/v1';
 
@@ -86,6 +114,9 @@ const initialState: AppState = {
   sessions: {},
   lastPracticeDay: null,
   goalWeek: null,
+  subscription: null,
+  receipts: [],
+  usage: { day: '', roleplays: 0, missions: 0 },
 };
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -138,6 +169,13 @@ function countLesson(state: AppState, minutes: number): AppState {
   };
 }
 
+/** Count one free-tier use of `kind` for today. */
+function bumpUsage(state: AppState, kind: 'roleplays' | 'missions'): AppState {
+  const today = dayKey(new Date());
+  const usage = state.usage.day === today ? state.usage : { day: today, roleplays: 0, missions: 0 };
+  return { ...state, usage: { ...usage, [kind]: usage[kind] + 1 } };
+}
+
 /** Saved state is merged over the defaults so a field added later still has a value. */
 function restore(raw: string | null): AppState {
   if (!raw) return initialState;
@@ -161,6 +199,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
    * sees `onboarded: false` for a frame and sends a returning learner to ON-1.
    */
   const [hydrated, setHydrated] = useState(false);
+  /**
+   * The clock entitlements and daily caps read. Ticking it once a minute
+   * lets a cancelled plan lapse and the free caps reset at midnight while
+   * the app stays open.
+   */
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -288,7 +337,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
 
         const firstTime = !current.sessions[situationId];
-        const next = countLesson(current, minutes);
+        const next = bumpUsage(countLesson(current, minutes), 'roleplays');
         return {
           ...next,
           mistakes,
@@ -316,12 +365,53 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const finishMission = useCallback(({ minutes }: { minutes: number }) => {
-    setState((current) => countLesson(current, minutes));
+    setState((current) => bumpUsage(countLesson(current, minutes), 'missions'));
   }, []);
+
+  const subscribe = useCallback((receipt: Receipt) => {
+    setState((current) => ({
+      ...current,
+      receipts: [receipt, ...current.receipts],
+      subscription: {
+        planId: receipt.planId,
+        trial: receipt.trial,
+        startedAt: receipt.purchasedAt,
+        renewsAt: renewalFrom(receipt.purchasedAt, receipt.planId, receipt.trial),
+        autoRenew: true,
+      },
+    }));
+  }, []);
+
+  const cancelSubscription = useCallback(() => {
+    setState((current) =>
+      current.subscription
+        ? { ...current, subscription: { ...current.subscription, autoRenew: false } }
+        : current,
+    );
+  }, []);
+
+  const resumeSubscription = useCallback(() => {
+    setState((current) =>
+      current.subscription
+        ? { ...current, subscription: { ...current.subscription, autoRenew: true } }
+        : current,
+    );
+  }, []);
+
+  // A renewing plan stays active past `renewsAt` — the store charges and
+  // extends it; a cancelled one ends there.
+  const sub = state.subscription;
+  const isPlus = Boolean(sub && (sub.autoRenew || now < sub.renewsAt));
+  const today = dayKey(new Date(now));
+  const used = state.usage.day === today ? state.usage : { roleplays: 0, missions: 0 };
+  const roleplaysLeft = isPlus ? Infinity : Math.max(0, freeLimits.roleplaysPerDay - used.roleplays);
+  const missionsLeft = isPlus ? Infinity : Math.max(0, freeLimits.missionsPerDay - used.missions);
 
   const value = useMemo(
     () => ({
       ...state,
+      isPlus,
+      freeLeft: { roleplays: roleplaysLeft, missions: missionsLeft },
       completeOnboarding,
       resetOnboarding,
       updateProfile,
@@ -332,9 +422,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setPhraseNote,
       finishSession,
       finishMission,
+      subscribe,
+      cancelSubscription,
+      resumeSubscription,
     }),
     [
       state,
+      isPlus,
+      roleplaysLeft,
+      missionsLeft,
+      subscribe,
+      cancelSubscription,
+      resumeSubscription,
       completeOnboarding,
       resetOnboarding,
       updateProfile,

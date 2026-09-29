@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -83,7 +83,10 @@ export default function MissionRunner() {
   const [firstTry, setFirstTry] = useState(0);
   const [startedAt, setStartedAt] = useState(() => Date.now());
   const [elapsed, setElapsed] = useState(0);
-  const { finishMission } = useApp();
+  const { finishMission, freeLeft } = useApp();
+  // Judged on entry (and on Retry), never mid-run: the finish itself uses
+  // the allowance, and RV-2f must still show.
+  const [allowed] = useState(freeLeft.missions > 0);
   const voice = useVoiceRecorder();
   const heard = useSpeechRecognition();
 
@@ -127,6 +130,10 @@ export default function MissionRunner() {
 
   /** RV-2f `Retry` — the same mission from the top, as a fresh run. */
   const restart = () => {
+    if (freeLeft.missions <= 0) {
+      router.replace('/plus?reason=missions');
+      return;
+    }
     reset();
     setQueue(buildQueue(mission));
     setStep(0);
@@ -252,6 +259,8 @@ export default function MissionRunner() {
       headline: correct ? undefined : `The answer is ${question.options[question.answerIndex]}`,
     });
   };
+
+  if (!allowed) return <Redirect href="/plus?reason=missions" />;
 
   if (done) {
     return (

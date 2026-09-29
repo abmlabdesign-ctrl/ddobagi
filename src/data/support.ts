@@ -28,6 +28,11 @@ export const faq: { question: string; answer: string }[] = [
       'Pharmacy and Café are ready now. The other conversations are on their way and will open as they land.',
   },
   {
+    question: 'How do I cancel Plus?',
+    answer:
+      'Go to My Page › Subscription. On a phone, cancel in your App Store or Google Play subscriptions. You keep Plus until the end of the period you paid for.',
+  },
+  {
     question: 'Where is my progress saved?',
     answer:
       'On this device. Logging out or deleting your account clears it, so stay signed in to keep your streak.',

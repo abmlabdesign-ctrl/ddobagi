@@ -39,6 +39,10 @@ export const legalDocs: Record<LegalDocId, LegalDoc> = {
         body: "Feedback and scores are practice aids. They can be wrong, so don't rely on them for exams, medical, legal or official matters.",
       },
       {
+        heading: 'Ddobak Plus',
+        body: "Plus is a subscription that renews automatically at the price shown when you subscribe, until you cancel. A free trial, if offered, turns into a paid plan when it ends unless you cancel before then. Cancel at least 24 hours before renewal in your App Store or Google Play account; you keep Plus until the period you paid for ends. Refunds follow the store's policy.",
+      },
+      {
         heading: 'Changes',
         body: "We may update the app and these terms. When the terms change in a way that matters, we'll tell you in the app before it takes effect.",
       },
