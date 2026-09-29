@@ -4,6 +4,7 @@ import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'rea
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { KoreanVoiceNotice } from '@/components/KoreanVoiceNotice';
 import { MicButton } from '@/components/MicButton';
 import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
@@ -11,7 +12,7 @@ import { conversationBySituation } from '@/data/conversations';
 import type { ConversationScript, Turn } from '@/data/types';
 import { BackChevronIcon, ReplayIcon } from '@/icons';
 import { recognitionMessage, useSpeechRecognition } from '@/services/recognition';
-import { micMessage, useVoiceRecorder } from '@/services/recorder';
+import { micMessage, rememberClip, useVoiceRecorder } from '@/services/recorder';
 import { speak, stopSpeaking } from '@/services/speech';
 import { useApp, type JudgedLine } from '@/store/AppStore';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
@@ -118,7 +119,8 @@ function Conversation({ script }: { script: ConversationScript }) {
       // `said` carries the words still being settled; stop() only the settled ones.
       const settled = heard.supported ? heard.stop() : '';
       const final = said || settled;
-      await voice.stop();
+      const clip = await voice.stop();
+      if (clip && userReply) rememberClip(`${id}/${userReply.id}`, clip);
       advance(final);
       return;
     }
@@ -210,6 +212,7 @@ function Conversation({ script }: { script: ConversationScript }) {
         {/* §6.2: English stays hidden on the live screen until the learner asks,
             and only ever for the AI's line — what the learner said needs no gloss. */}
         {showMeaning ? <Text style={styles.caption}>{aiTurn.english}</Text> : null}
+        <KoreanVoiceNotice />
       </View>
 
       <View style={styles.stage}>

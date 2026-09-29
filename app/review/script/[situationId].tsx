@@ -16,6 +16,7 @@ import {
   SkipForwardIcon,
   SpeakerIcon,
 } from '@/icons';
+import { clipFor, useClipPlayer } from '@/services/recorder';
 import { speak, stopSpeaking } from '@/services/speech';
 import { shortDate, useApp, type SessionResult } from '@/store/AppStore';
 import { colors, layout, radius, shadows, spacing } from '@/theme/tokens';
@@ -37,6 +38,7 @@ export default function MistakeScript() {
   const turns = transcriptFor(situationId, mistakes, sessions[situationId]);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const playClip = useClipPlayer();
   /** The line being read aloud, or null when stopped. */
   const [cursor, setCursor] = useState<number | null>(null);
   // Each playFrom() bumps this, so a stale line's done callback (fired by the
@@ -155,6 +157,23 @@ export default function MistakeScript() {
               ) : (
                 <View style={isUser ? styles.alignEnd : styles.alignStart}>{bubble}</View>
               )}
+
+              {/* Your own take, right under the line — only from this app run. */}
+              {isUser && clipFor(`${situationId}/${turn.id}`) ? (
+                <Pressable
+                  onPress={() => {
+                    playFrom(-1);
+                    playClip(clipFor(`${situationId}/${turn.id}`)!);
+                  }}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Play your voice"
+                  style={styles.yourVoice}
+                >
+                  <SpeakerIcon size={14} color={colors.textSecondary} />
+                  <Text style={styles.yourVoiceLabel}>Your voice</Text>
+                </Pressable>
+              ) : null}
 
               {expanded && turn.mistake ? (
                 <View style={styles.detailBlock}>
@@ -370,6 +389,14 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
   },
   /** Open, the bubble itself carries the flag: tinted fill, orange rule, orange text. */
+  yourVoice: {
+    alignSelf: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingTop: 4,
+  },
+  yourVoiceLabel: text(12, 16, '500', colors.textSecondary),
   bubbleReading: {
     borderWidth: 1,
     borderColor: colors.info,

@@ -10,7 +10,7 @@ import { ScreenTitleBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { SituationCard } from '@/components/SituationCard';
 import { categories } from '@/data/categories';
-import { situations } from '@/data/situations';
+import { useSituations } from '@/store/useSituations';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { text, type } from '@/theme/typography';
 
@@ -26,6 +26,8 @@ export default function Roleplay() {
   const [inProgressOnly, setInProgressOnly] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  const { situations } = useSituations();
+
   const results = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return situations
@@ -33,7 +35,7 @@ export default function Roleplay() {
       .filter((situation) => (category === 'All' ? true : situation.categoryId === category))
       .filter((situation) => !needle || situation.title.toLowerCase().includes(needle))
       .sort((a, b) => Number(Boolean(b.featured)) - Number(Boolean(a.featured)));
-  }, [query, category, inProgressOnly]);
+  }, [situations, query, category, inProgressOnly]);
 
   const categoryLabel =
     category === 'All' ? 'All' : categories.find((entry) => entry.id === category)?.name ?? 'All';

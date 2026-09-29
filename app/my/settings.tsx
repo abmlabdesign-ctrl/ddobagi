@@ -14,7 +14,8 @@ import { text, type } from '@/theme/typography';
 
 /** MY-3 Settings */
 export default function Settings() {
-  const { profile, settings, isPlus, updateProfile, updateSettings, resetOnboarding } = useApp();
+  const { profile, settings, isPlus, reminderStatus, updateProfile, updateSettings, resetOnboarding } =
+    useApp();
   const [sheet, setSheet] = useState<'language' | 'account' | null>(null);
   const close = () => setSheet(null);
 
@@ -57,6 +58,13 @@ export default function Settings() {
             onChange={(value) => updateSettings({ reviewAlerts: value })}
           />
         </Group>
+        {reminderStatus !== 'ok' ? (
+          <Text style={styles.note}>
+            {reminderStatus === 'unsupported'
+              ? 'Reminders arrive in the phone app.'
+              : 'Notifications are off for Ddobak. Turn them on in your phone settings.'}
+          </Text>
+        ) : null}
 
         <Group title="Account">
           <MenuRow label="Account info" height={56} onPress={() => router.push('/my/edit')} />
@@ -180,6 +188,10 @@ const styles = StyleSheet.create({
   logOutLabel: {
     ...type.row,
     color: colors.primary,
+  },
+  note: {
+    ...type.caption,
+    paddingHorizontal: 4,
   },
   delete: {
     alignSelf: 'center',

@@ -1,8 +1,7 @@
 import type { Mission } from './types';
 
-/** RV-1 `Today's focus` — driven by the two weakest skills. */
+/** RV-1 `Today's focus` copy. The skills it names come from `services/recommend.ts`. */
 export const todayFocus = {
-  skills: ['Politeness', 'Endings'],
   description: "Three minutes on today's weak spots",
   cta: 'Start 3-minute mission',
 };

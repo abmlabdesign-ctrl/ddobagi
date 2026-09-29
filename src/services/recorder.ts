@@ -25,6 +25,29 @@ export const recordingSupported =
   Platform.OS !== 'web' ||
   (typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia));
 
+/**
+ * What the learner said in each roleplay turn, kept for RV-6 so they can hear
+ * themselves next to the correction. Memory only, on purpose: the voice notice
+ * promises recordings don't outlive the app run, and web blob URLs wouldn't
+ * survive a reload anyway. Keyed `situationId/turnId`; a replay overwrites.
+ */
+const voiceClips = new Map<string, string>();
+
+export const rememberClip = (key: string, uri: string) => voiceClips.set(key, uri);
+export const clipFor = (key: string) => voiceClips.get(key) ?? null;
+
+/** Plays a stored clip. One player per screen; a new clip replaces the last. */
+export function useClipPlayer() {
+  const player = useAudioPlayer(null);
+  return useCallback(
+    (uri: string) => {
+      player.replace({ uri });
+      player.play();
+    },
+    [player],
+  );
+}
+
 /** The line a screen shows when the mic didn't open. */
 export function micMessage(permission: MicPermission) {
   if (!recordingSupported) return 'This browser can’t record. Try Chrome or Safari over https.';

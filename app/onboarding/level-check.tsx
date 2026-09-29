@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/Card';
 import { MicButton } from '@/components/MicButton';
+import { KoreanVoiceNotice } from '@/components/KoreanVoiceNotice';
 import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { Waveform } from '@/components/Waveform';
@@ -89,6 +90,7 @@ export default function LevelCheck() {
             <Text style={styles.english}>{levelCheckQuestion.english}</Text>
           </View>
         </View>
+        <KoreanVoiceNotice />
 
         <Card style={styles.transcript} radiusToken="card" elevation="card" padding={24}>
           <Text style={styles.transcriptLabel}>Live transcript</Text>

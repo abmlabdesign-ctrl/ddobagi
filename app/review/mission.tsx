@@ -16,6 +16,7 @@ import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { CtaDock } from '@/components/CtaDock';
 import { KoreanText, isPunctuation, joinTokens } from '@/components/KoreanText';
+import { KoreanVoiceNotice } from '@/components/KoreanVoiceNotice';
 import { MicButton } from '@/components/MicButton';
 import { NavBar } from '@/components/NavBar';
 import { ScreenShell } from '@/components/Screen';
@@ -124,7 +125,12 @@ export default function MissionRunner() {
     }
     const took = Date.now() - startedAt;
     setElapsed(took);
-    finishMission({ minutes: Math.max(1, Math.round(took / 60000)) });
+    finishMission({
+      minutes: Math.max(1, Math.round(took / 60000)),
+      skill: mission.kind,
+      correct: firstTry,
+      total: mission.questionCount,
+    });
     setDone(true);
   };
 
@@ -323,6 +329,7 @@ export default function MissionRunner() {
               captionStyle={styles.sentenceMeaning}
             />
           </Card>
+          <KoreanVoiceNotice />
         </View>
 
         {verdict ? null : (

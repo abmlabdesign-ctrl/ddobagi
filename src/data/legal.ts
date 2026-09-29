@@ -88,7 +88,7 @@ export const legalDocs: Record<LegalDocId, LegalDoc> = {
       },
       {
         heading: 'How long we keep it',
-        body: "Recordings stay on your device until you leave the screen. We don't upload or keep them.",
+        body: "Recordings stay in memory on your device so you can play them back in the transcript, and are gone when you close the app. We don't upload or keep them.",
       },
       {
         heading: 'Saying no',

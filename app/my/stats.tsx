@@ -10,10 +10,11 @@ import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { SkillBarCompact } from '@/components/SkillBar';
 import { missions } from '@/data/missions';
-import { stats } from '@/data/profile';
 import { skillLabels } from '@/data/skills';
 import type { SkillId, StatsPeriod } from '@/data/types';
 import { StepChevronIcon } from '@/icons';
+import { buildStats } from '@/services/progress';
+import { useApp } from '@/store/AppStore';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { fontFamily, numeral, text, type } from '@/theme/typography';
 
@@ -31,7 +32,8 @@ export default function Stats() {
   const [period, setPeriod] = useState<(typeof periods)[number]>('Weekly');
   // How far back the 6-skill card is looking; 0 is the period the header shows.
   const [back, setBack] = useState(0);
-  const data = stats[period.toLowerCase() as StatsPeriod];
+  const { activity, mistakes } = useApp();
+  const data = buildStats(period.toLowerCase() as StatsPeriod, activity, mistakes);
 
   const index = Math.min(Math.max(data.trend.length - 1 - back, 0), data.trend.length - 1);
   const viewing = data.trend[index];
@@ -121,7 +123,9 @@ export default function Stats() {
                 score={entry.score}
                 // The gain is a fact about the period the header shows, so the
                 // orange row only means something while that period is up.
-                highlight={atLatest && entry.skill === data.biggestGain.skill}
+                highlight={
+                  atLatest && data.biggestGain.delta > 0 && entry.skill === data.biggestGain.skill
+                }
               />
             ))}
           </View>
@@ -130,8 +134,12 @@ export default function Stats() {
         <Card radiusToken="group" elevation="card" padding={20} style={styles.insight}>
           <Text style={[styles.tag, styles.tagGain]}>Biggest gain</Text>
           <View style={styles.insightRow}>
-            <Text style={type.cardTitle}>{skillLabels[data.biggestGain.skill]}</Text>
-            <Text style={styles.gainDelta}>↑{data.biggestGain.delta}</Text>
+            <Text style={type.cardTitle}>
+              {data.biggestGain.delta > 0 ? skillLabels[data.biggestGain.skill] : 'Not yet'}
+            </Text>
+            {data.biggestGain.delta > 0 ? (
+              <Text style={styles.gainDelta}>↑{data.biggestGain.delta}</Text>
+            ) : null}
           </View>
           <Text style={styles.insightNote}>{data.biggestGain.note}</Text>
         </Card>

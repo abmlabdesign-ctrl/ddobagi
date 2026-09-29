@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Speech from 'expo-speech';
+import { Platform } from 'react-native';
 
 /**
  * 한국어 음성 출력(TTS).
@@ -88,10 +89,25 @@ export function speakSequence(lines: string[], onDone?: () => void) {
  * 웹은 음성 목록이 비동기로 채워져서 첫 호출이 빈 배열을 주는 일이 있습니다.
  * 그래서 짧은 간격으로 몇 번 다시 확인합니다.
  */
+let voiceCheck: Promise<boolean> | null = null;
+
+/** `hasKoreanVoice`, asked once per app run — the answer doesn't change mid-session. */
+export function koreanVoiceAvailable() {
+  voiceCheck ??= hasKoreanVoice();
+  return voiceCheck;
+}
+
 export async function hasKoreanVoice(): Promise<boolean> {
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
-      const voices = await Speech.getAvailableVoicesAsync();
+      // On the web expo-speech waits for `voiceschanged`, which never fires in
+      // a browser with no voices at all — so ask the browser directly there.
+      const voices =
+        Platform.OS === 'web'
+          ? typeof window !== 'undefined' && window.speechSynthesis
+            ? window.speechSynthesis.getVoices().map((voice) => ({ language: voice.lang }))
+            : []
+          : await Speech.getAvailableVoicesAsync();
       if (voices.some((voice) => voice.language?.toLowerCase().startsWith('ko'))) return true;
       if (voices.length > 0 && attempt >= 2) return false;
     } catch {

@@ -17,6 +17,7 @@ import { situationById } from '@/data/situations';
 import type { Mistake, SavedPhrase } from '@/data/types';
 import { ListChevronIcon, MoreIcon, SpeakerIcon } from '@/icons';
 import { speak } from '@/services/speech';
+import { todayFocus as recommendFocus } from '@/services/recommend';
 import { useApp } from '@/store/AppStore';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
@@ -73,11 +74,12 @@ export default function Review() {
   );
 }
 
-// The focus card names the weakest skill, so its CTA opens that skill's drill.
-const focusMission =
-  missions.find((mission) => mission.kind === todayFocus.skills[0].toLowerCase()) ?? missions[0];
-
 function MissionsTab() {
+  // Named from open mistakes first, then ON-2's pain points; the CTA opens
+  // the drill for the first of them.
+  const { mistakes, profile } = useApp();
+  const focus = recommendFocus(mistakes, profile.painPoints);
+
   return (
     <View style={styles.tabBody}>
       <LinearGradient
@@ -89,12 +91,12 @@ function MissionsTab() {
       >
         <View style={styles.focusText}>
           <Text style={styles.focusLabel}>
-            Today&apos;s focus {todayFocus.skills.map((skill) => `· ${skill}`).join(' ')}
+            Today&apos;s focus {focus.skills.map((skill) => `· ${skill}`).join(' ')}
           </Text>
           <Text style={type.lead}>{todayFocus.description}</Text>
         </View>
         <Pressable
-          onPress={() => router.push(`/review/mission?missionId=${focusMission.id}`)}
+          onPress={() => router.push(`/review/mission?missionId=${focus.mission.id}`)}
           accessibilityRole="button"
           style={styles.focusCta}
         >

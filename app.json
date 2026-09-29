@@ -37,7 +37,8 @@
         {
           "microphonePermission": "Ddobak uses the microphone to hear your Korean and give you feedback."
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,

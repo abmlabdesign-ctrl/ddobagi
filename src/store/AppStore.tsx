@@ -2,11 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { mistakes as seedMistakes, savedPhrases as seedPhrases } from '@/data/review';
-import { freeLimits, type PlanId } from '@/data/plans';
+import { freeLimits, planById, type PlanId } from '@/data/plans';
 import { defaultProfile } from '@/data/profile';
-import type { Mistake, SavedPhrase } from '@/data/types';
+import type { Mistake, SavedPhrase, SkillId } from '@/data/types';
 import { renewalFrom, type Receipt } from '@/services/billing';
 import { normalizeSpeech } from '@/services/recognition';
+import { syncReminders } from '@/services/reminders';
 import { setSpeechSpeed } from '@/services/speech';
 
 export type Profile = typeof defaultProfile;
@@ -47,6 +48,15 @@ export type Subscription = {
   autoRenew: boolean;
 };
 
+/**
+ * One measured result on one skill: a mission's first-try score, or whether
+ * a roleplay turn the script flags got said right. MY-2 is built from these.
+ */
+export type ActivityEntry = { at: number; skill: SkillId; correct: number; total: number };
+
+/** Keeps the log bounded; a year of daily practice fits comfortably. */
+const ACTIVITY_CAP = 2000;
+
 /** Today's free-tier use. Resets when `day` isn't today. */
 type Usage = { day: string; roleplays: number; missions: number };
 
@@ -64,6 +74,7 @@ type AppState = {
   subscription: Subscription | null;
   receipts: Receipt[];
   usage: Usage;
+  activity: ActivityEntry[];
 };
 
 type AppActions = {
@@ -81,7 +92,7 @@ type AppActions = {
     goalsTotal: number;
     minutes: number;
   }) => void;
-  finishMission: (input: { minutes: number }) => void;
+  finishMission: (input: { minutes: number; skill: SkillId; correct: number; total: number }) => void;
   subscribe: (receipt: Receipt) => void;
   /** Turn off auto-renew; access runs to the end of the paid period. */
   cancelSubscription: () => void;
@@ -89,6 +100,8 @@ type AppActions = {
 };
 
 type Derived = {
+  /** Result of the last reminder sync — MY-3 explains `denied` / `unsupported`. */
+  reminderStatus: 'ok' | 'denied' | 'unsupported';
   /** Plus is active right now. */
   isPlus: boolean;
   /** Free uses left today; Infinity on Plus. */
@@ -116,6 +129,7 @@ const initialState: AppState = {
   goalWeek: null,
   subscription: null,
   receipts: [],
+  activity: [],
   usage: { day: '', roleplays: 0, missions: 0 },
 };
 
@@ -230,6 +244,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => {});
   }, [hydrated, state]);
 
+  const [reminderStatus, setReminderStatus] = useState<Derived['reminderStatus']>('ok');
+  const openMistakes = state.mistakes.filter((mistake) => !mistake.fixed).length;
+  const trialEndsAt =
+    state.subscription?.trial && state.subscription.autoRenew ? state.subscription.renewsAt : null;
+  const trialPlan = state.subscription?.planId ?? null;
+
+  // Reminders live in the OS scheduler, so the settings are pushed into it.
+  // Only once someone is signed in: the permission prompt must not greet ON-1.
+  useEffect(() => {
+    if (!hydrated || !state.onboarded) return;
+    let cancelled = false;
+    syncReminders({
+      practice: state.settings.practiceReminder,
+      review: state.settings.reviewAlerts,
+      openMistakes,
+      trialEndsAt,
+      trialPrice: trialPlan ? planById[trialPlan].price : null,
+    }).then((result) => {
+      if (!cancelled) setReminderStatus(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    hydrated,
+    state.onboarded,
+    state.settings.practiceReminder,
+    state.settings.reviewAlerts,
+    openMistakes,
+    trialEndsAt,
+    trialPlan,
+  ]);
+
   // TTS lives outside React, so the setting is pushed into it.
   useEffect(() => {
     setSpeechSpeed(state.settings.aiSpeechSpeed);
@@ -300,6 +347,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const date = shortDate();
         let mistakes = current.mistakes;
         const flagged: string[] = [];
+        const measured: ActivityEntry[] = [];
+        const at = Date.now();
 
         for (const line of lines) {
           if (!line.mistake) continue;
@@ -311,7 +360,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           );
           const heard = line.said.trim();
 
-          if (heard && normalizeSpeech(heard) === target) {
+          const right = Boolean(heard) && normalizeSpeech(heard) === target;
+          // Without a transcript there's nothing measured, so nothing is logged.
+          if (heard) measured.push({ at, skill: line.mistake.skill, correct: right ? 1 : 0, total: 1 });
+
+          if (right) {
             if (existing) {
               mistakes = mistakes.map((entry) =>
                 entry === existing ? { ...entry, fixed: true } : entry,
@@ -341,6 +394,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return {
           ...next,
           mistakes,
+          activity: [...current.activity, ...measured].slice(-ACTIVITY_CAP),
           sessions: {
             ...current.sessions,
             [situationId]: {
@@ -364,9 +418,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const finishMission = useCallback(({ minutes }: { minutes: number }) => {
-    setState((current) => bumpUsage(countLesson(current, minutes), 'missions'));
-  }, []);
+  const finishMission = useCallback<AppActions['finishMission']>(
+    ({ minutes, skill, correct, total }) => {
+      setState((current) => {
+        const next = bumpUsage(countLesson(current, minutes), 'missions');
+        return {
+          ...next,
+          activity: [...current.activity, { at: Date.now(), skill, correct, total }].slice(
+            -ACTIVITY_CAP,
+          ),
+        };
+      });
+    },
+    [],
+  );
 
   const subscribe = useCallback((receipt: Receipt) => {
     setState((current) => ({
@@ -411,6 +476,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     () => ({
       ...state,
       isPlus,
+      reminderStatus,
       freeLeft: { roleplays: roleplaysLeft, missions: missionsLeft },
       completeOnboarding,
       resetOnboarding,
@@ -429,6 +495,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [
       state,
       isPlus,
+      reminderStatus,
       roleplaysLeft,
       missionsLeft,
       subscribe,

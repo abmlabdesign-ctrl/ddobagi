@@ -21,7 +21,7 @@ const REQUIRED: LegalDocId[] = ['terms', 'privacy', 'voice'];
  * like ON-2: white page, section title, rows, one CTA disabled until ready.
  */
 export default function Consent() {
-  const { profile, updateProfile } = useApp();
+  const { profile, updateProfile, updateSettings } = useApp();
   const [agreed, setAgreed] = useState<Record<LegalDocId, boolean>>({
     terms: profile.consents?.terms ?? false,
     privacy: profile.consents?.privacy ?? false,
@@ -40,6 +40,8 @@ export default function Consent() {
 
   const next = () => {
     updateProfile({ consents: { ...agreed, marketing, agreedOn: shortDate() } });
+    // The optional line is literally "Practice reminders and news".
+    updateSettings({ practiceReminder: marketing });
     router.push('/onboarding/setup');
   };
 
