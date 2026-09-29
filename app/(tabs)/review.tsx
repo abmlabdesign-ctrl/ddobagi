@@ -16,6 +16,7 @@ import { mistakeGroups, mistakesSummary } from '@/data/review';
 import { situationById } from '@/data/situations';
 import type { SavedPhrase } from '@/data/types';
 import { ListChevronIcon, MoreIcon, SpeakerIcon } from '@/icons';
+import { speak } from '@/services/speech';
 import { useApp } from '@/store/AppStore';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
@@ -259,6 +260,7 @@ function PhraseCard({ phrase, onMore }: { phrase: SavedPhrase; onMore: () => voi
             {situationTitle(phrase.situationId)} · {phrase.savedOn}
           </Text>
           <Pressable
+            onPress={() => speak(phrase.korean)}
             hitSlop={6}
             accessibilityRole="button"
             accessibilityLabel={`Replay ${phrase.korean}`}

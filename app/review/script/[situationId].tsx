@@ -15,6 +15,7 @@ import {
   SkipForwardIcon,
   SpeakerIcon,
 } from '@/icons';
+import { speak, speakSequence, stopSpeaking } from '@/services/speech';
 import { colors, layout, radius, shadows, spacing } from '@/theme/tokens';
 import { gloss, numeral, text, type } from '@/theme/typography';
 
@@ -34,6 +35,21 @@ export default function MistakeScript() {
   const situation = situationById[id];
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(false);
+
+  /** 재생은 대화를 위에서 아래로 차례대로 읽는 것이다. */
+  const togglePlayback = () => {
+    if (playing) {
+      stopSpeaking();
+      setPlaying(false);
+      return;
+    }
+    setPlaying(true);
+    speakSequence(
+      script.turns.map((turn) => turn.korean),
+      () => setPlaying(false),
+    );
+  };
 
   return (
     <ScreenShell>
@@ -107,7 +123,14 @@ export default function MistakeScript() {
                     <View style={styles.detailSection}>
                       <Text style={styles.suggestedLabel}>Suggested sentence</Text>
                       <View style={styles.suggestedRow}>
-                        <SpeakerIcon size={18} />
+                        <Pressable
+                          onPress={() => speak(turn.mistake!.suggested.korean)}
+                          hitSlop={8}
+                          accessibilityRole="button"
+                          accessibilityLabel="Replay the suggested sentence"
+                        >
+                          <SpeakerIcon size={18} />
+                        </Pressable>
                         <View style={styles.suggestedText}>
                           <Text style={styles.suggestedKorean}>{turn.mistake.suggested.korean}</Text>
                           <Text style={styles.suggestedGloss}>{turn.mistake.suggested.english}</Text>
@@ -155,7 +178,13 @@ export default function MistakeScript() {
           <SkipBackIcon />
           <Text style={styles.skipLabel}>10</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Play" style={styles.play}>
+        <Pressable
+          onPress={togglePlayback}
+          accessibilityRole="button"
+          accessibilityLabel={playing ? 'Stop' : 'Play'}
+          accessibilityState={{ selected: playing }}
+          style={styles.play}
+        >
           <PlayIcon size={18} />
         </Pressable>
         <Pressable

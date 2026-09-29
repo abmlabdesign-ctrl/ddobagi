@@ -8,6 +8,7 @@ import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { situationById } from '@/data/situations';
 import { EditIcon, SpeakerIcon } from '@/icons';
+import { speak } from '@/services/speech';
 import { useApp } from '@/store/AppStore';
 import { colors, spacing } from '@/theme/tokens';
 import { text, type } from '@/theme/typography';
@@ -51,6 +52,7 @@ export default function SavedPhraseDetail() {
           <View style={styles.phraseHead}>
             <Text style={styles.korean}>{phrase.korean}</Text>
             <Pressable
+              onPress={() => speak(phrase.korean)}
               accessibilityRole="button"
               accessibilityLabel={`Replay ${phrase.korean}`}
               style={styles.replay}

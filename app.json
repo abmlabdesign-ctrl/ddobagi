@@ -29,7 +29,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Ddobak uses the microphone to hear your Korean and give you feedback."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

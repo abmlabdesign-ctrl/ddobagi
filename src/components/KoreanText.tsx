@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { SpeakerIcon } from '@/icons';
+import { speak } from '@/services/speech';
 import type { Token } from '@/data/types';
 import { colors, radius, shadows } from '@/theme/tokens';
 import { fontFamily, type } from '@/theme/typography';
@@ -160,8 +161,19 @@ function KoreanToken({
     spoken ? styles.spokenToken : null,
   ];
 
+  const sayWord = () => speak(token.text, { scale: 'word' });
+
+  // 로마자가 없는 낱말도 소리는 들려야 한다. Pressable로 감싸면 정렬이
+  // 틀어지므로 Text의 onPress를 쓴다 — 레이아웃이 그대로다.
   if (!token.romanization) {
-    return <Text style={[styles.token, rule, gap, textStyle]}>{token.text}</Text>;
+    return (
+      <Text
+        onPress={isPunctuation(token.text) ? undefined : sayWord}
+        style={[styles.token, rule, gap, textStyle]}
+      >
+        {token.text}
+      </Text>
+    );
   }
 
   return (
@@ -178,7 +190,10 @@ function KoreanToken({
         </View>
       ) : null}
       <Pressable
-        onPress={onToggle}
+        onPress={() => {
+          onToggle();
+          sayWord();
+        }}
         hitSlop={{ top: 8, bottom: 8 }}
         accessibilityRole="button"
         accessibilityLabel={`${token.text}, tap for pronunciation`}

@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/Card';
 import { MicButton } from '@/components/MicButton';
@@ -8,6 +8,8 @@ import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { Waveform } from '@/components/Waveform';
 import { SpeakerIcon } from '@/icons';
+import { useVoiceRecorder } from '@/services/recorder';
+import { speak } from '@/services/speech';
 import {
   levelCheckQuestion,
   levelCheckSeconds,
@@ -23,6 +25,7 @@ import { text, type } from '@/theme/typography';
  */
 export default function LevelCheck() {
   const [recording, setRecording] = useState(false);
+  const voice = useVoiceRecorder();
   const [secondsLeft, setSecondsLeft] = useState(levelCheckSeconds);
   const [lines, setLines] = useState<string[]>([]);
 
@@ -67,9 +70,14 @@ export default function LevelCheck() {
 
       <Screen contentStyle={styles.content}>
         <View style={styles.question}>
-          <View style={styles.speaker}>
+          <Pressable
+            onPress={() => speak(levelCheckQuestion.korean)}
+            accessibilityRole="button"
+            accessibilityLabel={`Replay ${levelCheckQuestion.korean}`}
+            style={styles.speaker}
+          >
             <SpeakerIcon size={16} />
-          </View>
+          </Pressable>
           <View style={styles.questionText}>
             <Text style={styles.korean}>{levelCheckQuestion.korean}</Text>
             <Text style={styles.english}>{levelCheckQuestion.english}</Text>
@@ -97,7 +105,23 @@ export default function LevelCheck() {
 
       <View style={styles.micBlock}>
         <Waveform active={running} />
-        <MicButton active={running} onPress={() => setRecording((value) => !value)} />
+        <MicButton
+          active={running}
+          onPress={async () => {
+            if (recording) {
+              await voice.stop();
+              setRecording(false);
+              return;
+            }
+            // 권한을 거부당하면 녹음이 시작되지 않으므로 타이머도 돌리지 않는다.
+            setRecording(await voice.start());
+          }}
+        />
+        {voice.permission === 'denied' ? (
+          <Text style={styles.micDenied}>
+            Microphone access is off. Allow it in your browser or system settings, then tap again.
+          </Text>
+        ) : null}
       </View>
     </ScreenShell>
   );
@@ -160,5 +184,10 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingHorizontal: spacing.gutter,
     paddingBottom: 12,
+  },
+  /** 권한이 막히면 아무 일도 안 일어난 것처럼 보여서, 이유를 적어준다. */
+  micDenied: {
+    ...text(12, 18, '500', colors.danger),
+    textAlign: 'center',
   },
 });

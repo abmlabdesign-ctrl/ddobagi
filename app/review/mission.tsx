@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { CtaDock } from '@/components/CtaDock';
-import { KoreanText } from '@/components/KoreanText';
+import { KoreanText, joinTokens } from '@/components/KoreanText';
 import { MicButton } from '@/components/MicButton';
 import { NavBar } from '@/components/NavBar';
 import { ScreenShell } from '@/components/Screen';
@@ -23,6 +23,8 @@ import { StepProgress } from '@/components/StepProgress';
 import { missionById, missions } from '@/data/missions';
 import type { ChoiceQuestion, Mission, Token, WriteQuestion } from '@/data/types';
 import { BackChevronIcon, CheckIcon, DropdownChevronIcon, SpeakerIcon } from '@/icons';
+import { useVoiceRecorder } from '@/services/recorder';
+import { speak } from '@/services/speech';
 import { colors, layout, radius, shadows, spacing } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
 
@@ -69,6 +71,7 @@ export default function MissionRunner() {
   const [spokenCount, setSpokenCount] = useState(0);
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [done, setDone] = useState(false);
+  const voice = useVoiceRecorder();
 
   const question = mission.questions[queue[step]];
 
@@ -106,6 +109,7 @@ export default function MissionRunner() {
    * RV-2b reads as a live caption: while the mic is open the sentence lights up
    * word by word, and the verdict lands once the last word is through.
    */
+  const stopRecording = voice.stop;
   useEffect(() => {
     if (!recording || question.type !== 'speak') return undefined;
     const total = question.tokens.length;
@@ -116,6 +120,7 @@ export default function MissionRunner() {
       if (read < total) return;
       clearInterval(id);
       setRecording(false);
+      stopRecording();
       setVerdict({
         correct: question.feedback.correct,
         note: question.feedback.explanation,
@@ -128,7 +133,7 @@ export default function MissionRunner() {
       );
     }, 420);
     return () => clearInterval(id);
-  }, [recording, question, step, mission.questionCount]);
+  }, [recording, question, step, mission.questionCount, stopRecording]);
 
   const submitWrite = () => {
     if (question.type !== 'write') return;
@@ -187,6 +192,7 @@ export default function MissionRunner() {
       note={verdict.note}
       nextLabel={nextLabel}
       onNext={next}
+      onPlayback={question.type === 'speak' && voice.hasClip ? voice.playBack : undefined}
     />
   ) : null;
 
@@ -201,9 +207,14 @@ export default function MissionRunner() {
 
         <View style={styles.speakScene}>
           <Card elevation="card" radiusToken="card" padding={24} style={styles.promptCard}>
-            <View style={styles.speaker}>
+            <Pressable
+              onPress={() => speak(joinTokens(question.tokens.map((token) => token.text)))}
+              accessibilityRole="button"
+              accessibilityLabel="Replay the sentence"
+              style={styles.speaker}
+            >
               <SpeakerIcon size={18} />
-            </View>
+            </Pressable>
             <KoreanText
               tokens={question.tokens}
               spokenCount={mission.kind === 'fluency' ? spokenCount : 0}
@@ -219,9 +230,10 @@ export default function MissionRunner() {
             <Waveband active={recording} />
             <MicDock
               recording={recording}
-              onSpeak={() => {
+              onSpeak={async () => {
                 setSpokenCount(0);
-                setRecording(true);
+                // 권한이 없으면 파형만 돌고 아무것도 녹음되지 않으므로 함께 막는다.
+                setRecording(await voice.start());
               }}
             />
           </>
@@ -349,12 +361,15 @@ function FeedbackPanel({
   note,
   nextLabel,
   onNext,
+  onPlayback,
 }: {
   correct: boolean;
   headline?: string;
   note: string;
   nextLabel: string;
   onNext: () => void;
+  /** 말하기 문제에서 방금 녹음된 발화가 있을 때만 들어온다. */
+  onPlayback?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const tone = correct ? colors.success : colors.danger;
@@ -374,6 +389,12 @@ function FeedbackPanel({
 
       {headline ? <Text style={styles.panelHeadline}>{headline}</Text> : null}
       <Text style={styles.panelNote}>{note}</Text>
+
+      {onPlayback ? (
+        <Pressable onPress={onPlayback} accessibilityRole="button" hitSlop={8}>
+          <Text style={[styles.panelPlayback, { color: tone }]}>Play back your answer</Text>
+        </Pressable>
+      ) : null}
 
       <Button
         label={nextLabel}
@@ -489,11 +510,23 @@ function WriteCard({
     />
   );
 
+  /** 빈칸을 정답으로 채운 문장 — 채점이 끝난 뒤에만 읽어준다. */
+  const answerSentence = question.template
+    ? question.template
+        .split('___')
+        .reduce((line, part, gap) => line + part + (question.blanks[gap]?.[0] ?? ''), '')
+    : (question.blanks[0]?.[0] ?? '');
+
   return (
     <Card elevation="card" radiusToken="card" padding={24} style={styles.promptCard}>
-      <View style={styles.speaker}>
+      <Pressable
+        onPress={judged ? () => speak(answerSentence) : undefined}
+        accessibilityRole="button"
+        accessibilityLabel="Replay the sentence"
+        style={styles.speaker}
+      >
         <SpeakerIcon size={18} />
-      </View>
+      </Pressable>
 
       {question.source ? <Text style={styles.writeSource}>{question.source}</Text> : null}
 
@@ -548,9 +581,14 @@ function ChoiceCard({ question, answer }: { question: ChoiceQuestion; answer: nu
     <Card elevation="card" radiusToken="card" padding={24} style={styles.promptCard}>
       <View style={styles.promptHeader}>
         <View style={styles.promptHeaderLeft}>
-          <View style={styles.speaker}>
+          <Pressable
+            onPress={() => speak(joinTokens(question.promptTokens.map((token) => token.text)))}
+            accessibilityRole="button"
+            accessibilityLabel="Replay the question"
+            style={styles.speaker}
+          >
             <SpeakerIcon size={18} />
-          </View>
+          </Pressable>
           <Text style={styles.promptLabel}>{question.promptLabel}</Text>
         </View>
         <Pressable
@@ -869,6 +907,11 @@ const styles = StyleSheet.create({
   panelNote: {
     ...text(14, 21, '500', colors.textSecondary),
     paddingBottom: 4,
+  },
+  /** 패널 안에서 Next 위에 놓이는 보조 동작 — 버튼이 아니라 글자 링크다. */
+  panelPlayback: {
+    ...text(14, 20, '600'),
+    paddingBottom: 8,
   },
   /** `height:52; padding:0 20; justify-content:flex-end` — close control only. */
   completeBar: {

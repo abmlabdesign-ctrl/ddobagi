@@ -8,6 +8,8 @@ import { MicButton } from '@/components/MicButton';
 import { conversationBySituation, fallbackSituationId } from '@/data/conversations';
 import type { Turn } from '@/data/types';
 import { BackChevronIcon, ReplayIcon } from '@/icons';
+import { useVoiceRecorder } from '@/services/recorder';
+import { speak, stopSpeaking } from '@/services/speech';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
 import { gloss, numeral, text, type } from '@/theme/typography';
 
@@ -28,6 +30,7 @@ export default function Session() {
   const [showMeaning, setShowMeaning] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [showScript, setShowScript] = useState(false);
+  const voice = useVoiceRecorder();
 
   const progressPercent = Math.round(((turnIndex + 1) / aiTurns.length) * 100);
   const aiTurn = aiTurns[Math.min(turnIndex, aiTurns.length - 1)];
@@ -36,6 +39,16 @@ export default function Session() {
 
   // A hint is a nudge, not a panel: it floats in on tap and clears itself.
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * 대화이므로 AI 차례가 오면 바로 들려준다. 화면을 떠날 때는 끊는다.
+   * 첫 턴은 브라우저가 사용자 동작 없는 재생을 막을 수 있어 소리가 안 날 수
+   * 있는데, 그때는 Replay 버튼으로 들으면 된다.
+   */
+  useEffect(() => {
+    speak(aiTurn.korean);
+    return () => stopSpeaking();
+  }, [aiTurn.korean]);
 
   useEffect(
     () => () => {
@@ -54,9 +67,15 @@ export default function Session() {
     hintTimer.current = setTimeout(() => setShowHint(false), 4000);
   };
 
-  const onMic = () => {
-    if (micOn) advance();
-    else setMicOn(true);
+  const onMic = async () => {
+    if (micOn) {
+      await voice.stop();
+      advance();
+      return;
+    }
+    // AI가 말하는 중에 마이크를 열면 자기 목소리를 덮으므로 먼저 끊는다.
+    stopSpeaking();
+    setMicOn(await voice.start());
   };
 
   const advance = () => {
@@ -124,9 +143,9 @@ export default function Session() {
         {/* Drawn after the waveform: the gif carries its own ground and would
             otherwise paint over the button. */}
         <Pressable
-          onPress={() => {}}
+          onPress={() => speak(aiTurn.korean)}
           accessibilityRole="button"
-          accessibilityLabel="Replay the last 10 seconds"
+          accessibilityLabel="Replay what the other person said"
           style={styles.replay}
         >
           <ReplayIcon size={18} color={colors.ink} />
