@@ -9,6 +9,7 @@
     "newArchEnabled": true,
     "backgroundColor": "#FFFFFF",
     "splash": {
+      "image": "./assets/graphics/logo.png",
       "backgroundColor": "#FFFFFF",
       "resizeMode": "contain"
     },
@@ -25,7 +26,8 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "single"
+      "output": "single",
+      "favicon": "./assets/icon.png"
     },
     "plugins": [
       "expo-router",
@@ -40,6 +42,7 @@
     "experiments": {
       "typedRoutes": true,
       "baseUrl": "/ddobagi"
-    }
+    },
+    "icon": "./assets/icon.png"
   }
 }

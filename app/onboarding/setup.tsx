@@ -29,7 +29,7 @@ export default function Setup() {
 
   const next = () => {
     updateProfile({ studyDuration, purposes, painPoints });
-    router.push('/onboarding/level-check');
+    router.push('/onboarding/microphone');
   };
 
   return (

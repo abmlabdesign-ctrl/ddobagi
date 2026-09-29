@@ -43,10 +43,9 @@ export default function Home() {
         background="surface-alt"
         contentStyle={[styles.content, { paddingBottom: dockHeight + spacing.huge }]}
       >
-        {/* No inbox yet — the bell opens where reminders are switched on and off. */}
         <HomeStatusRow
           streakDays={profile.streakDays}
-          onBell={() => router.push('/my/settings')}
+          onBell={() => router.push('/notifications')}
         />
 
         <Text style={styles.greeting}>

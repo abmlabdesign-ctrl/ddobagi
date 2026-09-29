@@ -93,7 +93,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 /** `Sep 29` — the date format every list in the comps uses. */
 export const shortDate = (date = new Date()) => `${MONTHS[date.getMonth()]} ${date.getDate()}`;
 
-const dayKey = (date: Date) =>
+export const dayKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 const mondayKey = (date: Date) => {

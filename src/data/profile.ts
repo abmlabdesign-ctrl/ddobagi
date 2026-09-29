@@ -23,6 +23,10 @@ export const defaultProfile = {
   interests: ['School', 'Part-time', 'Clinic'],
   /** ON-1 — how the learner signed in. Settings shows it as the connected account. */
   signInProvider: 'Google' as SignInProvider,
+  /** Set only for the email route. */
+  email: null as string | null,
+  /** ON-1b answers, kept with the day they were given. Null until agreed. */
+  consents: null as Consents | null,
   streakDays: 12,
   situationsDone: 18,
   /** Shown as `6h 20m` on MY-1. Minutes so a session can add to it. */
@@ -32,6 +36,15 @@ export const defaultProfile = {
 };
 
 export type SignInProvider = 'Google' | 'Apple' | 'Email';
+
+export type Consents = {
+  terms: boolean;
+  privacy: boolean;
+  voice: boolean;
+  /** Optional — practice reminders and product news. */
+  marketing: boolean;
+  agreedOn: string;
+};
 
 /** MY-1b Weekly goal choices. */
 export const weeklyGoalOptions = [5, 10, 15, 20];
@@ -277,10 +290,4 @@ export const stats: Record<Stats['period'], Stats> = {
 export const settings = {
   appVersion: 'Ddobak v1.0.2',
   speechSpeeds: ['0.7x', '0.8x', '0.9x', '1.0x', '1.2x'],
-  /** MY-3 Help center — the questions learners hit first. */
-  help: [
-    'No sound? Your device needs a Korean voice. Add one in your system’s speech settings.',
-    'Mic not working? Allow microphone access. On the web it only opens over https.',
-    'Speech-to-text works in Chrome, Edge and Safari on the web.',
-  ],
 };

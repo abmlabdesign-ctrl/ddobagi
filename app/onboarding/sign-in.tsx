@@ -16,8 +16,12 @@ export default function SignIn() {
   // No auth server yet: the choice is remembered so Settings can show which
   // account this is, and the real sign-in plugs in here.
   const signIn = (provider: SignInProvider) => {
-    updateProfile({ signInProvider: provider });
-    router.push('/onboarding/setup');
+    if (provider === 'Email') {
+      router.push('/onboarding/email');
+      return;
+    }
+    updateProfile({ signInProvider: provider, email: null });
+    router.push('/onboarding/consent');
   };
 
   return (
@@ -57,7 +61,15 @@ export default function SignIn() {
           />
           <Button label="Continue with email" variant="text" onPress={() => signIn('Email')} />
           <Text style={styles.terms}>
-            By continuing, you agree to our Terms and Privacy Policy.
+            By continuing, you agree to our{' '}
+            <Text style={styles.termsLink} onPress={() => router.push('/legal/terms')}>
+              Terms
+            </Text>{' '}
+            and{' '}
+            <Text style={styles.termsLink} onPress={() => router.push('/legal/privacy')}>
+              Privacy Policy
+            </Text>
+            .
           </Text>
         </View>
       </Screen>
@@ -135,5 +147,8 @@ const styles = StyleSheet.create({
   terms: {
     ...text(12, 18, '400', colors.textTertiary),
     textAlign: 'center',
+  },
+  termsLink: {
+    textDecorationLine: 'underline',
   },
 });

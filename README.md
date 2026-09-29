@@ -41,7 +41,10 @@ npm run export:web # 웹 번들 — 모든 라우트가 컴파일되는지 확�
 | 화면 | ID | 라우트 |
 |---|---|---|
 | Sign up / Log in | ON-1 | `app/onboarding/sign-in.tsx` |
+| Continue with email | ON-1a | `app/onboarding/email.tsx` |
+| Before we start (약관·음성 동의) | ON-1b | `app/onboarding/consent.tsx` |
 | Setup (About you) | ON-2 | `app/onboarding/setup.tsx` |
+| Microphone (권한 안내) | ON-2b | `app/onboarding/microphone.tsx` |
 | 1-minute AI level check | ON-3 | `app/onboarding/level-check.tsx` |
 | Your results | ON-4 | `app/onboarding/results.tsx` |
 | Home | HM-1 | `app/(tabs)/index.tsx` |
@@ -57,6 +60,25 @@ npm run export:web # 웹 번들 — 모든 라우트가 컴파일되는지 확�
 | Edit profile | MY-1b | `app/my/edit.tsx` |
 | Stats (주간 / 월간) | MY-2 / MY-2b | `app/my/stats.tsx` |
 | Settings | MY-3 | `app/my/settings.tsx` |
+
+디자인 시안에 없는 운영용 화면은 위 화면들의 컴포넌트와 토큰으로 만들었습니다.
+
+| 화면 | 라우트 |
+|---|---|
+| Notifications (홈 알림 벨) | `app/notifications.tsx` |
+| Notices | `app/my/notices.tsx` |
+| Help center | `app/my/help.tsx` |
+| About Ddobak | `app/my/about.tsx` |
+| Open-source licenses | `app/my/licenses.tsx` |
+| Delete account | `app/my/delete-account.tsx` |
+| Terms / Privacy / Voice recordings | `app/legal/[doc].tsx` |
+| 없는 주소 | `app/+not-found.tsx` |
+
+오프라인이 되면 모든 화면 위에 안내 띠가 뜹니다(`src/components/OfflineBanner.tsx`).
+약관·개인정보·음성 문서(`src/data/legal.ts`)는 **초안**이라 화면에 초안 표시가 붙습니다. 검토된 문안으로
+바꾼 뒤 `legalDraft`를 `false`로 두세요. 문의 메일 주소(`src/data/support.ts`의 `supportEmail`)를 채우면
+Help center에 `Contact us`가 나타납니다. 라이선스 목록은 의존성이 바뀌면
+`node scripts/licenses.js > src/data/licenses.ts`로 다시 만듭니다.
 
 탭바는 Home / Roleplay / Review / My Page 4개 루트이며, 롤플레이는 RP-1 → RP-2 → RP-3 → RP-4 푸시 스택입니다.
 

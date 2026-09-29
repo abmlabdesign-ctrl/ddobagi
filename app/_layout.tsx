@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { AppProvider } from '@/store/AppStore';
 import { colors } from '@/theme/tokens';
 
@@ -53,6 +54,7 @@ export default function RootLayout() {
               options={{ animation: 'fade', gestureEnabled: false }}
             />
           </Stack>
+          <OfflineBanner />
         </AppProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -15,7 +15,7 @@ import { text, type } from '@/theme/typography';
 /** MY-3 Settings */
 export default function Settings() {
   const { profile, settings, updateProfile, updateSettings, resetOnboarding } = useApp();
-  const [sheet, setSheet] = useState<'language' | 'account' | 'help' | null>(null);
+  const [sheet, setSheet] = useState<'language' | 'account' | null>(null);
   const close = () => setSheet(null);
 
   const logOut = () => {
@@ -71,12 +71,28 @@ export default function Settings() {
             onPress={() => setSheet('account')}
           />
           <RowDivider />
-          <MenuRow label="Help center" height={56} onPress={() => setSheet('help')} />
-          <RowDivider />
           <Pressable onPress={logOut} accessibilityRole="button" style={styles.logOut}>
             <Text style={styles.logOutLabel}>Log out</Text>
           </Pressable>
         </Group>
+
+        <Group title="Support">
+          <MenuRow label="Notices" height={56} onPress={() => router.push('/my/notices')} />
+          <RowDivider />
+          <MenuRow label="Help center" height={56} onPress={() => router.push('/my/help')} />
+          <RowDivider />
+          <MenuRow label="About Ddobak" height={56} onPress={() => router.push('/my/about')} />
+        </Group>
+
+        {/* Kept out of the Account card so it can't be hit on the way to Log out. */}
+        <Pressable
+          onPress={() => router.push('/my/delete-account')}
+          accessibilityRole="button"
+          hitSlop={8}
+          style={styles.delete}
+        >
+          <Text style={styles.deleteLabel}>Delete account</Text>
+        </Pressable>
 
         <Text style={styles.version}>{settingsCopy.appVersion}</Text>
       </Screen>
@@ -97,12 +113,6 @@ export default function Settings() {
           `${profile.nickname} · signed in with ${profile.signInProvider}.`,
           'Your progress is saved on this device. Log out to clear it.',
         ]}
-        onClose={close}
-      />
-      <NoticeSheet
-        visible={sheet === 'help'}
-        title="Help center"
-        lines={settingsCopy.help}
         onClose={close}
       />
     </ScreenShell>
@@ -163,6 +173,15 @@ const styles = StyleSheet.create({
   logOutLabel: {
     ...type.row,
     color: colors.primary,
+  },
+  delete: {
+    alignSelf: 'center',
+    marginTop: 8,
+    paddingVertical: 8,
+  },
+  deleteLabel: {
+    ...text(13, 19, '500', colors.textSecondary),
+    textDecorationLine: 'underline',
   },
   version: {
     ...type.caption,
