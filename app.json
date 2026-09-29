@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "Ddobak",
+    "slug": "ddobak",
+    "version": "1.0.2",
+    "orientation": "portrait",
+    "scheme": "ddobak",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "backgroundColor": "#FFFFFF",
+    "splash": {
+      "image": "./assets/graphics/logo.png",
+      "backgroundColor": "#FFFFFF",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.ddobak.app"
+    },
+    "android": {
+      "package": "com.ddobak.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#FF6A3D"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Ddobak uses the microphone to hear your Korean and give you feedback."
+        }
+      ],
+      "expo-notifications"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "baseUrl": "/ddobagi"
+    },
+    "icon": "./assets/icon.png"
+  }
+}
