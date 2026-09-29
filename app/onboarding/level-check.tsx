@@ -8,6 +8,7 @@ import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { Waveform } from '@/components/Waveform';
 import { SpeakerIcon } from '@/icons';
+import { recognitionMessage, useSpeechRecognition } from '@/services/recognition';
 import { useVoiceRecorder } from '@/services/recorder';
 import { speak } from '@/services/speech';
 import {
@@ -26,6 +27,7 @@ import { text, type } from '@/theme/typography';
 export default function LevelCheck() {
   const [recording, setRecording] = useState(false);
   const voice = useVoiceRecorder();
+  const heard = useSpeechRecognition();
   const [secondsLeft, setSecondsLeft] = useState(levelCheckSeconds);
   const [lines, setLines] = useState<string[]>([]);
 
@@ -40,13 +42,15 @@ export default function LevelCheck() {
   }, [running]);
 
   // Transcript streams in while the mic is on.
+  // 인식이 되는 환경에서는 실제로 말한 것이 들어오므로 목 문장을 흘리지 않는다.
   useEffect(() => {
+    if (heard.supported) return;
     if (!running || lines.length >= levelCheckTranscript.length) return;
     const id = setTimeout(() => {
       setLines(levelCheckTranscript.slice(0, lines.length + 1));
     }, 1400);
     return () => clearTimeout(id);
-  }, [running, lines]);
+  }, [running, lines, heard.supported]);
 
   // 0 seconds ends the check and moves to the results.
   useEffect(() => {
@@ -57,8 +61,10 @@ export default function LevelCheck() {
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = `${secondsLeft % 60}`.padStart(2, '0');
   // The comp colours the sentence still being recognised in primary.
-  const settled = lines.slice(0, -1).join('');
-  const live = lines.length ? lines[lines.length - 1] : '';
+  // 인식이 되면 확정된 말이 회색, 아직 다듬어지는 말이 오렌지가 된다 —
+  // 시안이 나눠둔 두 색이 그대로 STT의 final/interim에 대응한다.
+  const settled = heard.supported ? heard.settled : lines.slice(0, -1).join('');
+  const live = heard.supported ? heard.interim : lines.length ? lines[lines.length - 1] : '';
 
   return (
     <ScreenShell background="surface" bottomEdge="content">
@@ -109,18 +115,23 @@ export default function LevelCheck() {
           active={running}
           onPress={async () => {
             if (recording) {
+              heard.stop();
               await voice.stop();
               setRecording(false);
               return;
             }
             // 권한을 거부당하면 녹음이 시작되지 않으므로 타이머도 돌리지 않는다.
-            setRecording(await voice.start());
+            const on = await voice.start();
+            if (on) heard.start();
+            setRecording(on);
           }}
         />
         {voice.permission === 'denied' ? (
           <Text style={styles.micDenied}>
             Microphone access is off. Allow it in your browser or system settings, then tap again.
           </Text>
+        ) : heard.error !== 'none' ? (
+          <Text style={styles.micDenied}>{recognitionMessage[heard.error]}</Text>
         ) : null}
       </View>
     </ScreenShell>

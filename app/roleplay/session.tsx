@@ -8,6 +8,7 @@ import { MicButton } from '@/components/MicButton';
 import { conversationBySituation, fallbackSituationId } from '@/data/conversations';
 import type { Turn } from '@/data/types';
 import { BackChevronIcon, ReplayIcon } from '@/icons';
+import { recognitionMessage, useSpeechRecognition } from '@/services/recognition';
 import { useVoiceRecorder } from '@/services/recorder';
 import { speak, stopSpeaking } from '@/services/speech';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
@@ -31,6 +32,9 @@ export default function Session() {
   const [showHint, setShowHint] = useState(false);
   const [showScript, setShowScript] = useState(false);
   const voice = useVoiceRecorder();
+  const heard = useSpeechRecognition();
+  /** 이번 턴에 실제로 말한 것. 비어 있으면 대본의 예시 문장을 보여준다. */
+  const [said, setSaid] = useState('');
 
   const progressPercent = Math.round(((turnIndex + 1) / aiTurns.length) * 100);
   const aiTurn = aiTurns[Math.min(turnIndex, aiTurns.length - 1)];
@@ -75,7 +79,11 @@ export default function Session() {
     }
     // AI가 말하는 중에 마이크를 열면 자기 목소리를 덮으므로 먼저 끊는다.
     stopSpeaking();
-    setMicOn(await voice.start());
+    setSaid('');
+    heard.reset();
+    const on = await voice.start();
+    if (on && heard.supported) heard.start({ onTranscript: setSaid });
+    setMicOn(on);
   };
 
   const advance = () => {
@@ -85,6 +93,8 @@ export default function Session() {
     }
     setTurnIndex((value) => value + 1);
     setMicOn(false);
+    setSaid('');
+    heard.reset();
   };
 
   return (
@@ -156,7 +166,14 @@ export default function Session() {
       </View>
 
       <SessionBottom
-        userKorean={userReply?.korean ?? '…'}
+        // 말하기 시작하면 대본이 아니라 실제로 인식된 말을 보여준다.
+        userKorean={
+          heard.error !== 'none'
+            ? recognitionMessage[heard.error]
+            : micOn || said
+              ? said || '…'
+              : (userReply?.korean ?? '…')
+        }
         micActive={micOn}
         onMic={onMic}
         leftLabel="Script"

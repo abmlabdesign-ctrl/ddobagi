@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { CtaDock } from '@/components/CtaDock';
-import { KoreanText, joinTokens } from '@/components/KoreanText';
+import { KoreanText, isPunctuation, joinTokens } from '@/components/KoreanText';
 import { MicButton } from '@/components/MicButton';
 import { NavBar } from '@/components/NavBar';
 import { ScreenShell } from '@/components/Screen';
@@ -23,6 +23,12 @@ import { StepProgress } from '@/components/StepProgress';
 import { missionById, missions } from '@/data/missions';
 import type { ChoiceQuestion, Mission, Token, WriteQuestion } from '@/data/types';
 import { BackChevronIcon, CheckIcon, DropdownChevronIcon, SpeakerIcon } from '@/icons';
+import {
+  matchSentence,
+  recognitionMessage,
+  useSpeechRecognition,
+  type RecognitionError,
+} from '@/services/recognition';
 import { useVoiceRecorder } from '@/services/recorder';
 import { speak } from '@/services/speech';
 import { colors, layout, radius, shadows, spacing } from '@/theme/tokens';
@@ -72,10 +78,13 @@ export default function MissionRunner() {
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [done, setDone] = useState(false);
   const voice = useVoiceRecorder();
+  const heard = useSpeechRecognition();
 
   const question = mission.questions[queue[step]];
 
   const reset = () => {
+    graded.current = false;
+    heard.reset();
     setAnswer(null);
     setEntries([]);
     setRecording(false);
@@ -105,12 +114,62 @@ export default function MissionRunner() {
     setDone(true);
   };
 
+  const stopRecording = voice.stop;
+
+  /** 문장을 이루는 낱말 — 문장부호는 발음 판정에서 뺀다. */
+  const speakWords =
+    question.type === 'speak'
+      ? question.tokens.map((token) => token.text).filter((word) => !isPunctuation(word))
+      : [];
+
+  /** 한 발화는 한 번만 판정한다 — stop()과 onend가 겹쳐 들어올 수 있다. */
+  const graded = useRef(false);
+
+  /**
+   * 말하기 판정. 인식된 문장이 목표 문장과 같으면 정답이고, 아니면 목표
+   * 문장을 보여준 뒤 실제로 들린 말을 적어준다 — 발음 연습에서는 무엇으로
+   * 들렸는지가 가장 쓸모 있는 피드백이다.
+   */
+  const finishSpeak = (spoken: string, problem: RecognitionError = 'none') => {
+    if (graded.current || question.type !== 'speak') return;
+    graded.current = true;
+
+    setRecording(false);
+    heard.stop();
+    stopRecording();
+
+    const match = matchSentence(spoken, speakWords);
+    if (match.correct) {
+      setSpokenCount(speakWords.length);
+      judge({ correct: true, note: question.feedback.explanation });
+      return;
+    }
+    judge({
+      correct: false,
+      headline: joinTokens(speakWords),
+      note:
+        problem !== 'none'
+          ? recognitionMessage[problem]
+          : spoken.trim()
+            ? `Heard: “${spoken.trim()}”`
+            : "We didn't catch anything. Tap the mic and try again.",
+    });
+  };
+
+  /** 말하는 대로 문장에 불이 켜지고, 끝까지 맞게 말하면 그 자리에서 판정된다. */
+  const onHeard = (text: string) => {
+    const match = matchSentence(text, speakWords);
+    setSpokenCount(match.spokenCount);
+    if (match.correct) finishSpeak(text);
+  };
+
   /**
    * RV-2b reads as a live caption: while the mic is open the sentence lights up
    * word by word, and the verdict lands once the last word is through.
+   * 인식이 되지 않는 환경(네이티브, Firefox)에서만 쓰는 목 경로다.
    */
-  const stopRecording = voice.stop;
   useEffect(() => {
+    if (heard.supported) return undefined;
     if (!recording || question.type !== 'speak') return undefined;
     const total = question.tokens.length;
     let read = 0;
@@ -133,7 +192,7 @@ export default function MissionRunner() {
       );
     }, 420);
     return () => clearInterval(id);
-  }, [recording, question, step, mission.questionCount, stopRecording]);
+  }, [heard.supported, recording, question, step, mission.questionCount, stopRecording]);
 
   const submitWrite = () => {
     if (question.type !== 'write') return;
@@ -232,9 +291,21 @@ export default function MissionRunner() {
               recording={recording}
               onSpeak={async () => {
                 setSpokenCount(0);
+                heard.reset();
+                graded.current = false;
                 // 권한이 없으면 파형만 돌고 아무것도 녹음되지 않으므로 함께 막는다.
-                setRecording(await voice.start());
+                const on = await voice.start();
+                if (on && heard.supported) {
+                  heard.start({
+                    onTranscript: onHeard,
+                    // 침묵으로 끊기거나 오류가 나도 그때까지 들린 말로 판정한다.
+                    onEnd: finishSpeak,
+                  });
+                }
+                setRecording(on);
               }}
+              // 인식이 되는 환경에서는 다 말했다고 알릴 방법이 있어야 한다.
+              onStop={heard.supported ? () => finishSpeak(heard.transcript) : undefined}
             />
           </>
         )}
@@ -445,13 +516,23 @@ function Waveband({ active }: { active: boolean }) {
  * The mic band: `20px 24px 12px` over the home indicator, with the comp's two
  * empty 63×44 slots holding the 84px button dead centre.
  */
-function MicDock({ recording, onSpeak }: { recording: boolean; onSpeak: () => void }) {
+function MicDock({
+  recording,
+  onSpeak,
+  onStop,
+}: {
+  recording: boolean;
+  onSpeak: () => void;
+  /** 녹음 중 다시 눌러 발화를 끝내는 동작. 목 경로에서는 스스로 끝나므로 없다. */
+  onStop?: () => void;
+}) {
   const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.micDock, { paddingBottom: 12 + insets.bottom }]}>
       <View style={styles.micSlot} />
-      <MicButton size={84} active={recording} onPress={recording ? undefined : onSpeak} />
+      {/* MicButton이 상태에 맞는 라벨(Start/Stop recording)을 스스로 붙인다. */}
+      <MicButton size={84} active={recording} onPress={recording ? onStop : onSpeak} />
       <View style={styles.micSlot} />
     </View>
   );
