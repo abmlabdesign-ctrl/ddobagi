@@ -23,6 +23,15 @@ Claude Code가 이 저장소에서 작업할 때 참고하는 가이드입니다
 화면을 건드렸다면 `npm run export:web`으로 번들이 깨지지 않는지 확인합니다.
 CI(`.github/workflows/ci.yml`)가 push·PR에서 이 셋을 그대로 실행합니다.
 
+## 기획 문서
+
+기획서·시안·결정 기록은 [`docs/`](./docs/README.md)에 있습니다. 작업 전에 관련 폴더를 먼저 확인합니다.
+
+- `docs/design/` — `*.dc.html` 시안 (UI 기준). 비어 있으면 `docs/design-handoff.md`를 따릅니다.
+- `docs/planning/` — 서비스 기획서·정책 (기능 기준)
+- `docs/decisions/` — 기획서 이후에 정한 것. 개발 중에 기획에 없는 것을 정했다면 여기에 한 장 남깁니다.
+- `docs/ai-prompts/` — AI 대화·채점 지시문. 출력 형식은 `src/data/types.ts`와 맞춰 둡니다.
+
 ## Source of Truth
 
 **`docs/design-handoff.md`와 함께 전달된 `*.dc.html` 시안이 UI의 유일한 기준입니다.**

@@ -1,0 +1,9 @@
+# 문서와 시안은 저장소 언어 통계에서 뺀다 (시안 HTML이 코드보다 커서 통계가 왜곡됨).
+docs/** linguist-documentation
+*.dc.html linguist-documentation
+# 바이너리 문서는 줄 단위 비교를 하지 않는다.
+*.pdf binary
+*.pptx binary
+*.docx binary
+*.key binary
+*.fig binary

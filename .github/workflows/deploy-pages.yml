@@ -6,6 +6,10 @@ name: Deploy web to Pages
 on:
   push:
     branches: [main]
+    # 문서만 올렸을 때는 앱이 바뀌지 않았으므로 다시 배포하지 않는다.
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
   workflow_dispatch:
 
 permissions:

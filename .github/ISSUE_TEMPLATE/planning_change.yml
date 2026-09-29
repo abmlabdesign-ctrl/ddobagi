@@ -1,0 +1,25 @@
+name: 기획 변경
+description: 기획서나 정책이 바뀌어 앱에 반영해야 할 때
+title: "[기획] "
+labels: ["planning"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 무엇이 바뀌었나요
+      description: 바뀐 내용을 적어 주세요. 화면 ID(예 RP-2, MY-3)가 있으면 함께 적어 주세요.
+    validations:
+      required: true
+  - type: input
+    id: document
+    attributes:
+      label: 관련 문서
+      description: docs/ 안의 파일 경로나 링크 (예 docs/planning/기획서_261001.pdf)
+    validations:
+      required: false
+  - type: textarea
+    id: why
+    attributes:
+      label: 왜 바뀌었나요
+    validations:
+      required: false
