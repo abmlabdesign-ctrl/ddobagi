@@ -11,6 +11,7 @@ import { ProgressRing } from '@/components/ProgressRing';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { Section } from '@/components/Section';
 import { SituationCard } from '@/components/SituationCard';
+import { playableSituationIds } from '@/data/conversations';
 import { homeFeatured, situations } from '@/data/situations';
 import { TrophyIcon } from '@/icons';
 import { useApp } from '@/store/AppStore';
@@ -19,9 +20,18 @@ import { text, type } from '@/theme/typography';
 
 /** HM-1 Home — the re-entry hub. */
 export default function Home() {
-  const { profile } = useApp();
+  const { profile, sessions } = useApp();
   const goal = profile.weeklyGoal;
-  const percent = Math.round((goal.completed / goal.total) * 100);
+  const percent = Math.min(100, Math.round((goal.completed / goal.total) * 100));
+  // `We'll pick a topic`: the playable situation practised least recently.
+  const pickTopic = () => {
+    const next =
+      playableSituationIds.find((id) => !sessions[id]) ??
+      [...playableSituationIds].sort((a, b) =>
+        (sessions[a].completedAt ?? 0) - (sessions[b].completedAt ?? 0),
+      )[0];
+    router.push(`/roleplay/${next}`);
+  };
   const inProgress = situations.find((situation) => situation.progress);
   // The resume card floats over the scroll, so the body reserves its height.
   const [dockHeight, setDockHeight] = useState(0);
@@ -33,7 +43,11 @@ export default function Home() {
         background="surface-alt"
         contentStyle={[styles.content, { paddingBottom: dockHeight + spacing.huge }]}
       >
-        <HomeStatusRow streakDays={profile.streakDays} />
+        {/* No inbox yet — the bell opens where reminders are switched on and off. */}
+        <HomeStatusRow
+          streakDays={profile.streakDays}
+          onBell={() => router.push('/my/settings')}
+        />
 
         <Text style={styles.greeting}>
           Hi there,{'\n'}
@@ -58,7 +72,7 @@ export default function Home() {
 
         <View style={styles.quickGrid}>
           <Pressable
-            onPress={() => router.push('/(tabs)/roleplay')}
+            onPress={pickTopic}
             accessibilityRole="button"
             style={styles.quickTall}
           >

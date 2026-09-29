@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CountBadge } from '@/components/Badge';
@@ -12,9 +12,9 @@ import { Screen, ScreenShell } from '@/components/Screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { categoryById } from '@/data/categories';
 import { missions, todayFocus } from '@/data/missions';
-import { mistakeGroups, mistakesSummary } from '@/data/review';
+import { mistakesSummary } from '@/data/review';
 import { situationById } from '@/data/situations';
-import type { SavedPhrase } from '@/data/types';
+import type { Mistake, SavedPhrase } from '@/data/types';
 import { ListChevronIcon, MoreIcon, SpeakerIcon } from '@/icons';
 import { speak } from '@/services/speech';
 import { useApp } from '@/store/AppStore';
@@ -34,6 +34,19 @@ const tabByParam: Record<string, Tab> = {
 export default function Review() {
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
   const [tab, setTab] = useState<Tab>(tabByParam[tabParam ?? ''] ?? 'Micro missions');
+
+  // The tab screen stays mounted, so `?tab=` has to be applied every time it
+  // arrives, not just on first render. Clearing it afterwards lets the same
+  // link (Home → Saved phrases) work again after the learner switched tabs.
+  const [appliedParam, setAppliedParam] = useState(tabParam);
+  if (tabParam !== appliedParam) {
+    setAppliedParam(tabParam);
+    const next = tabByParam[tabParam ?? ''];
+    if (next) setTab(next);
+  }
+  useEffect(() => {
+    if (tabParam) router.setParams({ tab: undefined });
+  }, [tabParam]);
 
   return (
     <ScreenShell bottomEdge="tabs">
@@ -60,6 +73,10 @@ export default function Review() {
   );
 }
 
+// The focus card names the weakest skill, so its CTA opens that skill's drill.
+const focusMission =
+  missions.find((mission) => mission.kind === todayFocus.skills[0].toLowerCase()) ?? missions[0];
+
 function MissionsTab() {
   return (
     <View style={styles.tabBody}>
@@ -77,7 +94,7 @@ function MissionsTab() {
           <Text style={type.lead}>{todayFocus.description}</Text>
         </View>
         <Pressable
-          onPress={() => router.push(`/review/mission?missionId=${missions[0].id}`)}
+          onPress={() => router.push(`/review/mission?missionId=${focusMission.id}`)}
           accessibilityRole="button"
           style={styles.focusCta}
         >
@@ -109,18 +126,42 @@ function MissionsTab() {
   );
 }
 
+/** RV-3a rows from the live log: open mistakes grouped by situation, newest first. */
+function groupMistakes(mistakes: Mistake[]) {
+  const groups = new Map<string, { situationId: string; count: number; skills: string[]; date: string }>();
+  for (const mistake of mistakes) {
+    if (mistake.fixed) continue;
+    const group = groups.get(mistake.situationId) ?? {
+      situationId: mistake.situationId,
+      count: 0,
+      skills: [],
+      date: mistake.date,
+    };
+    group.count += 1;
+    if (!group.skills.includes(mistake.skill)) group.skills.push(mistake.skill);
+    groups.set(mistake.situationId, group);
+  }
+  return [...groups.values()];
+}
+
 function MistakesTab() {
+  const { mistakes } = useApp();
+  const mistakeGroups = groupMistakes(mistakes);
+  const open = mistakeGroups.reduce((sum, group) => sum + group.count, 0);
+  const fixedCount = mistakes.filter((mistake) => mistake.fixed).length;
+
   return (
     <View style={styles.tabBody}>
       <Card paddingHorizontal={18} paddingVertical={14} style={styles.summaryCard}>
         <View style={styles.summaryText}>
           <Text style={type.caption}>Mistakes to review</Text>
           <Text style={type.cardTitle}>
-            {mistakesSummary.total} left across {mistakesSummary.situations} situations
+            {open} left across {mistakeGroups.length} situation
+            {mistakeGroups.length === 1 ? '' : 's'}
           </Text>
         </View>
         <View style={styles.summaryCount}>
-          <Text style={styles.summaryCountLabel}>{mistakesSummary.total}</Text>
+          <Text style={styles.summaryCountLabel}>{open}</Text>
         </View>
       </Card>
 
@@ -128,6 +169,10 @@ function MistakesTab() {
         <Text style={type.label}>Pick a situation</Text>
         <Text style={type.caption}>{mistakesSummary.sort}</Text>
       </View>
+
+      {mistakeGroups.length === 0 ? (
+        <Text style={type.secondary}>Nothing to review. Finish a roleplay to fill the log.</Text>
+      ) : null}
 
       <Card paddingHorizontal={18} paddingVertical={4}>
         {mistakeGroups.map((group, index) => {
@@ -168,7 +213,7 @@ function MistakesTab() {
       <Card paddingHorizontal={18} paddingVertical={14} style={styles.fixedCard}>
         <Text style={type.row}>Mistakes you fixed</Text>
         <Text style={styles.fixedCount}>
-          {mistakesSummary.fixedCount} · {mistakesSummary.fixedWindow}
+          {fixedCount} · {mistakesSummary.fixedWindow}
         </Text>
       </Card>
     </View>

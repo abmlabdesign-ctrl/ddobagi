@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { Button } from '@/components/Button';
@@ -8,8 +8,16 @@ import { Card, RowDivider } from '@/components/Card';
 import { Chip } from '@/components/Chip';
 import { CtaDock } from '@/components/CtaDock';
 import { NavBar } from '@/components/NavBar';
+import { PickerSheet } from '@/components/PickerSheet';
 import { Screen, ScreenShell } from '@/components/Screen';
-import { avatars, interestOptions, koreanLevels } from '@/data/profile';
+import {
+  avatars,
+  interestOptions,
+  koreanLevels,
+  nativeLanguageOptions,
+  weeklyGoalLabel,
+  weeklyGoalOptions,
+} from '@/data/profile';
 import { ListChevronIcon } from '@/icons';
 import { useApp } from '@/store/AppStore';
 import { colors, radius, selectedOutline, spacing } from '@/theme/tokens';
@@ -22,7 +30,10 @@ export default function EditProfile() {
   const { profile, updateProfile } = useApp();
 
   const [avatarId, setAvatarId] = useState(profile.avatarId);
-  const [nickname] = useState(profile.nickname);
+  const [nickname, setNickname] = useState(profile.nickname);
+  const [nativeLanguage, setNativeLanguage] = useState(profile.nativeLanguage);
+  const [goalTotal, setGoalTotal] = useState(profile.weeklyGoal.total);
+  const [picker, setPicker] = useState<'language' | 'goal' | null>(null);
   const [level, setLevel] = useState(profile.koreanLevel);
   const [interests, setInterests] = useState(profile.interests);
 
@@ -35,7 +46,15 @@ export default function EditProfile() {
   };
 
   const save = () => {
-    updateProfile({ avatarId, nickname, koreanLevel: level, interests });
+    updateProfile({
+      avatarId,
+      // An empty field keeps the old name rather than saving a blank one.
+      nickname: nickname.trim() || profile.nickname,
+      nativeLanguage,
+      koreanLevel: level,
+      interests,
+      weeklyGoal: { ...profile.weeklyGoal, total: goalTotal, label: weeklyGoalLabel(goalTotal) },
+    });
     router.back();
   };
 
@@ -81,13 +100,37 @@ export default function EditProfile() {
         <Card radiusToken="card" paddingHorizontal={20} paddingVertical={6}>
           <View style={styles.fieldRow}>
             <Text style={styles.fieldLabel}>Nickname</Text>
-            <Text style={styles.fieldValueStrong}>{nickname}</Text>
+            <TextInput
+              value={nickname}
+              onChangeText={setNickname}
+              maxLength={20}
+              autoCorrect={false}
+              accessibilityLabel="Nickname"
+              style={[styles.fieldValueStrong, styles.fieldInput]}
+            />
           </View>
           <RowDivider />
-          <Pressable accessibilityRole="button" style={styles.fieldRow}>
+          <Pressable
+            onPress={() => setPicker('language')}
+            accessibilityRole="button"
+            style={styles.fieldRow}
+          >
             <Text style={styles.fieldLabel}>Native language</Text>
             <View style={styles.fieldRight}>
-              <Text style={styles.fieldValue}>{profile.nativeLanguage}</Text>
+              <Text style={styles.fieldValue}>{nativeLanguage}</Text>
+              <ListChevronIcon />
+            </View>
+          </Pressable>
+          <RowDivider />
+          {/* MY-1's Weekly goal `Edit` lands here, so the goal is editable here. */}
+          <Pressable
+            onPress={() => setPicker('goal')}
+            accessibilityRole="button"
+            style={styles.fieldRow}
+          >
+            <Text style={styles.fieldLabel}>Weekly goal</Text>
+            <View style={styles.fieldRight}>
+              <Text style={styles.fieldValue}>{goalTotal} lessons</Text>
               <ListChevronIcon />
             </View>
           </Pressable>
@@ -139,6 +182,24 @@ export default function EditProfile() {
       <CtaDock paddingTop={12}>
         <Button label="Save" onPress={save} />
       </CtaDock>
+
+      <PickerSheet
+        visible={picker === 'language'}
+        title="Native language"
+        options={nativeLanguageOptions}
+        selected={nativeLanguage}
+        onSelect={setNativeLanguage}
+        onClose={() => setPicker(null)}
+      />
+      <PickerSheet
+        visible={picker === 'goal'}
+        title="Weekly goal"
+        options={weeklyGoalOptions}
+        selected={goalTotal}
+        format={(total) => `${total} lessons a week`}
+        onSelect={setGoalTotal}
+        onClose={() => setPicker(null)}
+      />
     </ScreenShell>
   );
 }
@@ -215,6 +276,12 @@ const styles = StyleSheet.create({
   fieldLabel: text(16, 22, '500', colors.textSecondary),
   fieldValue: text(16, 22, '500', colors.inkAlt),
   fieldValueStrong: text(16, 22, '600', colors.inkAlt),
+  fieldInput: {
+    flex: 1,
+    textAlign: 'right',
+    marginLeft: 16,
+    paddingVertical: 0,
+  },
   fieldRight: {
     flexDirection: 'row',
     alignItems: 'center',

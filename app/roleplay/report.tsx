@@ -10,7 +10,7 @@ import { ProgressRing } from '@/components/ProgressRing';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { SkillBar } from '@/components/SkillBar';
 import { ListChevronIcon } from '@/icons';
-import { reports } from '@/data/conversations';
+import { conversationBySituation, reports } from '@/data/conversations';
 import { situationById } from '@/data/situations';
 import { useApp } from '@/store/AppStore';
 import { colors, spacing } from '@/theme/tokens';
@@ -19,10 +19,46 @@ import { numeral, text, type } from '@/theme/typography';
 /** RP-4 Report — goals, score ring, 6-skill breakdown and a way into the transcript. */
 export default function ReportScreen() {
   const { situationId } = useLocalSearchParams<{ situationId: string }>();
-  const { savePhrase } = useApp();
+  const { savePhrase, sessions } = useApp();
 
-  const report = reports[situationId] ?? Object.values(reports)[0];
-  const situation = situationById[report.situationId];
+  const base = reports[situationId];
+  const session = sessions[situationId];
+  const situation = situationById[situationId];
+
+  if (!base) {
+    return (
+      <ScreenShell>
+        <NavBar title="Report" />
+        <Screen background="surface-alt">
+          <Text style={type.secondary}>There&apos;s no report for this situation yet.</Text>
+        </Screen>
+      </ScreenShell>
+    );
+  }
+
+  // The 6-skill scores are still the scripted ones (scoring needs a server),
+  // but goals, date and corrections come from the run that just ended.
+  const flaggedTurns = session
+    ? (conversationBySituation[situationId]?.turns ?? []).filter(
+        (turn) => turn.mistake && session.flagged.includes(turn.id),
+      )
+    : [];
+  const report = session
+    ? {
+        ...base,
+        completedOn: session.completedOn,
+        goalsMet: session.goalsMet,
+        goalsTotal: session.goalsTotal,
+        fixes: flaggedTurns.map((turn) => ({
+          said: {
+            korean: `"${session.said[turn.id] || turn.korean}"`,
+            english: turn.mistake!.said.english,
+          },
+          suggested: turn.mistake!.suggested,
+        })),
+      }
+    : base;
+  const allGoals = report.goalsMet === report.goalsTotal;
 
   const save = () => {
     report.fixes.forEach((fix, index) => {
@@ -47,7 +83,10 @@ export default function ReportScreen() {
           <View style={styles.headlineText}>
             <PillLabel label={situation?.title ?? ''} />
             <Text style={styles.headlineBody}>
-              You hit all {report.goalsMet} goal{report.goalsMet === 1 ? '' : 's'}.{'\n'}
+              {allGoals
+                ? `You hit all ${report.goalsTotal} goal${report.goalsTotal === 1 ? '' : 's'}.`
+                : `You hit ${report.goalsMet} of ${report.goalsTotal} goals.`}
+              {'\n'}
               That&apos;s {report.scoreDelta} points more than last time.
             </Text>
           </View>

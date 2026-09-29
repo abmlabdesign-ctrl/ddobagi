@@ -57,7 +57,7 @@ export default function Results() {
           label="Home"
           variant="tonal"
           height={52}
-          onPress={() => router.replace('/(tabs)')}
+          onPress={start}
         />
         <Button
           label="Start practicing"

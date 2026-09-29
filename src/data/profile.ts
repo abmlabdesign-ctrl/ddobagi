@@ -21,11 +21,46 @@ export const defaultProfile = {
   painPoints: [] as string[],
   /** MY-1b — up to 5. */
   interests: ['School', 'Part-time', 'Clinic'],
+  /** ON-1 — how the learner signed in. Settings shows it as the connected account. */
+  signInProvider: 'Google' as SignInProvider,
   streakDays: 12,
   situationsDone: 18,
-  totalPractice: '6h 20m',
+  /** Shown as `6h 20m` on MY-1. Minutes so a session can add to it. */
+  practiceMinutes: 380,
+  /** One lesson = one finished roleplay or micro mission. */
   weeklyGoal: { label: 'Finish 10 lessons', completed: 7, total: 10 },
 };
+
+export type SignInProvider = 'Google' | 'Apple' | 'Email';
+
+/** MY-1b Weekly goal choices. */
+export const weeklyGoalOptions = [5, 10, 15, 20];
+
+export const weeklyGoalLabel = (total: number) => `Finish ${total} lessons`;
+
+/** MY-1b Native language list. */
+export const nativeLanguageOptions = [
+  'English',
+  'Vietnamese',
+  'Chinese',
+  'Japanese',
+  'Mongolian',
+  'Uzbek',
+  'Nepali',
+  'Indonesian',
+  'Thai',
+  'Spanish',
+];
+
+/** The UI ships in English only for now (§6); the picker says so rather than hiding the row. */
+export const appLanguageOptions = ['English'];
+
+/** `380` → `6h 20m`. */
+export function formatPractice(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const rest = Math.round(minutes % 60);
+  return hours > 0 ? `${hours}h ${rest}m` : `${rest}m`;
+}
 
 export const onboardingOptions = {
   studyDuration: ['Just starting out', '6–12 months, on my own', "I'm taking classes"],
@@ -242,5 +277,10 @@ export const stats: Record<Stats['period'], Stats> = {
 export const settings = {
   appVersion: 'Ddobak v1.0.2',
   speechSpeeds: ['0.7x', '0.8x', '0.9x', '1.0x', '1.2x'],
-  connectedProvider: 'Connected to Google',
+  /** MY-3 Help center — the questions learners hit first. */
+  help: [
+    'No sound? Your device needs a Korean voice. Add one in your system’s speech settings.',
+    'Mic not working? Allow microphone access. On the web it only opens over https.',
+    'Speech-to-text works in Chrome, Edge and Safari on the web.',
+  ],
 };

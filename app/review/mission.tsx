@@ -29,8 +29,9 @@ import {
   useSpeechRecognition,
   type RecognitionError,
 } from '@/services/recognition';
-import { useVoiceRecorder } from '@/services/recorder';
+import { micMessage, useVoiceRecorder } from '@/services/recorder';
 import { speak } from '@/services/speech';
+import { useApp } from '@/store/AppStore';
 import { colors, layout, radius, shadows, spacing } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
 
@@ -77,6 +78,12 @@ export default function MissionRunner() {
   const [spokenCount, setSpokenCount] = useState(0);
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [done, setDone] = useState(false);
+  const [micBlocked, setMicBlocked] = useState(false);
+  /** Questions right on the first attempt — RV-2f's second stat. */
+  const [firstTry, setFirstTry] = useState(0);
+  const [startedAt, setStartedAt] = useState(() => Date.now());
+  const [elapsed, setElapsed] = useState(0);
+  const { finishMission } = useApp();
   const voice = useVoiceRecorder();
   const heard = useSpeechRecognition();
 
@@ -99,6 +106,7 @@ export default function MissionRunner() {
    */
   const judge = (result: Verdict) => {
     setVerdict(result);
+    if (result.correct && step < mission.questionCount) setFirstTry((value) => value + 1);
     if (result.correct || step >= mission.questionCount) return;
     setQueue((current) =>
       current.includes(current[step], mission.questionCount) ? current : [...current, current[step]],
@@ -111,7 +119,20 @@ export default function MissionRunner() {
       reset();
       return;
     }
+    const took = Date.now() - startedAt;
+    setElapsed(took);
+    finishMission({ minutes: Math.max(1, Math.round(took / 60000)) });
     setDone(true);
+  };
+
+  /** RV-2f `Retry` — the same mission from the top, as a fresh run. */
+  const restart = () => {
+    reset();
+    setQueue(buildQueue(mission));
+    setStep(0);
+    setFirstTry(0);
+    setStartedAt(Date.now());
+    setDone(false);
   };
 
   const stopRecording = voice.stop;
@@ -184,6 +205,9 @@ export default function MissionRunner() {
         correct: question.feedback.correct,
         note: question.feedback.explanation,
       });
+      if (question.feedback.correct && step < mission.questionCount) {
+        setFirstTry((value) => value + 1);
+      }
       if (question.feedback.correct || step >= mission.questionCount) return;
       setQueue((current) =>
         current.includes(current[step], mission.questionCount)
@@ -230,7 +254,15 @@ export default function MissionRunner() {
   };
 
   if (done) {
-    return <MissionComplete title={mission.title} questionCount={mission.questionCount} />;
+    return (
+      <MissionComplete
+        title={mission.title}
+        questionCount={mission.questionCount}
+        firstTry={firstTry}
+        elapsedMs={elapsed}
+        onRetry={restart}
+      />
+    );
   }
 
   const nextLabel = step + 1 >= queue.length ? 'Finish' : 'Next';
@@ -295,6 +327,7 @@ export default function MissionRunner() {
                 graded.current = false;
                 // 권한이 없으면 파형만 돌고 아무것도 녹음되지 않으므로 함께 막는다.
                 const on = await voice.start();
+                setMicBlocked(!on);
                 if (on && heard.supported) {
                   heard.start({
                     onTranscript: onHeard,
@@ -305,8 +338,19 @@ export default function MissionRunner() {
                 setRecording(on);
               }}
               // 인식이 되는 환경에서는 다 말했다고 알릴 방법이 있어야 한다.
-              onStop={heard.supported ? () => finishSpeak(heard.transcript) : undefined}
+              // 목 경로에서는 다시 누르면 이번 시도를 그만둔다.
+              onStop={
+                heard.supported
+                  ? () => finishSpeak(heard.transcript)
+                  : () => {
+                      setRecording(false);
+                      stopRecording();
+                    }
+              }
             />
+            {micBlocked ? (
+              <Text style={styles.micNotice}>{micMessage(voice.permission)}</Text>
+            ) : null}
           </>
         )}
 
@@ -523,8 +567,8 @@ function MicDock({
 }: {
   recording: boolean;
   onSpeak: () => void;
-  /** 녹음 중 다시 눌러 발화를 끝내는 동작. 목 경로에서는 스스로 끝나므로 없다. */
-  onStop?: () => void;
+  /** 녹음 중 다시 눌러 발화를 끝내는 동작. */
+  onStop: () => void;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -705,10 +749,18 @@ function ChoiceCard({ question, answer }: { question: ChoiceQuestion; answer: nu
 function MissionComplete({
   title,
   questionCount,
+  firstTry,
+  elapsedMs,
+  onRetry,
 }: {
   title: string;
   questionCount: number;
+  firstTry: number;
+  elapsedMs: number;
+  onRetry: () => void;
 }) {
+  const seconds = Math.round(elapsedMs / 1000);
+  const time = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
   const leave = () => router.replace('/(tabs)/review');
 
   return (
@@ -746,13 +798,16 @@ function MissionComplete({
 
         <View style={styles.statPanel}>
           <View style={styles.statCell}>
-            <Text style={styles.statValue}>4:12</Text>
+            <Text style={styles.statValue}>{time}</Text>
             <Text style={styles.statLabel}>Time</Text>
           </View>
           <View style={styles.statDivider} />
+          {/* A per-skill gain needs server scoring; first-try accuracy is measured here. */}
           <View style={styles.statCell}>
-            <Text style={[styles.statValue, styles.statValueUp]}>↑6</Text>
-            <Text style={styles.statLabel}>Politeness</Text>
+            <Text style={[styles.statValue, styles.statValueUp]}>
+              {firstTry}/{questionCount}
+            </Text>
+            <Text style={styles.statLabel}>First try</Text>
           </View>
         </View>
       </View>
@@ -760,7 +815,7 @@ function MissionComplete({
       {/* The comp's dock carries no top shadow — the screen is white throughout. */}
       <CtaDock paddingTop={12} gap={10} style={styles.completeDock}>
         <Button label="Done" onPress={leave} />
-        <Pressable onPress={leave} accessibilityRole="button" style={styles.retry}>
+        <Pressable onPress={onRetry} accessibilityRole="button" style={styles.retry}>
           <Text style={styles.retryLabel}>Retry</Text>
         </Pressable>
       </CtaDock>
@@ -771,6 +826,12 @@ function MissionComplete({
 const styles = StyleSheet.create({
   fill: {
     flex: 1,
+  },
+  micNotice: {
+    ...type.caption,
+    textAlign: 'center',
+    paddingHorizontal: spacing.gutter,
+    paddingBottom: 8,
   },
   progress: {
     paddingHorizontal: spacing.gutter,

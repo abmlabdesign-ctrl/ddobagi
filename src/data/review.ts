@@ -38,7 +38,7 @@ export const mistakes: Mistake[] = [
   },
   {
     id: 'mk-3',
-    situationId: 'pharmacy-symptoms',
+    situationId: 'cafe-order',
     skill: 'endings',
     date: 'Aug 20',
     said: {
@@ -72,39 +72,9 @@ export const mistakes: Mistake[] = [
   },
 ];
 
-/** RV-3a rows. Counts include mistakes the log does not spell out yet. */
-export const mistakeGroups = [
-  {
-    situationId: 'pharmacy-symptoms',
-    count: 3,
-    skills: ['endings', 'politeness'],
-    date: 'Aug 22',
-  },
-  {
-    situationId: 'cafe-order',
-    count: 4,
-    skills: ['endings', 'context'],
-    date: 'Aug 21',
-  },
-  {
-    situationId: 'school-professor',
-    count: 3,
-    skills: ['politeness'],
-    date: 'Aug 19',
-  },
-  {
-    situationId: 'government-bank',
-    count: 2,
-    skills: ['particles'],
-    date: 'Aug 17',
-  },
-] as const;
-
+/** RV-3a copy. Counts and rows come from the learner's log in the store. */
 export const mistakesSummary = {
-  total: 12,
-  situations: 4,
-  fixedCount: 7,
-  fixedWindow: 'last 30 days',
+  fixedWindow: 'so far',
   sort: 'Most recent',
 };
 

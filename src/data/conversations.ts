@@ -127,6 +127,9 @@ export const conversationBySituation = Object.fromEntries(
   conversations.map((script) => [script.situationId, script]),
 ) as Record<string, ConversationScript>;
 
+/** Situations that can be played today. Everything else waits on AI turn generation. */
+export const playableSituationIds = conversations.map((script) => script.situationId);
+
 /** RP-4 report, shown after a session ends. */
 export const reports: Record<string, Report> = {
   'pharmacy-symptoms': {
@@ -157,7 +160,33 @@ export const reports: Record<string, Report> = {
       },
     ],
   },
+  'cafe-order': {
+    situationId: 'cafe-order',
+    completedOn: 'Aug 21',
+    goalsMet: 2,
+    goalsTotal: 3,
+    score: 74,
+    scoreDelta: 3,
+    skills: [
+      { skill: 'pronunciation', score: 83, band: 'strong' },
+      { skill: 'fluency', score: 76, band: 'medium' },
+      { skill: 'particles', score: 68, band: 'needs-work' },
+      { skill: 'endings', score: 78, band: 'medium' },
+      { skill: 'politeness', score: 80, band: 'strong' },
+      { skill: 'context', score: 62, band: 'needs-work' },
+    ],
+    fixes: [
+      {
+        said: {
+          korean: '"먹어요. 여기"',
+          english: '“Eat. Here” (word order)',
+        },
+        suggested: {
+          korean: '"여기서 먹을게요."',
+          english: '“I’ll eat here.”',
+        },
+      },
+    ],
+  },
 };
 
-/** Any situation without its own script falls back to the pharmacy session. */
-export const fallbackSituationId = 'pharmacy-symptoms';

@@ -1,12 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '@/components/Card';
 import { Screen, ScreenShell } from '@/components/Screen';
-import { conversationBySituation, fallbackSituationId } from '@/data/conversations';
+import { conversationBySituation } from '@/data/conversations';
 import { situationById } from '@/data/situations';
+import type { Mistake, Turn } from '@/data/types';
 import {
   BackChevronIcon,
   BookmarkIcon,
@@ -15,9 +16,10 @@ import {
   SkipForwardIcon,
   SpeakerIcon,
 } from '@/icons';
-import { speak, speakSequence, stopSpeaking } from '@/services/speech';
+import { speak, stopSpeaking } from '@/services/speech';
+import { shortDate, useApp, type SessionResult } from '@/store/AppStore';
 import { colors, layout, radius, shadows, spacing } from '@/theme/tokens';
-import { gloss, numeral, text, type } from '@/theme/typography';
+import { gloss, text, type } from '@/theme/typography';
 
 /**
  * RV-6 Mistake script + RV-7 inline detail.
@@ -30,26 +32,67 @@ import { gloss, numeral, text, type } from '@/theme/typography';
 export default function MistakeScript() {
   const { situationId } = useLocalSearchParams<{ situationId: string }>();
   const insets = useSafeAreaInsets();
-  const id = conversationBySituation[situationId] ? situationId : fallbackSituationId;
-  const script = conversationBySituation[id];
-  const situation = situationById[id];
+  const situation = situationById[situationId];
+  const { mistakes, sessions, savedPhrases, savePhrase } = useApp();
+  const turns = transcriptFor(situationId, mistakes, sessions[situationId]);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [playing, setPlaying] = useState(false);
+  /** The line being read aloud, or null when stopped. */
+  const [cursor, setCursor] = useState<number | null>(null);
+  // Each playFrom() bumps this, so a stale line's done callback (fired by the
+  // stop that starts the next line) can't advance the new run.
+  const run = useRef(0);
 
-  /** 재생은 대화를 위에서 아래로 차례대로 읽는 것이다. */
-  const togglePlayback = () => {
-    if (playing) {
+  useEffect(
+    () => () => {
+      run.current += 1;
       stopSpeaking();
-      setPlaying(false);
+    },
+    [],
+  );
+
+  /** 재생은 대화를 위에서 아래로 한 줄씩 읽는 것이다. 앞뒤 버튼은 줄 단위로 옮긴다. */
+  const playFrom = (index: number) => {
+    run.current += 1;
+    const token = run.current;
+    if (index < 0 || index >= turns.length) {
+      stopSpeaking();
+      setCursor(null);
       return;
     }
-    setPlaying(true);
-    speakSequence(
-      script.turns.map((turn) => turn.korean),
-      () => setPlaying(false),
-    );
+    setCursor(index);
+    speak(turns[index].korean.replace(/["“”]/g, ''), {
+      onDone: () => {
+        if (run.current === token) playFrom(index + 1);
+      },
+    });
   };
+
+  const playing = cursor !== null;
+  const togglePlayback = () => (playing ? playFrom(-1) : playFrom(0));
+
+  if (turns.length === 0) {
+    return (
+      <ScreenShell>
+        <View style={styles.header}>
+          <Pressable
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/review'))}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            style={styles.headerBack}
+          >
+            <BackChevronIcon />
+          </Pressable>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {situation?.title ?? 'Script'}
+          </Text>
+        </View>
+        <Screen background="surface-alt">
+          <Text style={type.secondary}>There&apos;s no transcript for this situation yet.</Text>
+        </Screen>
+      </ScreenShell>
+    );
+  }
 
   return (
     <ScreenShell>
@@ -70,8 +113,9 @@ export default function MistakeScript() {
       </View>
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>
-        {script.turns.map((turn) => {
+        {turns.map((turn, index) => {
           const flagged = Boolean(turn.mistake);
+          const reading = cursor === index;
           const expanded = expandedId === turn.id;
           const isUser = turn.speaker === 'user';
 
@@ -81,6 +125,7 @@ export default function MistakeScript() {
                 styles.bubble,
                 isUser ? styles.bubbleUser : styles.bubbleAi,
                 expanded ? styles.bubbleExpanded : null,
+                reading ? styles.bubbleReading : null,
               ]}
             >
               {flagged && !expanded ? (
@@ -90,7 +135,7 @@ export default function MistakeScript() {
               ) : null}
               <View style={[styles.bubbleText, expanded ? styles.bubbleTextExpanded : null]}>
                 <Text style={expanded ? styles.koreanFlagged : styles.korean}>{turn.korean}</Text>
-                <Text style={styles.gloss}>{turn.english}</Text>
+                {turn.english ? <Text style={styles.gloss}>{turn.english}</Text> : null}
               </View>
             </View>
           );
@@ -144,13 +189,20 @@ export default function MistakeScript() {
                     </View>
 
                     <View style={styles.detailActions}>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Save this phrase"
-                        style={styles.detailSecondary}
-                      >
-                        <BookmarkIcon size={24} color={colors.ink} />
-                      </Pressable>
+                      <SaveButton
+                        saved={savedPhrases.some(
+                          (phrase) => phrase.korean === unquote(turn.mistake!.suggested.korean),
+                        )}
+                        onPress={() =>
+                          savePhrase({
+                            id: `${situationId}-${turn.id}`,
+                            situationId,
+                            korean: unquote(turn.mistake!.suggested.korean),
+                            english: unquote(turn.mistake!.suggested.english),
+                            savedOn: shortDate(),
+                          })
+                        }
+                      />
                       <Pressable
                         onPress={() => setExpandedId(null)}
                         accessibilityRole="button"
@@ -169,14 +221,15 @@ export default function MistakeScript() {
 
       {/* `padding:20px 24px 16px; gap:44` over the home indicator. */}
       <View style={[styles.controls, { paddingBottom: 16 + insets.bottom }]}>
+        {/* Speech synthesis can't seek, so the skip buttons step a line at a time. */}
         <Pressable
+          onPress={() => playFrom(Math.max(0, (cursor ?? 0) - 1))}
           hitSlop={10}
           accessibilityRole="button"
-          accessibilityLabel="Back 10 seconds"
+          accessibilityLabel="Previous line"
           style={styles.skip}
         >
           <SkipBackIcon />
-          <Text style={styles.skipLabel}>10</Text>
         </Pressable>
         <Pressable
           onPress={togglePlayback}
@@ -185,19 +238,75 @@ export default function MistakeScript() {
           accessibilityState={{ selected: playing }}
           style={styles.play}
         >
-          <PlayIcon size={18} />
+          {playing ? <View style={styles.stopMark} /> : <PlayIcon size={18} />}
         </Pressable>
         <Pressable
+          onPress={() => playFrom(cursor === null ? 0 : cursor + 1)}
           hitSlop={10}
           accessibilityRole="button"
-          accessibilityLabel="Forward 10 seconds"
+          accessibilityLabel="Next line"
           style={styles.skip}
         >
           <SkipForwardIcon />
-          <Text style={styles.skipLabel}>10</Text>
         </Pressable>
       </View>
     </ScreenShell>
+  );
+}
+
+const unquote = (value: string) => value.replace(/["“”]/g, '');
+
+/**
+ * The lines RV-6 shows. A played session puts the learner's own words back in
+ * and flags only what that run got wrong; before that, the script's example
+ * run stands. A situation with no script (logged before scripts existed) shows
+ * its logged mistakes on their own.
+ */
+function transcriptFor(
+  situationId: string,
+  mistakes: Mistake[],
+  session: SessionResult | undefined,
+): Turn[] {
+  const script = conversationBySituation[situationId];
+  if (!script) {
+    return mistakes
+      .filter((mistake) => mistake.situationId === situationId && !mistake.fixed)
+      .map((mistake) => ({
+        id: mistake.id,
+        speaker: 'user',
+        korean: unquote(mistake.said.korean),
+        english: unquote(mistake.said.english),
+        mistake,
+      }));
+  }
+  if (!session) return script.turns;
+
+  return script.turns.map((turn) => {
+    if (turn.speaker !== 'user') return turn;
+    const heard = session.said[turn.id]?.trim();
+    const flagged = session.flagged.includes(turn.id);
+    return {
+      ...turn,
+      korean: heard || turn.korean,
+      english: heard ? '' : turn.english,
+      mistake: flagged ? turn.mistake : undefined,
+    };
+  });
+}
+
+/** RV-7 bookmark: saves the suggested sentence to the scrapbook once. */
+function SaveButton({ saved, onPress }: { saved: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={saved}
+      accessibilityRole="button"
+      accessibilityLabel={saved ? 'Saved to your scrapbook' : 'Save this phrase'}
+      accessibilityState={{ selected: saved }}
+      style={styles.detailSecondary}
+    >
+      <BookmarkIcon size={24} color={saved ? colors.primary : colors.ink} />
+    </Pressable>
   );
 }
 
@@ -261,6 +370,10 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
   },
   /** Open, the bubble itself carries the flag: tinted fill, orange rule, orange text. */
+  bubbleReading: {
+    borderWidth: 1,
+    borderColor: colors.info,
+  },
   bubbleExpanded: {
     backgroundColor: colors.primary100,
     borderWidth: 1,
@@ -352,7 +465,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 1,
   },
-  skipLabel: numeral(11, 14, '700', colors.ink),
+  stopMark: {
+    width: 16,
+    height: 16,
+    borderRadius: 3,
+    backgroundColor: colors.surface,
+  },
   play: {
     width: 56,
     height: 56,

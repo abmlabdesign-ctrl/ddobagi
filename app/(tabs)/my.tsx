@@ -5,7 +5,7 @@ import { Card, RowDivider } from '@/components/Card';
 import { MenuRow } from '@/components/Controls';
 import { ScreenTitleBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
-import { avatars } from '@/data/profile';
+import { avatars, formatPractice } from '@/data/profile';
 import { useApp } from '@/store/AppStore';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
@@ -21,7 +21,7 @@ export default function MyPage() {
   const { profile } = useApp();
   const avatar = avatars.find((entry) => entry.id === profile.avatarId) ?? avatars[0];
   const goal = profile.weeklyGoal;
-  const percent = Math.round((goal.completed / goal.total) * 100);
+  const percent = Math.min(100, Math.round((goal.completed / goal.total) * 100));
 
   return (
     <ScreenShell bottomEdge="tabs">
@@ -56,7 +56,7 @@ export default function MyPage() {
 
         <View style={styles.statsRow}>
           <Stat label="Situations done" value={`${profile.situationsDone}`} />
-          <Stat label="Total practice" value={profile.totalPractice} />
+          <Stat label="Total practice" value={formatPractice(profile.practiceMinutes)} />
         </View>
 
         <Card

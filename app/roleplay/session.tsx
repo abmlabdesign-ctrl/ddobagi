@@ -5,12 +5,15 @@ import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MicButton } from '@/components/MicButton';
-import { conversationBySituation, fallbackSituationId } from '@/data/conversations';
-import type { Turn } from '@/data/types';
+import { NavBar } from '@/components/NavBar';
+import { Screen, ScreenShell } from '@/components/Screen';
+import { conversationBySituation } from '@/data/conversations';
+import type { ConversationScript, Turn } from '@/data/types';
 import { BackChevronIcon, ReplayIcon } from '@/icons';
 import { recognitionMessage, useSpeechRecognition } from '@/services/recognition';
-import { useVoiceRecorder } from '@/services/recorder';
+import { micMessage, useVoiceRecorder } from '@/services/recorder';
 import { speak, stopSpeaking } from '@/services/speech';
+import { useApp, type JudgedLine } from '@/store/AppStore';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
 import { gloss, numeral, text, type } from '@/theme/typography';
 
@@ -20,13 +23,32 @@ import { gloss, numeral, text, type } from '@/theme/typography';
  */
 export default function Session() {
   const { situationId } = useLocalSearchParams<{ situationId: string }>();
-  const insets = useSafeAreaInsets();
+  const script = conversationBySituation[situationId];
 
-  const id = conversationBySituation[situationId] ? situationId : fallbackSituationId;
-  const script = conversationBySituation[id];
+  // No silent stand-in: a situation without a script says so instead of
+  // playing another situation's conversation under its title.
+  if (!script) {
+    return (
+      <ScreenShell background="surface">
+        <NavBar title="Conversation" />
+        <Screen>
+          <Text style={type.secondary}>This conversation isn&apos;t ready yet.</Text>
+        </Screen>
+      </ScreenShell>
+    );
+  }
+
+  return <Conversation script={script} />;
+}
+
+function Conversation({ script }: { script: ConversationScript }) {
+  const id = script.situationId;
+  const insets = useSafeAreaInsets();
+  const { finishSession } = useApp();
 
   const aiTurns = script.turns.filter((turn) => turn.speaker === 'ai');
-  const [turnIndex, setTurnIndex] = useState(1);
+  // Start on the AI's opening line — the greeting is part of the exchange.
+  const [turnIndex, setTurnIndex] = useState(0);
   const [micOn, setMicOn] = useState(false);
   const [showMeaning, setShowMeaning] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -35,11 +57,25 @@ export default function Session() {
   const heard = useSpeechRecognition();
   /** 이번 턴에 실제로 말한 것. 비어 있으면 대본의 예시 문장을 보여준다. */
   const [said, setSaid] = useState('');
+  /** 턴마다 말한 것 — 끝나면 리포트와 오답 로그로 넘긴다. */
+  const [lines, setLines] = useState<JudgedLine[]>([]);
+  const [micBlocked, setMicBlocked] = useState(false);
+  const [startedAt] = useState(() => Date.now());
 
   const progressPercent = Math.round(((turnIndex + 1) / aiTurns.length) * 100);
   const aiTurn = aiTurns[Math.min(turnIndex, aiTurns.length - 1)];
   const aiPosition = script.turns.indexOf(aiTurn);
   const userReply = script.turns.slice(aiPosition + 1).find((turn) => turn.speaker === 'user');
+  // The hint is this turn's model answer — the corrected one where the script
+  // expects a mistake — rather than one line for the whole conversation.
+  const hint = userReply
+    ? userReply.mistake
+      ? {
+          korean: userReply.mistake.suggested.korean,
+          english: userReply.mistake.suggested.english,
+        }
+      : { korean: `"${userReply.korean}"`, english: `“${userReply.english}”` }
+    : script.hint;
 
   // A hint is a nudge, not a panel: it floats in on tap and clears itself.
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -73,8 +109,11 @@ export default function Session() {
 
   const onMic = async () => {
     if (micOn) {
+      // `said` carries the words still being settled; stop() only the settled ones.
+      const settled = heard.supported ? heard.stop() : '';
+      const final = said || settled;
       await voice.stop();
-      advance();
+      advance(final);
       return;
     }
     // AI가 말하는 중에 마이크를 열면 자기 목소리를 덮으므로 먼저 끊는다.
@@ -82,20 +121,46 @@ export default function Session() {
     setSaid('');
     heard.reset();
     const on = await voice.start();
+    setMicBlocked(!on);
     if (on && heard.supported) heard.start({ onTranscript: setSaid });
     setMicOn(on);
   };
 
-  const advance = () => {
+  const advance = (final: string) => {
+    const next = userReply
+      ? [...lines, { turnId: userReply.id, said: final, mistake: userReply.mistake }]
+      : lines;
     if (turnIndex + 1 >= aiTurns.length) {
+      finishSession({
+        situationId: id,
+        lines: next,
+        goalsTotal: 3,
+        minutes: Math.max(1, Math.round((Date.now() - startedAt) / 60000)),
+      });
       router.replace(`/roleplay/report?situationId=${id}`);
       return;
     }
+    setLines(next);
     setTurnIndex((value) => value + 1);
     setMicOn(false);
     setSaid('');
     heard.reset();
   };
+
+  // RP-3b shows the conversation so far, with the learner's own words in
+  // place of the script's where they were heard.
+  const saidByTurn = Object.fromEntries(lines.map((line) => [line.turnId, line.said]));
+  const liveTurns = script.turns
+    .slice(0, aiPosition + 1)
+    .map((turn) => (saidByTurn[turn.id] ? { ...turn, korean: saidByTurn[turn.id] } : turn));
+
+  const userKorean = micBlocked
+    ? micMessage(voice.permission)
+    : heard.error !== 'none'
+      ? recognitionMessage[heard.error]
+      : micOn || said
+        ? said || '…'
+        : (userReply?.korean ?? '…');
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -162,18 +227,12 @@ export default function Session() {
           <Text style={styles.replayLabel}>10</Text>
         </Pressable>
 
-        {showHint ? <HintToast hint={script.hint} /> : null}
+        {showHint ? <HintToast hint={hint} /> : null}
       </View>
 
       <SessionBottom
         // 말하기 시작하면 대본이 아니라 실제로 인식된 말을 보여준다.
-        userKorean={
-          heard.error !== 'none'
-            ? recognitionMessage[heard.error]
-            : micOn || said
-              ? said || '…'
-              : (userReply?.korean ?? '…')
-        }
+        userKorean={userKorean}
         micActive={micOn}
         onMic={onMic}
         leftLabel="Script"
@@ -184,10 +243,10 @@ export default function Session() {
 
       <LiveScript
         visible={showScript}
-        turns={script.turns}
-        hint={script.hint}
+        turns={liveTurns}
+        hint={hint}
         hintOpen={showHint}
-        userKorean={userReply?.korean ?? '…'}
+        userKorean={userKorean}
         micActive={micOn}
         onMic={onMic}
         onHint={toggleHint}

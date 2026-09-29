@@ -8,7 +8,8 @@ import { OptionRow, SelectRow } from '@/components/Controls';
 import { CtaDock } from '@/components/CtaDock';
 import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
-import { onboardingOptions } from '@/data/profile';
+import { PickerSheet } from '@/components/PickerSheet';
+import { appLanguageOptions, onboardingOptions } from '@/data/profile';
 import { useApp } from '@/store/AppStore';
 import { spacing } from '@/theme/tokens';
 import { type } from '@/theme/typography';
@@ -19,6 +20,7 @@ export default function Setup() {
   const [studyDuration, setStudyDuration] = useState<string | null>(profile.studyDuration);
   const [purposes, setPurposes] = useState<string[]>(profile.purposes);
   const [painPoints, setPainPoints] = useState<string[]>(profile.painPoints);
+  const [languageOpen, setLanguageOpen] = useState(false);
 
   const toggle = (list: string[], value: string) =>
     list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
@@ -35,7 +37,11 @@ export default function Setup() {
       <NavBar title="About you" />
 
       <Screen scroll contentStyle={styles.content}>
-        <SelectRow label="App language" value={profile.appLanguage} />
+        <SelectRow
+          label="App language"
+          value={profile.appLanguage}
+          onPress={() => setLanguageOpen(true)}
+        />
 
         <View style={styles.group}>
           <Text style={type.section}>How long have you studied Korean?</Text>
@@ -86,6 +92,16 @@ export default function Setup() {
       <CtaDock>
         <Button label="Next" onPress={next} disabled={!canContinue} />
       </CtaDock>
+
+      <PickerSheet
+        visible={languageOpen}
+        title="App language"
+        note="Ddobak is in English for now. More languages are coming."
+        options={appLanguageOptions}
+        selected={profile.appLanguage}
+        onSelect={(appLanguage) => updateProfile({ appLanguage })}
+        onClose={() => setLanguageOpen(false)}
+      />
     </ScreenShell>
   );
 }

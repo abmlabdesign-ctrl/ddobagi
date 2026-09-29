@@ -25,6 +25,14 @@ export const recordingSupported =
   Platform.OS !== 'web' ||
   (typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia));
 
+/** The line a screen shows when the mic didn't open. */
+export function micMessage(permission: MicPermission) {
+  if (!recordingSupported) return 'This browser can’t record. Try Chrome or Safari over https.';
+  return permission === 'denied'
+    ? 'Microphone access is off. Allow it in your settings, then tap the mic.'
+    : 'The mic didn’t start. Tap it again.';
+}
+
 export function useVoiceRecorder() {
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [recording, setRecording] = useState(false);
@@ -32,13 +40,25 @@ export function useVoiceRecorder() {
   const [clipUri, setClipUri] = useState<string | null>(null);
   const player = useAudioPlayer(clipUri ?? undefined);
   const alive = useRef(true);
+  const recordingNow = useRef(false);
 
+  // Leaving a screen mid-recording (X, back, timer) must not leave the mic
+  // open or iOS in record mode, which keeps playback quiet everywhere after.
   useEffect(() => {
     alive.current = true;
     return () => {
       alive.current = false;
+      if (recordingNow.current) {
+        recordingNow.current = false;
+        try {
+          recorder.stop().catch(() => {});
+        } catch {
+          // The native recorder may already be released with the screen.
+        }
+      }
+      setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
     };
-  }, []);
+  }, [recorder]);
 
   const start = useCallback(async () => {
     if (!recordingSupported) {
@@ -57,11 +77,13 @@ export function useVoiceRecorder() {
     await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true }).catch(() => {});
     await recorder.prepareToRecordAsync().catch(() => {});
     recorder.record();
+    recordingNow.current = true;
     if (alive.current) setRecording(true);
     return true;
   }, [recorder]);
 
   const stop = useCallback(async () => {
+    recordingNow.current = false;
     await recorder.stop().catch(() => {});
     // 녹음을 끝내면 재생 쪽으로 돌려놔야 iOS에서 소리가 작아지지 않는다.
     await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});

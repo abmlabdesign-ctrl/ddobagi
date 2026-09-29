@@ -17,6 +17,22 @@ export const SPEECH_LANGUAGE = 'ko-KR';
 export const RATE_SENTENCE = 0.85;
 export const RATE_WORD = 0.7;
 
+/**
+ * MY-3 `AI speech speed`. 위 두 속도는 기본값 0.9x에서 맞춘 값이라,
+ * 설정은 그 비율만큼 둘을 함께 늘리거나 줄입니다.
+ */
+const BASE_SPEED = 0.9;
+let speedScale = 1;
+
+/** `'1.2x'` 같은 설정값을 받는다. 알 수 없는 값이면 기본 속도로 둔다. */
+export function setSpeechSpeed(label: string) {
+  const value = Number.parseFloat(label);
+  speedScale = Number.isFinite(value) && value > 0 ? value / BASE_SPEED : 1;
+}
+
+const rateFor = (scale: 'sentence' | 'word') =>
+  (scale === 'word' ? RATE_WORD : RATE_SENTENCE) * speedScale;
+
 export type SpeakOptions = {
   /** 낱말 하나를 읽을 때는 `word`. 기본은 문장. */
   scale?: 'sentence' | 'word';
@@ -36,7 +52,7 @@ export function speak(text: string, options: SpeakOptions = {}) {
   Speech.stop();
   Speech.speak(text, {
     language: SPEECH_LANGUAGE,
-    rate: scale === 'word' ? RATE_WORD : RATE_SENTENCE,
+    rate: rateFor(scale),
     onStart,
     onDone,
     onStopped: onDone,
@@ -57,7 +73,7 @@ export function speakSequence(lines: string[], onDone?: () => void) {
   queue.forEach((line, index) => {
     Speech.speak(line, {
       language: SPEECH_LANGUAGE,
-      rate: RATE_SENTENCE,
+      rate: rateFor('sentence'),
       // 마지막 문장이 끝났을 때만 재생이 끝난 것으로 본다.
       onDone: index === queue.length - 1 ? onDone : undefined,
       onStopped: index === queue.length - 1 ? onDone : undefined,

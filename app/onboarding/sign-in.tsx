@@ -4,6 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { Button } from '@/components/Button';
 import { Screen, ScreenShell } from '@/components/Screen';
+import type { SignInProvider } from '@/data/profile';
 import { useApp } from '@/store/AppStore';
 import { colors, shadows, spacing } from '@/theme/tokens';
 import { text, type } from '@/theme/typography';
@@ -12,9 +13,11 @@ import { text, type } from '@/theme/typography';
 export default function SignIn() {
   const { updateProfile } = useApp();
 
-  const signIn = (provider: 'google' | 'apple' | 'email') => {
-    updateProfile({});
-    router.push({ pathname: '/onboarding/setup', params: { provider } });
+  // No auth server yet: the choice is remembered so Settings can show which
+  // account this is, and the real sign-in plugs in here.
+  const signIn = (provider: SignInProvider) => {
+    updateProfile({ signInProvider: provider });
+    router.push('/onboarding/setup');
   };
 
   return (
@@ -44,15 +47,15 @@ export default function SignIn() {
             label="Continue with Google"
             variant="elevated"
             icon={<GoogleMark />}
-            onPress={() => signIn('google')}
+            onPress={() => signIn('Google')}
           />
           <Button
             label="Continue with Apple"
             variant="dark"
             icon={<AppleMark />}
-            onPress={() => signIn('apple')}
+            onPress={() => signIn('Apple')}
           />
-          <Button label="Continue with email" variant="text" onPress={() => signIn('email')} />
+          <Button label="Continue with email" variant="text" onPress={() => signIn('Email')} />
           <Text style={styles.terms}>
             By continuing, you agree to our Terms and Privacy Policy.
           </Text>

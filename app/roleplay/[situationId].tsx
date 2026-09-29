@@ -8,8 +8,9 @@ import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { FieldLabel } from '@/components/Section';
 import { categoryById } from '@/data/categories';
-import { reports } from '@/data/conversations';
+import { conversationBySituation, reports } from '@/data/conversations';
 import { situationById } from '@/data/situations';
+import { useApp } from '@/store/AppStore';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
 
@@ -20,6 +21,7 @@ import { numeral, text, type } from '@/theme/typography';
 export default function ScenarioDetail() {
   const { situationId } = useLocalSearchParams<{ situationId: string }>();
   const situation = situationById[situationId];
+  const { sessions } = useApp();
 
   if (!situation) {
     return (
@@ -36,7 +38,12 @@ export default function ScenarioDetail() {
   const breadcrumb = situation.place ? `${category.name} · ${situation.place}` : category.name;
   // A report exists only once the learner has finished the situation, so it is
   // what tells this screen whether there is a history to show.
-  const lastReport = reports[situation.id];
+  const played = sessions[situation.id];
+  const lastReport = reports[situation.id]
+    ? { ...reports[situation.id], ...(played ? { completedOn: played.completedOn } : null) }
+    : undefined;
+  // Only scripted situations can be played until AI turn generation is wired.
+  const playable = Boolean(conversationBySituation[situation.id]);
 
   return (
     <ScreenShell background="surface">
@@ -108,8 +115,14 @@ export default function ScenarioDetail() {
       </Screen>
 
       <CtaDock paddingTop={12}>
+        {playable ? null : (
+          <Text style={[type.caption, styles.soon]}>
+            This conversation is on its way. Try Pharmacy or Café for now.
+          </Text>
+        )}
         <Button
-          label="Start conversation"
+          label={playable ? 'Start conversation' : 'Coming soon'}
+          disabled={!playable}
           onPress={() => router.push(`/roleplay/session?situationId=${situation.id}`)}
         />
       </CtaDock>
@@ -189,6 +202,10 @@ const styles = StyleSheet.create({
   },
   lastScore: numeral(22, 30, '700', colors.info),
   lastUnit: text(12, 16, '600', colors.textSecondary),
+  soon: {
+    textAlign: 'center',
+    marginBottom: 8,
+  },
   lastDate: {
     ...type.description,
     marginLeft: 8,

@@ -8,7 +8,13 @@ import { colors, radius, shadows } from '@/theme/tokens';
 import { numeral, text } from '@/theme/typography';
 
 /** Streak pill + notification bell that sit above the greeting on HM-1. */
-export function HomeStatusRow({ streakDays }: { streakDays: number }) {
+export function HomeStatusRow({
+  streakDays,
+  onBell,
+}: {
+  streakDays: number;
+  onBell: () => void;
+}) {
   return (
     <View style={styles.statusRow}>
       <View style={styles.streak}>
@@ -16,6 +22,7 @@ export function HomeStatusRow({ streakDays }: { streakDays: number }) {
         <Text style={styles.streakLabel}>{streakDays}</Text>
       </View>
       <Pressable
+        onPress={onBell}
         hitSlop={10}
         accessibilityRole="button"
         accessibilityLabel="Notifications"
