@@ -189,11 +189,16 @@ export function AlertIcon(props: IconProps) {
   );
 }
 
-export function BookmarkIcon(props: IconProps) {
+/** Outline by default; `filled` is the saved state, not just a colour change. */
+export function BookmarkIcon({ filled = false, ...props }: IconProps & { filled?: boolean }) {
   const { size, color, weight } = base({ color: colors.primary, ...props });
   return (
     <Icon size={size}>
-      <Path d="M6.4 4.8A1.8 1.8 0 0 1 8.2 3h7.6a1.8 1.8 0 0 1 1.8 1.8v16l-5.6-3.8-5.6 3.8z" {...strokeProps(color, weight)} />
+      <Path
+        d="M6.4 4.8A1.8 1.8 0 0 1 8.2 3h7.6a1.8 1.8 0 0 1 1.8 1.8v16l-5.6-3.8-5.6 3.8z"
+        {...strokeProps(color, weight)}
+        fill={filled ? color : 'none'}
+      />
     </Icon>
   );
 }

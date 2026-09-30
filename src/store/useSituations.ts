@@ -3,43 +3,43 @@ import { useMemo } from 'react';
 import { homeFeatured as seedFeatured, situations as seedSituations } from '@/data/situations';
 import type { Situation } from '@/data/types';
 
-import { useApp, type SessionResult } from './AppStore';
+import { useApp, type ConversationDraft } from './AppStore';
 
 /**
- * The catalog with the learner's own progress on it. A situation they've
- * played shows how many goals the last run met; one they finished cleanly is
- * no longer "in progress". Unplayed situations keep the catalog's value.
+ * The catalog with the learner's own progress on it. The card's bar is how far
+ * through the conversation they got: a run saved part-way shows its percent,
+ * a finished one shows 100%. Unplayed situations keep the catalog's value.
  */
 export function useSituations() {
-  const { sessions } = useApp();
+  const { sessions, drafts } = useApp();
 
   return useMemo(() => {
     const withProgress = (situation: Situation): Situation => {
-      const session = sessions[situation.id];
-      if (!session) return situation;
-      return { ...situation, progress: progressOf(session) };
+      const draft = drafts[situation.id];
+      if (draft) return { ...situation, progress: progressOf(draft) };
+      if (sessions[situation.id]) {
+        return { ...situation, progress: { completed: 1, total: 1, percent: 100 } };
+      }
+      return situation;
     };
 
     const situations = seedSituations.map(withProgress);
     const homeFeatured = seedFeatured.map(withProgress);
 
-    // HM-1's resume card: the most recent unfinished run, else the catalog's.
-    const lastPlayed = Object.entries(sessions)
-      .filter(([, session]) => session.goalsMet < session.goalsTotal)
-      .sort(([, a], [, b]) => (b.completedAt ?? 0) - (a.completedAt ?? 0))[0];
-    const inProgress = lastPlayed
-      ? situations.find((situation) => situation.id === lastPlayed[0])
-      : situations.find((situation) => situation.progress && !sessions[situation.id]);
+    // HM-1's resume card: the most recently saved run, else the catalog's.
+    const lastSaved = Object.entries(drafts).sort(([, a], [, b]) => b.savedAt - a.savedAt)[0];
+    const inProgress = lastSaved
+      ? situations.find((situation) => situation.id === lastSaved[0])
+      : situations.find((situation) => isInProgress(situation) && !sessions[situation.id]);
 
     return { situations, homeFeatured, inProgress };
-  }, [sessions]);
+  }, [sessions, drafts]);
 }
 
-function progressOf(session: SessionResult): Situation['progress'] {
-  if (session.goalsMet >= session.goalsTotal) return undefined;
-  return {
-    completed: session.goalsMet,
-    total: session.goalsTotal,
-    percent: Math.round((session.goalsMet / session.goalsTotal) * 100),
-  };
+/** Started but not finished — RP-1's `Status` filter and HM-1's resume card. */
+export const isInProgress = (situation: Situation) =>
+  Boolean(situation.progress && situation.progress.percent < 100);
+
+function progressOf(draft: ConversationDraft): Situation['progress'] {
+  return { completed: draft.answered, total: draft.total, percent: draft.percent };
 }

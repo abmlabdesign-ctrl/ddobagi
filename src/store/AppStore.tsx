@@ -39,6 +39,20 @@ export type JudgedLine = {
   mistake?: Omit<Mistake, 'id' | 'situationId' | 'date' | 'fixed'>;
 };
 
+/**
+ * A roleplay left part-way with `Save and leave`. RP-1 and HM-1 show its
+ * percent, and RP-3 picks the conversation back up from `turnIndex`.
+ */
+export type ConversationDraft = {
+  turnIndex: number;
+  lines: JudgedLine[];
+  /** Share of the learner's turns already answered, 0–100. */
+  percent: number;
+  answered: number;
+  total: number;
+  savedAt: number;
+};
+
 export type Subscription = {
   planId: PlanId;
   trial: boolean;
@@ -67,6 +81,8 @@ type AppState = {
   mistakes: Mistake[];
   savedPhrases: SavedPhrase[];
   sessions: Record<string, SessionResult>;
+  /** Unfinished roleplays the learner chose to keep, by situation id. */
+  drafts: Record<string, ConversationDraft>;
   /** `2026-09-29` of the last practice, for the streak. */
   lastPracticeDay: string | null;
   /** Monday of the week `weeklyGoal.completed` counts, so it resets weekly. */
@@ -92,6 +108,8 @@ type AppActions = {
     goalsTotal: number;
     minutes: number;
   }) => void;
+  saveDraft: (situationId: string, draft: ConversationDraft) => void;
+  clearDraft: (situationId: string) => void;
   finishMission: (input: { minutes: number; skill: SkillId; correct: number; total: number }) => void;
   subscribe: (receipt: Receipt) => void;
   /** Turn off auto-renew; access runs to the end of the paid period. */
@@ -125,6 +143,7 @@ const initialState: AppState = {
   mistakes: seedMistakes,
   savedPhrases: seedPhrases,
   sessions: {},
+  drafts: {},
   lastPracticeDay: null,
   goalWeek: null,
   subscription: null,
@@ -391,8 +410,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         const firstTime = !current.sessions[situationId];
         const next = bumpUsage(countLesson(current, minutes), 'roleplays');
+        // A finished run supersedes whatever was saved part-way.
+        const { [situationId]: _finished, ...drafts } = current.drafts;
         return {
           ...next,
+          drafts,
           mistakes,
           activity: [...current.activity, ...measured].slice(-ACTIVITY_CAP),
           sessions: {
@@ -417,6 +439,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     },
     [],
   );
+
+  const saveDraft = useCallback((situationId: string, draft: ConversationDraft) => {
+    setState((current) => ({ ...current, drafts: { ...current.drafts, [situationId]: draft } }));
+  }, []);
+
+  const clearDraft = useCallback((situationId: string) => {
+    setState((current) => {
+      if (!current.drafts[situationId]) return current;
+      const { [situationId]: _dropped, ...drafts } = current.drafts;
+      return { ...current, drafts };
+    });
+  }, []);
 
   const finishMission = useCallback<AppActions['finishMission']>(
     ({ minutes, skill, correct, total }) => {
@@ -487,6 +521,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       removePhrase,
       setPhraseNote,
       finishSession,
+      saveDraft,
+      clearDraft,
       finishMission,
       subscribe,
       cancelSubscription,
@@ -510,6 +546,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       removePhrase,
       setPhraseNote,
       finishSession,
+      saveDraft,
+      clearDraft,
       finishMission,
     ],
   );

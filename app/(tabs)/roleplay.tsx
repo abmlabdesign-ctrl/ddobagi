@@ -10,7 +10,7 @@ import { ScreenTitleBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { SituationCard } from '@/components/SituationCard';
 import { categories } from '@/data/categories';
-import { useSituations } from '@/store/useSituations';
+import { isInProgress, useSituations } from '@/store/useSituations';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { text, type } from '@/theme/typography';
 
@@ -31,7 +31,7 @@ export default function Roleplay() {
   const results = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return situations
-      .filter((situation) => (inProgressOnly ? Boolean(situation.progress) : true))
+      .filter((situation) => (inProgressOnly ? isInProgress(situation) : true))
       .filter((situation) => (category === 'All' ? true : situation.categoryId === category))
       .filter((situation) => !needle || situation.title.toLowerCase().includes(needle))
       .sort((a, b) => Number(Boolean(b.featured)) - Number(Boolean(a.featured)));

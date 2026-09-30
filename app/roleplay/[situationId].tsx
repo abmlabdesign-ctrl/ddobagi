@@ -21,7 +21,7 @@ import { numeral, text, type } from '@/theme/typography';
 export default function ScenarioDetail() {
   const { situationId } = useLocalSearchParams<{ situationId: string }>();
   const situation = situationById[situationId];
-  const { sessions, isPlus, freeLeft } = useApp();
+  const { sessions, drafts, isPlus, freeLeft } = useApp();
 
   if (!situation) {
     return (
@@ -44,6 +44,8 @@ export default function ScenarioDetail() {
     : undefined;
   // Only scripted situations can be played until AI turn generation is wired.
   const playable = Boolean(conversationBySituation[situation.id]);
+  // A run saved part-way picks up where it stopped (RP-3 reads the draft).
+  const draft = drafts[situation.id];
 
   return (
     <ScreenShell background="surface">
@@ -120,6 +122,11 @@ export default function ScenarioDetail() {
             This conversation is on its way. Try Pharmacy or Café for now.
           </Text>
         )}
+        {playable && draft ? (
+          <Text style={[type.caption, styles.soon]}>
+            You saved this at {draft.percent}%. Pick up where you left off.
+          </Text>
+        ) : null}
         {playable && !isPlus ? (
           <Text style={[type.caption, styles.soon]}>
             {freeLeft.roleplays > 0
@@ -128,7 +135,13 @@ export default function ScenarioDetail() {
           </Text>
         ) : null}
         <Button
-          label={playable ? 'Start conversation' : 'Coming soon'}
+          label={
+            !playable
+              ? 'Coming soon'
+              : draft
+                ? 'Resume conversation'
+                : 'Start conversation'
+          }
           disabled={!playable}
           onPress={() => router.push(`/roleplay/session?situationId=${situation.id}`)}
         />

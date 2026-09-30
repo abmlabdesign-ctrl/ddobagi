@@ -9,6 +9,7 @@ import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { MicIcon } from '@/icons';
 import { micMessage, recordingSupported } from '@/services/recorder';
+import { useApp } from '@/store/AppStore';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
 import { type } from '@/theme/typography';
 
@@ -21,6 +22,14 @@ import { type } from '@/theme/typography';
  */
 export default function Microphone() {
   const [denied, setDenied] = useState(false);
+  const { completeOnboarding } = useApp();
+
+  // `Not now` skips the rest of setup: ON-2's answers are already saved, and
+  // the level check can't run without a mic anyway.
+  const skip = () => {
+    completeOnboarding();
+    router.replace('/(tabs)');
+  };
 
   const allow = async () => {
     const granted = recordingSupported
@@ -60,7 +69,7 @@ export default function Microphone() {
         <Button
           label="Not now"
           variant="text"
-          onPress={() => router.push('/onboarding/level-check')}
+          onPress={skip}
         />
       </CtaDock>
     </ScreenShell>
