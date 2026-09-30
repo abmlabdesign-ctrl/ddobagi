@@ -8,8 +8,8 @@ import { OptionRow, SelectRow } from '@/components/Controls';
 import { CtaDock } from '@/components/CtaDock';
 import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
-import { PickerSheet } from '@/components/PickerSheet';
-import { appLanguageOptions, onboardingOptions } from '@/data/profile';
+import { NativeLanguageSheet } from '@/components/NativeLanguageSheet';
+import { onboardingOptions } from '@/data/profile';
 import { useApp } from '@/store/AppStore';
 import { spacing } from '@/theme/tokens';
 import { type } from '@/theme/typography';
@@ -37,9 +37,11 @@ export default function Setup() {
       <NavBar title="About you" />
 
       <Screen scroll contentStyle={styles.content}>
+        {/* The UI is English-only for now, so ON-2 asks for the learner's own
+            language instead — the same list and sheet as MY-1b. */}
         <SelectRow
-          label="App language"
-          value={profile.appLanguage}
+          label="Native language"
+          value={profile.nativeLanguage}
           onPress={() => setLanguageOpen(true)}
         />
 
@@ -93,15 +95,7 @@ export default function Setup() {
         <Button label="Next" onPress={next} disabled={!canContinue} />
       </CtaDock>
 
-      <PickerSheet
-        visible={languageOpen}
-        title="App language"
-        note="Ddobak is in English for now. More languages are coming."
-        options={appLanguageOptions}
-        selected={profile.appLanguage}
-        onSelect={(appLanguage) => updateProfile({ appLanguage })}
-        onClose={() => setLanguageOpen(false)}
-      />
+      <NativeLanguageSheet visible={languageOpen} onClose={() => setLanguageOpen(false)} />
     </ScreenShell>
   );
 }

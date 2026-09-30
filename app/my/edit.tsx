@@ -8,13 +8,13 @@ import { Card, RowDivider } from '@/components/Card';
 import { Chip } from '@/components/Chip';
 import { CtaDock } from '@/components/CtaDock';
 import { NavBar } from '@/components/NavBar';
+import { NativeLanguageSheet } from '@/components/NativeLanguageSheet';
 import { PickerSheet } from '@/components/PickerSheet';
 import { Screen, ScreenShell } from '@/components/Screen';
 import {
   avatars,
   interestOptions,
   koreanLevels,
-  nativeLanguageOptions,
   weeklyGoalLabel,
   weeklyGoalOptions,
 } from '@/data/profile';
@@ -31,7 +31,6 @@ export default function EditProfile() {
 
   const [avatarId, setAvatarId] = useState(profile.avatarId);
   const [nickname, setNickname] = useState(profile.nickname);
-  const [nativeLanguage, setNativeLanguage] = useState(profile.nativeLanguage);
   const [goalTotal, setGoalTotal] = useState(profile.weeklyGoal.total);
   const [picker, setPicker] = useState<'language' | 'goal' | null>(null);
   const [level, setLevel] = useState(profile.koreanLevel);
@@ -50,7 +49,6 @@ export default function EditProfile() {
       avatarId,
       // An empty field keeps the old name rather than saving a blank one.
       nickname: nickname.trim() || profile.nickname,
-      nativeLanguage,
       koreanLevel: level,
       interests,
       weeklyGoal: { ...profile.weeklyGoal, total: goalTotal, label: weeklyGoalLabel(goalTotal) },
@@ -117,7 +115,7 @@ export default function EditProfile() {
           >
             <Text style={styles.fieldLabel}>Native language</Text>
             <View style={styles.fieldRight}>
-              <Text style={styles.fieldValue}>{nativeLanguage}</Text>
+              <Text style={styles.fieldValue}>{profile.nativeLanguage}</Text>
               <ListChevronIcon />
             </View>
           </Pressable>
@@ -183,14 +181,9 @@ export default function EditProfile() {
         <Button label="Save" onPress={save} />
       </CtaDock>
 
-      <PickerSheet
-        visible={picker === 'language'}
-        title="Native language"
-        options={nativeLanguageOptions}
-        selected={nativeLanguage}
-        onSelect={setNativeLanguage}
-        onClose={() => setPicker(null)}
-      />
+      {/* A language pick saves on its own — it shows on MY-1 straight away,
+          without waiting for `Save`. */}
+      <NativeLanguageSheet visible={picker === 'language'} onClose={() => setPicker(null)} />
       <PickerSheet
         visible={picker === 'goal'}
         title="Weekly goal"

@@ -34,10 +34,12 @@ export default function MistakeScript() {
   const { situationId } = useLocalSearchParams<{ situationId: string }>();
   const insets = useSafeAreaInsets();
   const situation = situationById[situationId];
-  const { mistakes, sessions, savedPhrases, savePhrase } = useApp();
+  const { mistakes, sessions, savedPhrases, savePhrase, removePhrase } = useApp();
   const turns = transcriptFor(situationId, mistakes, sessions[situationId]);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  /** Lines whose correction the learner has read — they now show the fix. */
+  const [corrected, setCorrected] = useState<string[]>([]);
   const playClip = useClipPlayer();
   /** The line being read aloud, or null when stopped. */
   const [cursor, setCursor] = useState<number | null>(null);
@@ -120,6 +122,12 @@ export default function MistakeScript() {
           const reading = cursor === index;
           const expanded = expandedId === turn.id;
           const isUser = turn.speaker === 'user';
+          // Once checked, the bubble carries the corrected sentence, with what
+          // was said struck through above it for comparison.
+          const fix = turn.mistake && corrected.includes(turn.id) ? turn.mistake.suggested : null;
+          const savedPhrase = turn.mistake
+            ? savedPhrases.find((phrase) => phrase.korean === unquote(turn.mistake!.suggested.korean))
+            : undefined;
 
           const bubble = (
             <View
@@ -131,14 +139,22 @@ export default function MistakeScript() {
               ]}
             >
               {flagged && !expanded ? (
-                <View style={styles.flag}>
-                  <Text style={styles.flagLabel}>!</Text>
+                <View style={[styles.flag, fix ? styles.flagFixed : null]}>
+                  <Text style={styles.flagLabel}>{fix ? '✓' : '!'}</Text>
                 </View>
               ) : null}
-              <View style={[styles.bubbleText, expanded ? styles.bubbleTextExpanded : null]}>
-                <Text style={expanded ? styles.koreanFlagged : styles.korean}>{turn.korean}</Text>
-                {turn.english ? <Text style={styles.gloss}>{turn.english}</Text> : null}
-              </View>
+              {fix && !expanded ? (
+                <View style={styles.bubbleText}>
+                  <Text style={styles.saidStruck}>{turn.korean}</Text>
+                  <Text style={styles.korean}>{unquote(fix.korean)}</Text>
+                  <Text style={styles.gloss}>{unquote(fix.english)}</Text>
+                </View>
+              ) : (
+                <View style={[styles.bubbleText, expanded ? styles.bubbleTextExpanded : null]}>
+                  <Text style={expanded ? styles.koreanFlagged : styles.korean}>{turn.korean}</Text>
+                  {turn.english ? <Text style={styles.gloss}>{turn.english}</Text> : null}
+                </View>
+              )}
             </View>
           );
 
@@ -149,7 +165,11 @@ export default function MistakeScript() {
                   onPress={() => setExpandedId(expanded ? null : turn.id)}
                   accessibilityRole="button"
                   accessibilityState={{ expanded }}
-                  accessibilityLabel={`Mistake in ${turn.korean}`}
+                  accessibilityLabel={
+                    fix
+                      ? `Corrected to ${unquote(fix.korean)}`
+                      : `Mistake in ${turn.korean}`
+                  }
                   style={isUser ? styles.alignEnd : styles.alignStart}
                 >
                   {bubble}
@@ -209,21 +229,24 @@ export default function MistakeScript() {
 
                     <View style={styles.detailActions}>
                       <SaveButton
-                        saved={savedPhrases.some(
-                          (phrase) => phrase.korean === unquote(turn.mistake!.suggested.korean),
-                        )}
+                        saved={Boolean(savedPhrase)}
                         onPress={() =>
-                          savePhrase({
-                            id: `${situationId}-${turn.id}`,
-                            situationId,
-                            korean: unquote(turn.mistake!.suggested.korean),
-                            english: unquote(turn.mistake!.suggested.english),
-                            savedOn: shortDate(),
-                          })
+                          savedPhrase
+                            ? removePhrase(savedPhrase.id)
+                            : savePhrase({
+                                id: `${situationId}-${turn.id}`,
+                                situationId,
+                                korean: unquote(turn.mistake!.suggested.korean),
+                                english: unquote(turn.mistake!.suggested.english),
+                                savedOn: shortDate(),
+                              })
                         }
                       />
                       <Pressable
-                        onPress={() => setExpandedId(null)}
+                        onPress={() => {
+                          setCorrected((ids) => (ids.includes(turn.id) ? ids : [...ids, turn.id]));
+                          setExpandedId(null);
+                        }}
                         accessibilityRole="button"
                         style={styles.detailPrimary}
                       >
@@ -313,18 +336,20 @@ function transcriptFor(
   });
 }
 
-/** RV-7 bookmark: saves the suggested sentence to the scrapbook once. */
+/**
+ * RV-7 bookmark: a toggle. Outline adds the suggested sentence to the
+ * scrapbook; filled takes it back out.
+ */
 function SaveButton({ saved, onPress }: { saved: boolean; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
-      disabled={saved}
       accessibilityRole="button"
-      accessibilityLabel={saved ? 'Saved to your scrapbook' : 'Save this phrase'}
+      accessibilityLabel={saved ? 'Remove from your scrapbook' : 'Save this phrase'}
       accessibilityState={{ selected: saved }}
       style={styles.detailSecondary}
     >
-      <BookmarkIcon size={24} color={saved ? colors.primary : colors.ink} />
+      <BookmarkIcon size={24} color={saved ? colors.primary : colors.ink} filled={saved} />
     </Pressable>
   );
 }
@@ -421,7 +446,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  flagFixed: {
+    backgroundColor: colors.success,
+  },
   flagLabel: text(13, 13, '700', colors.surface),
+  saidStruck: {
+    ...text(12, 18, '400', colors.textSecondary),
+    textDecorationLine: 'line-through',
+  },
   korean: text(15, 23, '500', colors.inkAlt),
   koreanFlagged: text(15, 23, '600', colors.primary),
   gloss: text(12, 18, '400', colors.textSecondary),

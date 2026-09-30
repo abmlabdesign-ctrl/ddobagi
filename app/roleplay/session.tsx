@@ -1,9 +1,26 @@
-import { Redirect, router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
+import {
+  Image,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import Animated, {
+  FadeInDown,
+  FadeOut,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Button } from '@/components/Button';
 import { KoreanVoiceNotice } from '@/components/KoreanVoiceNotice';
 import { MicButton } from '@/components/MicButton';
 import { NavBar } from '@/components/NavBar';
@@ -11,6 +28,7 @@ import { Screen, ScreenShell } from '@/components/Screen';
 import { conversationBySituation } from '@/data/conversations';
 import type { ConversationScript, Turn } from '@/data/types';
 import { BackChevronIcon, ReplayIcon } from '@/icons';
+import { setWebBackGuard } from '@/services/backGuard';
 import { recognitionMessage, useSpeechRecognition } from '@/services/recognition';
 import { micMessage, rememberClip, useVoiceRecorder } from '@/services/recorder';
 import { speak, stopSpeaking } from '@/services/speech';
@@ -51,11 +69,16 @@ export default function Session() {
 function Conversation({ script }: { script: ConversationScript }) {
   const id = script.situationId;
   const insets = useSafeAreaInsets();
-  const { finishSession } = useApp();
+  const { height: windowHeight } = useWindowDimensions();
+  const navigation = useNavigation();
+  const { finishSession, drafts, saveDraft } = useApp();
+  // A run saved with `Save and leave` resumes where it stopped.
+  const [draft] = useState(() => drafts[id]);
 
   const aiTurns = script.turns.filter((turn) => turn.speaker === 'ai');
+  const userTurnCount = script.turns.filter((turn) => turn.speaker === 'user').length;
   // Start on the AI's opening line — the greeting is part of the exchange.
-  const [turnIndex, setTurnIndex] = useState(0);
+  const [turnIndex, setTurnIndex] = useState(draft?.turnIndex ?? 0);
   const [micOn, setMicOn] = useState(false);
   const [showMeaning, setShowMeaning] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -65,11 +88,20 @@ function Conversation({ script }: { script: ConversationScript }) {
   /** 이번 턴에 실제로 말한 것. 비어 있으면 대본의 예시 문장을 보여준다. */
   const [said, setSaid] = useState('');
   /** 턴마다 말한 것 — 끝나면 리포트와 오답 로그로 넘긴다. */
-  const [lines, setLines] = useState<JudgedLine[]>([]);
+  const [lines, setLines] = useState<JudgedLine[]>(draft?.lines ?? []);
   const [micBlocked, setMicBlocked] = useState(false);
   const [startedAt] = useState(() => Date.now());
+  /** Set on the last reply: the bar fills to 100% before the report opens. */
+  const [finished, setFinished] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  /** Once true, leaving is intended and the confirm sheet stays out of the way. */
+  const leaving = useRef(false);
 
-  const progressPercent = Math.round(((turnIndex + 1) / aiTurns.length) * 100);
+  // Progress is the share of the learner's replies given so far: 0% on the
+  // opening line, a step per reply, 100% only once the conversation ends.
+  const progressPercent = finished
+    ? 100
+    : Math.round((Math.min(lines.length, userTurnCount) / Math.max(1, userTurnCount)) * 100);
   const aiTurn = aiTurns[Math.min(turnIndex, aiTurns.length - 1)];
   const aiPosition = script.turns.indexOf(aiTurn);
   const userReply = script.turns.slice(aiPosition + 1).find((turn) => turn.speaker === 'user');
@@ -104,6 +136,57 @@ function Conversation({ script }: { script: ConversationScript }) {
     [],
   );
 
+  // Back gestures, the hardware back button and the close button all ask
+  // before a half-done conversation is thrown away.
+  useEffect(
+    () =>
+      navigation.addListener('beforeRemove', (event) => {
+        if (leaving.current) return;
+        event.preventDefault();
+        setLeaveOpen(true);
+      }),
+    [navigation],
+  );
+
+  // Browser Back on the web: step forward again to this screen's own entry,
+  // then ask, same as the close button. The forward step fires a popstate of
+  // its own, which is swallowed too so the router never hears either.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    let restoring = false;
+    return setWebBackGuard(() => {
+      if (restoring) {
+        restoring = false;
+        return true;
+      }
+      if (leaving.current) return false;
+      restoring = true;
+      window.history.go(1);
+      setLeaveOpen(true);
+      return true;
+    });
+  }, []);
+
+  /** Leave for RP-1, keeping this run's progress only when asked to. */
+  const leave = async (save: boolean) => {
+    if (save) {
+      saveDraft(id, {
+        turnIndex,
+        lines,
+        percent: progressPercent,
+        answered: Math.min(lines.length, userTurnCount),
+        total: userTurnCount,
+        savedAt: Date.now(),
+      });
+    }
+    setLeaveOpen(false);
+    leaving.current = true;
+    heard.reset();
+    if (micOn) await voice.stop();
+    stopSpeaking();
+    router.dismissTo('/(tabs)/roleplay');
+  };
+
   const toggleHint = () => {
     if (hintTimer.current) clearTimeout(hintTimer.current);
     if (showHint) {
@@ -115,6 +198,7 @@ function Conversation({ script }: { script: ConversationScript }) {
   };
 
   const onMic = async () => {
+    if (finished) return;
     if (micOn) {
       // `said` carries the words still being settled; stop() only the settled ones.
       const settled = heard.supported ? heard.stop() : '';
@@ -145,7 +229,12 @@ function Conversation({ script }: { script: ConversationScript }) {
         goalsTotal: 3,
         minutes: Math.max(1, Math.round((Date.now() - startedAt) / 60000)),
       });
-      router.replace(`/roleplay/report?situationId=${id}`);
+      setLines(next);
+      setMicOn(false);
+      setFinished(true);
+      leaving.current = true;
+      // Long enough to see the bar reach the end before the report slides in.
+      setTimeout(() => router.replace(`/roleplay/report?situationId=${id}`), 700);
       return;
     }
     setLines(next);
@@ -174,7 +263,7 @@ function Conversation({ script }: { script: ConversationScript }) {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.topBar}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => (finished ? null : setLeaveOpen(true))}
           accessibilityRole="button"
           accessibilityLabel="Leave the conversation"
           style={styles.topButton}
@@ -183,61 +272,71 @@ function Conversation({ script }: { script: ConversationScript }) {
         </Pressable>
         {/* The comps read progress as a filling bar, not a count — it sits in
             the header row where the `2 / 4` label used to. */}
-        <View
-          style={styles.progressTrack}
-          accessibilityRole="progressbar"
-          accessibilityLabel="Conversation progress"
-          accessibilityValue={{ min: 0, max: aiTurns.length, now: turnIndex + 1 }}
-        >
-          <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
-        </View>
+        <ProgressBar percent={progressPercent} />
         <View style={styles.topButton} />
       </View>
 
-      <View style={styles.aiBlock}>
-        <Text style={styles.blockLabel}>Live conversation script</Text>
-        <Text style={styles.aiKorean}>{aiTurn.korean}</Text>
+      {/* Everything between the header and the `You` panel scrolls, so a long
+          meaning can push the waveform down instead of sliding under it — the
+          panel and controls below keep their own height and safe-area inset. */}
+      <ScrollView
+        style={styles.body}
+        contentContainerStyle={styles.bodyContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.aiBlock}>
+          <Text style={styles.blockLabel}>Live conversation script</Text>
+          <Text style={styles.aiKorean}>{aiTurn.korean}</Text>
 
-        <Pressable
-          onPress={() => setShowMeaning((value) => !value)}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: showMeaning }}
-        >
-          <Text style={styles.meaningToggle}>
-            {showMeaning ? 'Hide meaning' : 'Show meaning'}
-          </Text>
-        </Pressable>
+          <Pressable
+            onPress={() => setShowMeaning((value) => !value)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showMeaning }}
+          >
+            <Text style={styles.meaningToggle}>
+              {showMeaning ? 'Hide meaning' : 'Show meaning'}
+            </Text>
+          </Pressable>
 
-        {/* §6.2: English stays hidden on the live screen until the learner asks,
-            and only ever for the AI's line — what the learner said needs no gloss. */}
-        {showMeaning ? <Text style={styles.caption}>{aiTurn.english}</Text> : null}
-        <KoreanVoiceNotice />
-      </View>
+          {/* §6.2: English stays hidden on the live screen until the learner asks,
+              and only ever for the AI's line — what the learner said needs no gloss. */}
+          {showMeaning ? <Text style={styles.caption}>{aiTurn.english}</Text> : null}
+          <KoreanVoiceNotice />
+        </View>
 
-      <View style={styles.stage}>
-        <Image
-          source={require('../../assets/graphics/voice-wave.gif')}
-          style={styles.wave}
-          resizeMode="cover"
-          accessibilityIgnoresInvertColors
-          accessibilityLabel="Voice waveform"
-        />
+        <View style={styles.stage}>
+          <Image
+            source={require('../../assets/graphics/voice-wave.gif')}
+            // 380×340 on a tall phone; shorter screens get a smaller wave rather
+            // than one that crowds the line above it.
+            style={[
+              styles.wave,
+              {
+                height: Math.min(WAVE.height, Math.max(WAVE.minHeight, windowHeight * 0.36)),
+                width: WAVE.width,
+              },
+            ]}
+            resizeMode="cover"
+            accessibilityIgnoresInvertColors
+            accessibilityLabel="Voice waveform"
+          />
 
-        {/* Drawn after the waveform: the gif carries its own ground and would
-            otherwise paint over the button. */}
-        <Pressable
-          onPress={() => speak(aiTurn.korean)}
-          accessibilityRole="button"
-          accessibilityLabel="Replay what the other person said"
-          style={styles.replay}
-        >
-          <ReplayIcon size={18} color={colors.ink} />
-          <Text style={styles.replayLabel}>10</Text>
-        </Pressable>
+          {/* Drawn after the waveform: the gif carries its own ground and would
+              otherwise paint over the button. */}
+          <Pressable
+            onPress={() => speak(aiTurn.korean)}
+            accessibilityRole="button"
+            accessibilityLabel="Replay what the other person said"
+            style={styles.replay}
+          >
+            <ReplayIcon size={18} color={colors.ink} />
+            <Text style={styles.replayLabel}>10</Text>
+          </Pressable>
 
-        {showHint ? <HintToast hint={hint} /> : null}
-      </View>
+          {showHint ? <HintToast hint={hint} /> : null}
+        </View>
+      </ScrollView>
 
       <SessionBottom
         // 말하기 시작하면 대본이 아니라 실제로 인식된 말을 보여준다.
@@ -261,7 +360,80 @@ function Conversation({ script }: { script: ConversationScript }) {
         onHint={toggleHint}
         onClose={() => setShowScript(false)}
       />
+
+      <LeaveSheet
+        visible={leaveOpen}
+        percent={progressPercent}
+        onSave={() => leave(true)}
+        onDiscard={() => leave(false)}
+        onCancel={() => setLeaveOpen(false)}
+      />
     </View>
+  );
+}
+
+const WAVE = { width: 380, height: 340, minHeight: 180 };
+
+/** The header bar, easing from one reply's share to the next. */
+function ProgressBar({ percent }: { percent: number }) {
+  const [trackWidth, setTrackWidth] = useState(0);
+  const fill = useSharedValue(0);
+
+  useEffect(() => {
+    // Always a sliver at 0%, so the bar reads as started rather than empty.
+    const target = Math.max(percent, 3);
+    fill.value = withTiming((trackWidth * target) / 100, { duration: 420 });
+  }, [percent, trackWidth, fill]);
+
+  const fillStyle = useAnimatedStyle(() => ({ width: fill.value }));
+
+  return (
+    <View
+      style={styles.progressTrack}
+      onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
+      accessibilityRole="progressbar"
+      accessibilityLabel="Conversation progress"
+      accessibilityValue={{ min: 0, max: 100, now: percent, text: `${percent}%` }}
+    >
+      <Animated.View style={[styles.progressFill, fillStyle]} />
+    </View>
+  );
+}
+
+/**
+ * Asked before a conversation is left part-way. Saving keeps the percent on
+ * the situation card and lets RP-2 resume from this line.
+ */
+function LeaveSheet({
+  visible,
+  percent,
+  onSave,
+  onDiscard,
+  onCancel,
+}: {
+  visible: boolean;
+  percent: number;
+  onSave: () => void;
+  onDiscard: () => void;
+  onCancel: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
+      <Pressable style={styles.backdrop} onPress={onCancel} accessibilityLabel="Close" />
+      <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.xl }]}>
+        <Text style={type.section}>Save this conversation?</Text>
+        <Text style={type.secondary}>
+          You&apos;re {percent}% through. Save it to pick up from here next time.
+        </Text>
+        <View style={styles.sheetActions}>
+          <Button label="Save and leave" onPress={onSave} />
+          <Button label="Leave without saving" variant="tonal" onPress={onDiscard} />
+          <Button label="Cancel" variant="text" onPress={onCancel} />
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -449,6 +621,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.primary,
   },
+  body: {
+    flex: 1,
+  },
+  bodyContent: {
+    flexGrow: 1,
+    paddingBottom: spacing.md,
+  },
   aiBlock: {
     paddingHorizontal: spacing.gutter,
     paddingBottom: 16,
@@ -469,9 +648,10 @@ const styles = StyleSheet.create({
   },
   meaningToggle: text(12, 16, '600', colors.primary),
   stage: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'flex-end',
+    overflow: 'hidden',
   },
   replay: {
     position: 'absolute',
@@ -520,8 +700,6 @@ const styles = StyleSheet.create({
   },
   hintEnglish: gloss(15),
   wave: {
-    width: 380,
-    height: 340,
     marginBottom: 24,
   },
   userSheet: {
@@ -596,4 +774,20 @@ const styles = StyleSheet.create({
   },
   bubbleKorean: text(15, 23, '500', colors.inkAlt),
   bubbleGloss: text(12, 18, '400', colors.textSecondary),
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(25,31,40,0.35)',
+  },
+  sheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
+    paddingHorizontal: spacing.gutter,
+    paddingTop: spacing.xl,
+    gap: 10,
+  },
+  sheetActions: {
+    gap: 4,
+    marginTop: 8,
+  },
 });

@@ -6,6 +6,8 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+// Imported first so its browser-Back listener is in place before the router's.
+import '@/services/backGuard';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { AppProvider } from '@/store/AppStore';
 import { colors } from '@/theme/tokens';
