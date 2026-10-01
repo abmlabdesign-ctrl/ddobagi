@@ -250,12 +250,23 @@ function ScrapbookTab() {
     <View style={styles.tabBody}>
       <SearchField value={query} onChangeText={setQuery} placeholder="Search saved phrases" />
 
-      {phrases.length === 0 ? (
-        <Text style={type.secondary}>
-          {savedPhrases.length === 0
-            ? 'Nothing saved yet. Save a phrase from a report.'
-            : `No saved phrases match \u201c${query.trim()}\u201d.`}
+      {savedPhrases.length === 0 ? (
+        // Empty until the learner saves something — no sample phrases.
+        <View style={styles.scrapEmpty}>
+          <Text style={type.listTitle}>Nothing saved yet</Text>
+          <Text style={[type.secondary, styles.scrapEmptyText]}>
+            Long-press a line in a roleplay and choose Save to Scrapbook.
+          </Text>
+        </View>
+      ) : (
+        <Text style={type.caption}>
+          {needle ? `${phrases.length} of ` : ''}
+          {savedPhrases.length} saved phrase{savedPhrases.length === 1 ? '' : 's'}
         </Text>
+      )}
+
+      {savedPhrases.length === 0 ? null : phrases.length === 0 ? (
+        <Text style={type.secondary}>{`No saved phrases match \u201c${query.trim()}\u201d.`}</Text>
       ) : (
         <View style={styles.phraseList}>
           {phrases.map((phrase) => (
@@ -359,6 +370,15 @@ function PhraseMenu({
 }
 
 const styles = StyleSheet.create({
+  /** The Scrapbook before anything is saved: a short line on how to fill it. */
+  scrapEmpty: {
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: spacing.huge,
+  },
+  scrapEmptyText: {
+    textAlign: 'center',
+  },
   tabs: {
     flexDirection: 'row',
     gap: 8,
