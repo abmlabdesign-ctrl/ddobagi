@@ -7,7 +7,6 @@ import { MicButton } from '@/components/MicButton';
 import { KoreanVoiceNotice } from '@/components/KoreanVoiceNotice';
 import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
-import { Waveform } from '@/components/Waveform';
 import { SpeakerIcon } from '@/icons';
 import { recognitionMessage, useSpeechRecognition } from '@/services/recognition';
 import { useVoiceRecorder } from '@/services/recorder';
@@ -164,11 +163,6 @@ export default function LevelCheck() {
       </Screen>
 
       <View style={styles.micBlock}>
-        {/* Off, the bars sit faded and still; on, they're full colour and moving. */}
-        <View style={recording ? null : styles.waveOff}>
-          <Waveform active={running} />
-        </View>
-
         <View style={styles.micRow}>
           <View style={styles.side}>
             {canRetry ? (
@@ -291,9 +285,6 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingHorizontal: spacing.gutter,
     paddingBottom: 12,
-  },
-  waveOff: {
-    opacity: 0.35,
   },
   micRow: {
     alignSelf: 'stretch',

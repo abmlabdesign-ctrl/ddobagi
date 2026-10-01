@@ -96,7 +96,7 @@ RP-1 타이틀은 `Choose a situation`.
 | `components/BubbleBookmark` | RP-3b · RV-6 (대화 말풍선 북마크) |
 | `components/MicButton` | ON-3 · RP-3 · RV-2b |
 
-`Waveform`(ON-3) · `StepProgress`(RV-2) · `HomeParts`(HM-1)는 단일 화면 전용이라 자유롭게 고쳐도 됩니다.
+`StepProgress`(RV-2) · `HomeParts`(HM-1)는 단일 화면 전용이라 자유롭게 고쳐도 됩니다.
 
 ## 작업 규칙
 
