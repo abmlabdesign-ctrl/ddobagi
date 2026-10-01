@@ -101,6 +101,8 @@ type AppActions = {
   updateProfile: (patch: Partial<Profile>) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   markMistakeFixed: (id: string) => void;
+  /** Marks a mistake as seen. Idempotent, so reopening it changes nothing. */
+  markMistakeRead: (id: string) => void;
   savePhrase: (phrase: SavedPhrase) => void;
   removePhrase: (id: string) => void;
   setPhraseNote: (id: string, note: string) => void;
@@ -354,6 +356,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const markMistakeRead = useCallback((id: string) => {
+    setState((current) =>
+      current.mistakes.some((mistake) => mistake.id === id && !mistake.read)
+        ? {
+            ...current,
+            mistakes: current.mistakes.map((mistake) =>
+              mistake.id === id ? { ...mistake, read: true } : mistake,
+            ),
+          }
+        : current,
+    );
+  }, []);
+
   const savePhrase = useCallback((phrase: SavedPhrase) => {
     setState((current) =>
       current.savedPhrases.some(
@@ -427,6 +442,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             situationId,
             date,
             fixed: false,
+            // Made again in this run, so it's news to the log even if read before.
+            read: false,
             said: { korean: `"${heard}"`, english: '', note: '' },
           };
           mistakes = existing
@@ -545,6 +562,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateProfile,
       updateSettings,
       markMistakeFixed,
+      markMistakeRead,
       savePhrase,
       removePhrase,
       setPhraseNote,
@@ -571,6 +589,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateProfile,
       updateSettings,
       markMistakeFixed,
+      markMistakeRead,
       savePhrase,
       removePhrase,
       setPhraseNote,
