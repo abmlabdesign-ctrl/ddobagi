@@ -113,7 +113,11 @@ type AppActions = {
   }) => void;
   saveDraft: (situationId: string, draft: ConversationDraft) => void;
   clearDraft: (situationId: string) => void;
-  finishMission: (input: { minutes: number; skill: SkillId; correct: number; total: number }) => void;
+  /** One lesson; `results` holds a row per skill drilled (a mixed run has several). */
+  finishMission: (input: {
+    minutes: number;
+    results: { skill: SkillId; correct: number; total: number }[];
+  }) => void;
   subscribe: (receipt: Receipt) => void;
   /** Turn off auto-renew; access runs to the end of the paid period. */
   cancelSubscription: () => void;
@@ -464,12 +468,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const finishMission = useCallback<AppActions['finishMission']>(
-    ({ minutes, skill, correct, total }) => {
+    ({ minutes, results }) => {
       setState((current) => {
         const next = bumpUsage(countLesson(current, minutes), 'missions');
+        const at = Date.now();
         return {
           ...next,
-          activity: [...current.activity, { at: Date.now(), skill, correct, total }].slice(
+          activity: [...current.activity, ...results.map((row) => ({ at, ...row }))].slice(
             -ACTIVITY_CAP,
           ),
         };

@@ -21,7 +21,7 @@ import { MicButton } from '@/components/MicButton';
 import { NavBar } from '@/components/NavBar';
 import { ScreenShell } from '@/components/Screen';
 import { StepProgress } from '@/components/StepProgress';
-import { missionById, missions } from '@/data/missions';
+import { TODAYS_FOCUS_ID, missionById, missions, questionKind } from '@/data/missions';
 import type { ChoiceQuestion, Mission, Token, WriteQuestion } from '@/data/types';
 import { BackChevronIcon, CheckIcon, DropdownChevronIcon, SpeakerIcon } from '@/icons';
 import {
@@ -32,6 +32,7 @@ import {
   type RecognitionError,
 } from '@/services/recognition';
 import { micMessage, useVoiceRecorder } from '@/services/recorder';
+import { buildMixedMission } from '@/services/mixedMission';
 import { speak } from '@/services/speech';
 import { useApp } from '@/store/AppStore';
 import { colors, layout, radius, shadows, spacing } from '@/theme/tokens';
@@ -65,7 +66,10 @@ type Verdict = {
  */
 export default function MissionRunner() {
   const { missionId } = useLocalSearchParams<{ missionId: string }>();
-  const mission = missionById[missionId] ?? missions[0];
+  // Today's focus is built on the spot: ten questions mixed across all six skills.
+  const pickMission = () =>
+    missionId === TODAYS_FOCUS_ID ? buildMixedMission() : (missionById[missionId] ?? missions[0]);
+  const [mission, setMission] = useState(pickMission);
   const insets = useSafeAreaInsets();
 
   // The run is one queue. A miss is appended to its tail, so the questions the
@@ -84,7 +88,11 @@ export default function MissionRunner() {
   const [done, setDone] = useState(false);
   const [micBlocked, setMicBlocked] = useState(false);
   /** Questions right on the first attempt — RV-2f's second stat. */
-  const [firstTry, setFirstTry] = useState(0);
+  /** Steps answered right on the first attempt (only steps inside the designed length count). */
+  const [firstTryHits, setFirstTryHits] = useState<number[]>([]);
+  const firstTry = firstTryHits.length;
+  const hit = (at: number) =>
+    setFirstTryHits((current) => (current.includes(at) ? current : [...current, at]));
   const [startedAt, setStartedAt] = useState(() => Date.now());
   const [elapsed, setElapsed] = useState(0);
   const { finishMission, freeLeft } = useApp();
@@ -95,6 +103,8 @@ export default function MissionRunner() {
   const heard = useSpeechRecognition();
 
   const question = mission.questions[queue[step]];
+  /** The skill this question drills — in a mixed run it changes question to question. */
+  const kind = questionKind[question.id] ?? mission.kind;
 
   const reset = () => {
     graded.current = false;
@@ -114,7 +124,7 @@ export default function MissionRunner() {
    */
   const judge = (result: Verdict) => {
     setVerdict(result);
-    if (result.correct && step < mission.questionCount) setFirstTry((value) => value + 1);
+    if (result.correct && step < mission.questionCount) hit(step);
     if (result.correct || step >= mission.questionCount) return;
     setQueue((current) =>
       current.includes(current[step], mission.questionCount) ? current : [...current, current[step]],
@@ -129,11 +139,18 @@ export default function MissionRunner() {
     }
     const took = Date.now() - startedAt;
     setElapsed(took);
+    // One row per skill drilled, so a mixed run feeds MY-2 for each of them.
+    const bySkill = new Map<Mission['kind'], { correct: number; total: number }>();
+    for (let at = 0; at < mission.questionCount; at += 1) {
+      const skill = questionKind[mission.questions[queue[at]].id] ?? mission.kind;
+      const row = bySkill.get(skill) ?? { correct: 0, total: 0 };
+      row.total += 1;
+      if (firstTryHits.includes(at)) row.correct += 1;
+      bySkill.set(skill, row);
+    }
     finishMission({
       minutes: Math.max(1, Math.round(took / 60000)),
-      skill: mission.kind,
-      correct: firstTry,
-      total: mission.questionCount,
+      results: [...bySkill].map(([skill, row]) => ({ skill, ...row })),
     });
     setDone(true);
   };
@@ -145,9 +162,12 @@ export default function MissionRunner() {
       return;
     }
     reset();
-    setQueue(buildQueue(mission));
+    // A mixed run deals a fresh ten; a single-skill mission starts over as is.
+    const again = mission.id === TODAYS_FOCUS_ID ? pickMission() : mission;
+    setMission(again);
+    setQueue(buildQueue(again));
     setStep(0);
-    setFirstTry(0);
+    setFirstTryHits([]);
     setStartedAt(Date.now());
     setDone(false);
   };
@@ -214,7 +234,7 @@ export default function MissionRunner() {
     if (heard.supported) return undefined;
     if (!recording || question.type !== 'speak') return undefined;
     // 낱말 단위(RV-2b)와 음절 단위(RV-2a)를 같은 박자로 채운다.
-    const bySyllable = mission.kind === 'pronunciation';
+    const bySyllable = kind === 'pronunciation';
     const total = bySyllable ? syllableCount(question.tokens) : question.tokens.length;
     let read = 0;
     const id = setInterval(() => {
@@ -227,10 +247,10 @@ export default function MissionRunner() {
       stopRecording();
       // 끝까지 다 읽었으면 정답 — 인식 경로와 같은 기준.
       setVerdict({ correct: true, note: question.feedback.explanation });
-      if (step < mission.questionCount) setFirstTry((value) => value + 1);
+      if (step < mission.questionCount) hit(step);
     }, bySyllable ? 260 : 420);
     return () => clearInterval(id);
-  }, [heard.supported, recording, question, step, mission.questionCount, mission.kind, stopRecording]);
+  }, [heard.supported, recording, question, step, mission.questionCount, kind, stopRecording]);
 
   const submitWrite = () => {
     if (question.type !== 'write') return;
@@ -273,6 +293,7 @@ export default function MissionRunner() {
     return (
       <MissionComplete
         title={mission.title}
+        mixed={mission.id === TODAYS_FOCUS_ID}
         questionCount={mission.questionCount}
         firstTry={firstTry}
         elapsedMs={elapsed}
@@ -324,8 +345,8 @@ export default function MissionRunner() {
             </Pressable>
             <KoreanText
               tokens={question.tokens}
-              spokenCount={mission.kind === 'fluency' ? spokenCount : 0}
-              spokenSyllables={mission.kind === 'pronunciation' ? spokenSyllables : 0}
+              spokenCount={kind === 'fluency' ? spokenCount : 0}
+              spokenSyllables={kind === 'pronunciation' ? spokenSyllables : 0}
               english={question.english}
               meaning="always"
               captionStyle={styles.sentenceMeaning}
@@ -336,7 +357,6 @@ export default function MissionRunner() {
 
         {verdict ? null : (
           <>
-            <Waveband active={recording} />
             <MicDock
               recording={recording}
               onSpeak={async () => {
@@ -541,41 +561,6 @@ function FeedbackPanel({
 }
 
 /**
- * The comp's ten-bar band above the mic: `0 -4px 24px` top shadow, 16px of
- * padding over a 40px bar box. Bar heights and tints are the declared values.
- */
-const WAVE_BARS = [
-  { height: 10, color: colors.primary200 },
-  { height: 22, color: colors.primary300 },
-  { height: 32, color: colors.primary },
-  { height: 16, color: colors.primary300 },
-  { height: 26, color: colors.primary },
-  { height: 12, color: colors.primary200 },
-  { height: 22, color: colors.primary300 },
-  { height: 36, color: colors.primary },
-  { height: 18, color: colors.primary300 },
-  { height: 9, color: colors.primary200 },
-];
-
-function Waveband({ active }: { active: boolean }) {
-  return (
-    <View style={styles.waveband}>
-      {WAVE_BARS.map((bar, index) => (
-        <View
-          key={index}
-          style={[
-            styles.waveBar,
-            { height: bar.height, backgroundColor: bar.color },
-            // Idle the band reads as a hint; while the mic is open it is live.
-            active ? null : styles.waveBarIdle,
-          ]}
-        />
-      ))}
-    </View>
-  );
-}
-
-/**
  * The mic band: `20px 24px 12px` over the home indicator, with the comp's two
  * empty 63×44 slots holding the 84px button dead centre.
  */
@@ -772,7 +757,10 @@ function MissionComplete({
   firstTry,
   elapsedMs,
   onRetry,
+  mixed = false,
 }: {
+  /** Today's focus — the caption names the six skills, not one mission. */
+  mixed?: boolean;
   title: string;
   questionCount: number;
   firstTry: number;
@@ -811,7 +799,9 @@ function MissionComplete({
           <View style={styles.completeText}>
             <Text style={styles.completeTitle}>Mission complete!</Text>
             <Text style={styles.completeCaption}>
-              You finished all {questionCount} questions of{'\n'}the {title.toLowerCase()} mission.
+              {mixed
+                ? `You finished all ${questionCount} questions\nacross all six skills.`
+                : `You finished all ${questionCount} questions of\nthe ${title.toLowerCase()} mission.`}
             </Text>
           </View>
         </View>
@@ -1013,25 +1003,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     elevation: 0,
   },
-  /** `height:40` of bars over `padding:16px 24px 0`, so the band is 56 tall. */
-  waveband: {
-    height: 56,
-    paddingTop: 16,
-    paddingHorizontal: spacing.gutter,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    backgroundColor: colors.surface,
-    ...shadows.bottomNav,
-  },
-  waveBar: {
-    width: 4,
-    borderRadius: radius.pill,
-  },
-  waveBarIdle: {
-    opacity: 0.45,
-  },
   /** `padding:20px 24px 12px`; the 12 sits on top of the home indicator. */
   micDock: {
     paddingTop: 20,
@@ -1040,6 +1011,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
+    // The top shadow the bar band above it used to carry; the band is gone.
+    ...shadows.bottomNav,
   },
   /** The comp's empty side slots — 27px wide inside 18px padding — centre the mic. */
   micSlot: {

@@ -7,7 +7,6 @@ import { MicButton } from '@/components/MicButton';
 import { KoreanVoiceNotice } from '@/components/KoreanVoiceNotice';
 import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
-import { Waveform } from '@/components/Waveform';
 import { SpeakerIcon } from '@/icons';
 import { recognitionMessage, useSpeechRecognition } from '@/services/recognition';
 import { useVoiceRecorder } from '@/services/recorder';
@@ -119,7 +118,8 @@ export default function LevelCheck() {
 
   return (
     <ScreenShell background="surface" bottomEdge="content">
-      <NavBar title="Level check" action="Finish" onAction={submit} />
+      {/* No `Finish` up top: the dock's Submit is the one way to hand it in. */}
+      <NavBar title="Level check" />
 
       <Screen contentStyle={styles.content}>
         <View style={styles.question}>
@@ -163,11 +163,6 @@ export default function LevelCheck() {
       </Screen>
 
       <View style={styles.micBlock}>
-        {/* Off, the bars sit faded and still; on, they're full colour and moving. */}
-        <View style={recording ? null : styles.waveOff}>
-          <Waveform active={running} />
-        </View>
-
         <View style={styles.micRow}>
           <View style={styles.side}>
             {canRetry ? (
@@ -181,7 +176,8 @@ export default function LevelCheck() {
               </Pressable>
             ) : null}
           </View>
-          <MicButton active={running} onPress={toggleMic} distinctStates />
+          {/* The roleplay screen's button, so recording looks the same everywhere. */}
+          <MicButton size={84} active={running} onPress={toggleMic} />
           <View style={styles.side}>
             {canRetry ? (
               <Pressable
@@ -289,9 +285,6 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingHorizontal: spacing.gutter,
     paddingBottom: 12,
-  },
-  waveOff: {
-    opacity: 0.35,
   },
   micRow: {
     alignSelf: 'stretch',

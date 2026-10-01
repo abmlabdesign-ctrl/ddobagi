@@ -11,7 +11,7 @@ import { ScreenTitleBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { categoryById } from '@/data/categories';
-import { missions, todayFocus } from '@/data/missions';
+import { TODAYS_FOCUS_ID, missions, todayFocus } from '@/data/missions';
 import { mistakesSummary } from '@/data/review';
 import { situationById } from '@/data/situations';
 import type { Mistake, SavedPhrase } from '@/data/types';
@@ -96,7 +96,8 @@ function MissionsTab() {
           <Text style={type.lead}>{todayFocus.description}</Text>
         </View>
         <Pressable
-          onPress={() => router.push(`/review/mission?missionId=${focus.mission.id}`)}
+          // Ten questions mixed across all six skills, not one skill's drill.
+          onPress={() => router.push(`/review/mission?missionId=${TODAYS_FOCUS_ID}`)}
           accessibilityRole="button"
           style={styles.focusCta}
         >
