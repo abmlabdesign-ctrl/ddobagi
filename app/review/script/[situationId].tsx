@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BookmarkedBubble, useLineBookmark } from '@/components/BubbleBookmark';
 import { Card } from '@/components/Card';
+import { useLineScrap } from '@/components/LineScrap';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { conversationBySituation } from '@/data/conversations';
 import { situationById } from '@/data/situations';
@@ -38,7 +38,7 @@ export default function MistakeScript() {
   const { mistakes, sessions, savedPhrases, savePhrase, removePhrase } = useApp();
   const turns = transcriptFor(situationId, mistakes, sessions[situationId]);
 
-  const lineMark = useLineBookmark(situationId);
+  const lineScrap = useLineScrap(situationId);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   /** Lines whose correction the learner has read — they now show the fix. */
   const [corrected, setCorrected] = useState<string[]>([]);
@@ -147,14 +147,26 @@ export default function MistakeScript() {
               ) : null}
               {fix && !expanded ? (
                 <View style={styles.bubbleText}>
-                  <Text style={styles.saidStruck}>{turn.korean}</Text>
-                  <Text style={styles.korean}>{unquote(fix.korean)}</Text>
-                  <Text style={styles.gloss}>{unquote(fix.english)}</Text>
+                  <Text style={styles.saidStruck} selectable={false}>
+                    {turn.korean}
+                  </Text>
+                  <Text style={styles.korean} selectable={false}>
+                    {unquote(fix.korean)}
+                  </Text>
+                  <Text style={styles.gloss} selectable={false}>
+                    {unquote(fix.english)}
+                  </Text>
                 </View>
               ) : (
                 <View style={[styles.bubbleText, expanded ? styles.bubbleTextExpanded : null]}>
-                  <Text style={expanded ? styles.koreanFlagged : styles.korean}>{turn.korean}</Text>
-                  {turn.english ? <Text style={styles.gloss}>{turn.english}</Text> : null}
+                  <Text style={expanded ? styles.koreanFlagged : styles.korean} selectable={false}>
+                    {turn.korean}
+                  </Text>
+                  {turn.english ? (
+                    <Text style={styles.gloss} selectable={false}>
+                      {turn.english}
+                    </Text>
+                  ) : null}
                 </View>
               )}
             </View>
@@ -162,31 +174,28 @@ export default function MistakeScript() {
 
           return (
             <View key={turn.id} style={styles.turn}>
-              {/* Any line can go to the Scrapbook, not only a corrected one. A
-                  corrected line saves what it reads now — the fixed sentence. */}
-              <BookmarkedBubble
-                side={turn.speaker}
-                saved={lineMark.isSaved(fix ? fix.korean : turn.korean)}
-                onToggle={() => lineMark.toggle(fix ? { ...turn, ...fix } : turn)}
+              {/* Any line can go to the Scrapbook by long-press. A corrected line
+                  saves what it reads now — the fixed sentence. */}
+              <Pressable
+                onPress={flagged ? () => setExpandedId(expanded ? null : turn.id) : undefined}
+                onLongPress={() =>
+                  lineScrap.open(fix ? { id: turn.id, korean: fix.korean, english: fix.english } : turn)
+                }
+                delayLongPress={450}
+                accessibilityRole="button"
+                accessibilityState={flagged ? { expanded } : undefined}
+                accessibilityLabel={
+                  fix
+                    ? `Corrected to ${unquote(fix.korean)}`
+                    : flagged
+                      ? `Mistake in ${turn.korean}`
+                      : turn.korean
+                }
+                accessibilityHint="Long-press to save or copy"
+                style={isUser ? styles.alignEnd : styles.alignStart}
               >
-                {flagged ? (
-                  <Pressable
-                    onPress={() => setExpandedId(expanded ? null : turn.id)}
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded }}
-                    accessibilityLabel={
-                      fix
-                        ? `Corrected to ${unquote(fix.korean)}`
-                        : `Mistake in ${turn.korean}`
-                    }
-                    style={isUser ? styles.alignEnd : styles.alignStart}
-                  >
-                    {bubble}
-                  </Pressable>
-                ) : (
-                  <View style={isUser ? styles.alignEnd : styles.alignStart}>{bubble}</View>
-                )}
-              </BookmarkedBubble>
+                {bubble}
+              </Pressable>
 
               {/* Your own take, right under the line — only from this app run. */}
               {isUser && clipFor(`${situationId}/${turn.id}`) ? (
@@ -302,6 +311,7 @@ export default function MistakeScript() {
           <SkipForwardIcon />
         </Pressable>
       </View>
+      {lineScrap.ui}
     </ScreenShell>
   );
 }

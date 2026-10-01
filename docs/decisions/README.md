@@ -13,3 +13,4 @@
 | 26-10-01 | [기능 소개 5장은 약관 동의 뒤, About you 앞에 둔다](./261001-feature-intro-placement.md) | 적용됨 |
 | 26-10-01 | [대화 말풍선 북마크 · 롤플레이 다시 말하기 · 복습 미션 판정](./261001-bookmarks-retry-missions.md) | 적용됨 |
 | 26-10-01 | [상황 목록 필터 · Today's focus 혼합 출제 · 말하기 화면 정리](./261001-filters-mixed-focus.md) | 적용됨 |
+| 26-10-01 | [대화 문장 스크랩: 길게 누르기 → 액션 시트](./261001-line-scrap.md) | 적용됨 |

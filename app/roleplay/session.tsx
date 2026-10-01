@@ -20,9 +20,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BookmarkedBubble, useLineBookmark } from '@/components/BubbleBookmark';
 import { Button } from '@/components/Button';
 import { KoreanVoiceNotice } from '@/components/KoreanVoiceNotice';
+import { ScrapTip, useLineScrap } from '@/components/LineScrap';
 import { MicButton } from '@/components/MicButton';
 import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
@@ -73,6 +73,7 @@ function Conversation({ script }: { script: ConversationScript }) {
   const { height: windowHeight } = useWindowDimensions();
   const navigation = useNavigation();
   const { finishSession, drafts, saveDraft } = useApp();
+  const lineScrap = useLineScrap(id);
   // A run saved with `Save and leave` resumes where it stopped.
   const [draft] = useState(() => drafts[id]);
 
@@ -316,7 +317,16 @@ function Conversation({ script }: { script: ConversationScript }) {
       >
         <View style={styles.aiBlock}>
           <Text style={styles.blockLabel}>Live conversation script</Text>
-          <Text style={styles.aiKorean}>{aiTurn.korean}</Text>
+          {/* Long-press keeps the line, the same as a bubble in the script. */}
+          <Pressable
+            onLongPress={() => lineScrap.open(aiTurn)}
+            delayLongPress={450}
+            accessibilityHint="Long-press to save or copy"
+          >
+            <Text style={styles.aiKorean} selectable={false}>
+              {aiTurn.korean}
+            </Text>
+          </Pressable>
 
           <Pressable
             onPress={() => setShowMeaning((value) => !value)}
@@ -401,6 +411,9 @@ function Conversation({ script }: { script: ConversationScript }) {
         onDiscard={() => leave(false)}
         onCancel={() => setLeaveOpen(false)}
       />
+
+      {lineScrap.ui}
+      <ScrapTip />
     </View>
   );
 }
@@ -598,7 +611,8 @@ function LiveScript({
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const lineMark = useLineBookmark(situationId);
+  // Its own sheet and toast: this screen is a Modal, so they must draw inside it.
+  const lineScrap = useLineScrap(situationId);
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -623,19 +637,28 @@ function LiveScript({
             {turns.map((turn) => {
               const isUser = turn.speaker === 'user';
               return (
-                <BookmarkedBubble
+                <Pressable
                   key={turn.id}
-                  side={turn.speaker}
-                  saved={lineMark.isSaved(turn.korean)}
-                  onToggle={() => lineMark.toggle(turn)}
+                  onLongPress={() => lineScrap.open(turn)}
+                  delayLongPress={450}
+                  accessibilityHint="Long-press to save or copy"
+                  style={({ pressed }) => [
+                    styles.bubble,
+                    isUser ? styles.bubbleUser : styles.bubbleAi,
+                    pressed ? styles.bubblePressed : null,
+                  ]}
                 >
-                  <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAi]}>
-                    <Text style={styles.bubbleKorean}>{turn.korean}</Text>
-                    {/* Only the AI's lines are glossed — the learner's own words
-                        need no translation back at them. */}
-                    {isUser ? null : <Text style={styles.bubbleGloss}>{turn.english}</Text>}
-                  </View>
-                </BookmarkedBubble>
+                  <Text style={styles.bubbleKorean} selectable={false}>
+                    {turn.korean}
+                  </Text>
+                  {/* Only the AI's lines are glossed — the learner's own words
+                      need no translation back at them. */}
+                  {isUser ? null : (
+                    <Text style={styles.bubbleGloss} selectable={false}>
+                      {turn.english}
+                    </Text>
+                  )}
+                </Pressable>
               );
             })}
           </ScrollView>
@@ -653,6 +676,7 @@ function LiveScript({
           hintOpen={hintOpen}
           take={take}
         />
+        {lineScrap.ui}
       </View>
     </Modal>
   );
@@ -842,6 +866,10 @@ const styles = StyleSheet.create({
   },
   bubbleKorean: text(15, 23, '500', colors.inkAlt),
   bubbleGloss: text(12, 18, '400', colors.textSecondary),
+  /** Held for a long-press: a light dim says the line is being picked up. */
+  bubblePressed: {
+    opacity: 0.7,
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(25,31,40,0.35)',
