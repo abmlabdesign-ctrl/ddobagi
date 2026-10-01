@@ -76,6 +76,8 @@ type Usage = { day: string; roleplays: number; missions: number };
 
 type AppState = {
   onboarded: boolean;
+  /** IN-1 ~ IN-5 have been shown once; they never come back, even after log out. */
+  introSeen: boolean;
   profile: Profile;
   settings: Settings;
   mistakes: Mistake[];
@@ -95,6 +97,7 @@ type AppState = {
 
 type AppActions = {
   completeOnboarding: () => void;
+  finishIntro: () => void;
   resetOnboarding: () => void;
   updateProfile: (patch: Partial<Profile>) => void;
   updateSettings: (patch: Partial<Settings>) => void;
@@ -138,6 +141,7 @@ const initialSettings: Settings = {
 
 const initialState: AppState = {
   onboarded: false,
+  introSeen: false,
   profile: defaultProfile,
   settings: initialSettings,
   mistakes: seedMistakes,
@@ -305,9 +309,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setState((current) => ({ ...current, onboarded: true }));
   }, []);
 
-  /** Log out: this device forgets the learner entirely. */
+  const finishIntro = useCallback(() => {
+    setState((current) => (current.introSeen ? current : { ...current, introSeen: true }));
+  }, []);
+
+  /**
+   * Log out: this device forgets the learner entirely — except that it has
+   * seen the feature intro, which is first-launch only.
+   */
   const resetOnboarding = useCallback(() => {
-    setState(initialState);
+    setState((current) => ({ ...initialState, introSeen: current.introSeen }));
   }, []);
 
   const updateProfile = useCallback((patch: Partial<Profile>) => {
@@ -513,6 +524,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       reminderStatus,
       freeLeft: { roleplays: roleplaysLeft, missions: missionsLeft },
       completeOnboarding,
+      finishIntro,
       resetOnboarding,
       updateProfile,
       updateSettings,
@@ -538,6 +550,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       cancelSubscription,
       resumeSubscription,
       completeOnboarding,
+      finishIntro,
       resetOnboarding,
       updateProfile,
       updateSettings,

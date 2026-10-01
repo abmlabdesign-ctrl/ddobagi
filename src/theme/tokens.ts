@@ -39,6 +39,12 @@ export const colors = {
   info: '#0091FF',
   infoBg: '#EBF9FF',
 
+  /** IN-1 ~ IN-5 body copy — a touch darker than textSecondary. */
+  introBody: '#6B727A',
+  /** IN-2 / IN-4 panel tints; the other three reuse primary100 / infoBg / successBg. */
+  introLavender: '#F3F0FF',
+  introButter: '#FFF8E5',
+
   bubbleUser: '#E5EFFF',
   bubbleUserStrong: '#D8E7FF',
 } as const;
@@ -124,6 +130,8 @@ export const shadows = {
   float: shadow('#324458', 12, 40, 0.14, 8),
   /** 0 -4px 24px rgba(50,68,88,0.08) */
   bottomNav: shadow('#324458', -4, 24, 0.08, 12),
+  /** 0 16px 40px rgba(50,68,88,0.18) — IN-1 ~ IN-5 phone mockup. */
+  device: shadow('#324458', 16, 40, 0.18, 12),
   /** 0 8px 24px rgba(25,31,40,0.18) */
   modal: shadow('#191F28', 8, 24, 0.18, 10),
   /** 0 0 32px rgba(255,106,61,0.5) — mic button and the home resume card. */
