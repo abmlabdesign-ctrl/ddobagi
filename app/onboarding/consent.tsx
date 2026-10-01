@@ -15,13 +15,13 @@ import { type } from '@/theme/typography';
 const REQUIRED: LegalDocId[] = ['terms', 'privacy', 'voice'];
 
 /**
- * ON-1b Before we start — ON-1 → here → ON-2. Each required item is agreed
+ * ON-1b Before we start — ON-1 → here → IN-1 ~ IN-5 (first launch) → ON-2. Each required item is agreed
  * separately (voice recordings leave the device for speech-to-text, so they
  * get their own line rather than hiding inside the privacy policy). Laid out
  * like ON-2: white page, section title, rows, one CTA disabled until ready.
  */
 export default function Consent() {
-  const { profile, updateProfile, updateSettings } = useApp();
+  const { profile, updateProfile, updateSettings, introSeen } = useApp();
   const [agreed, setAgreed] = useState<Record<LegalDocId, boolean>>({
     terms: profile.consents?.terms ?? false,
     privacy: profile.consents?.privacy ?? false,
@@ -42,7 +42,8 @@ export default function Consent() {
     updateProfile({ consents: { ...agreed, marketing, agreedOn: shortDate() } });
     // The optional line is literally "Practice reminders and news".
     updateSettings({ practiceReminder: marketing });
-    router.push('/onboarding/setup');
+    // The feature intro sits between here and ON-2, first launch only.
+    router.push(introSeen ? '/onboarding/setup' : '/onboarding/intro');
   };
 
   return (
