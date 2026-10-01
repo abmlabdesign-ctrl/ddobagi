@@ -72,15 +72,22 @@ export type Turn = {
   speaker: 'ai' | 'user';
   korean: string;
   english: string;
-  /** Marks a learner line the report flagged. */
+  /**
+   * The correction data for a learner line: what a common slip sounds like,
+   * the corrected sentence and why. A heard answer that doesn't match the
+   * corrected sentence is logged as a mistake with this data.
+   */
   mistake?: Omit<Mistake, 'id' | 'situationId' | 'date' | 'fixed'>;
+  /**
+   * Learner lines only — RP-3 `Hint`: 2–4 key words that help build the
+   * answer, never the answer itself. Romanization is generated on the device.
+   */
+  hintWords?: { korean: string; english: string }[];
 };
 
 export type ConversationScript = {
   situationId: string;
   turns: Turn[];
-  /** Suggested learner reply for the current AI turn (RP-3 `Hint`). */
-  hint: { korean: string; english: string };
 };
 
 export type SentenceFix = {

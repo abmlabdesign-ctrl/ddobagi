@@ -29,12 +29,13 @@ import { conversationBySituation } from '@/data/conversations';
 import type { ConversationScript, Turn } from '@/data/types';
 import { BackChevronIcon, ReplayIcon } from '@/icons';
 import { setWebBackGuard } from '@/services/backGuard';
+import { romanize } from '@/services/romanize';
 import { recognitionMessage, useSpeechRecognition } from '@/services/recognition';
 import { micMessage, rememberClip, useVoiceRecorder } from '@/services/recorder';
 import { speak, stopSpeaking } from '@/services/speech';
 import { useApp, type JudgedLine } from '@/store/AppStore';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
-import { gloss, numeral, text, type } from '@/theme/typography';
+import { numeral, text, type } from '@/theme/typography';
 
 /**
  * RP-3 Live AI conversation + RP-3b Live script.
@@ -112,16 +113,9 @@ function Conversation({ script }: { script: ConversationScript }) {
   const aiTurn = aiTurns[Math.min(turnIndex, aiTurns.length - 1)];
   const aiPosition = script.turns.indexOf(aiTurn);
   const userReply = script.turns.slice(aiPosition + 1).find((turn) => turn.speaker === 'user');
-  // The hint is this turn's model answer — the corrected one where the script
-  // expects a mistake — rather than one line for the whole conversation.
-  const hint = userReply
-    ? userReply.mistake
-      ? {
-          korean: userReply.mistake.suggested.korean,
-          english: userReply.mistake.suggested.english,
-        }
-      : { korean: `"${userReply.korean}"`, english: `“${userReply.english}”` }
-    : script.hint;
+  // The hint gives this turn's key words, never the finished answer: the
+  // learner still has to build the sentence themselves.
+  const hint: HintWord[] = userReply?.hintWords ?? [];
 
   // A hint is a nudge, not a panel: it floats in on tap and clears itself.
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -282,13 +276,22 @@ function Conversation({ script }: { script: ConversationScript }) {
 
   const takeControls = take ? { onRetry: retryTake, onSubmit: submitTake } : undefined;
 
+  // Nothing of the answer shows before the learner speaks: the panel holds a
+  // prompt until words are actually heard, then only what was heard.
   const userKorean = micBlocked
     ? micMessage(voice.permission)
     : heard.error !== 'none'
       ? recognitionMessage[heard.error]
-      : micOn || said || (take && heard.supported)
-        ? said || '…'
-        : (userReply?.korean ?? '…');
+      : said
+        ? said
+        : micOn
+          ? '…'
+          : take
+            ? heard.supported
+              ? "We didn't catch any words. Try again?"
+              : 'Your answer is recorded.'
+            : 'Tap the mic to answer.';
+  const userIsPrompt = !said;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -383,6 +386,7 @@ function Conversation({ script }: { script: ConversationScript }) {
       <SessionBottom
         // 말하기 시작하면 대본이 아니라 실제로 인식된 말을 보여준다.
         userKorean={userKorean}
+        userIsPrompt={userIsPrompt}
         micActive={micOn}
         onMic={onMic}
         leftLabel="Script"
@@ -400,6 +404,7 @@ function Conversation({ script }: { script: ConversationScript }) {
         hint={hint}
         hintOpen={showHint}
         userKorean={userKorean}
+        userIsPrompt={userIsPrompt}
         micActive={micOn}
         onMic={onMic}
         onHint={toggleHint}
@@ -492,8 +497,13 @@ function LeaveSheet({
   );
 }
 
-/** The hint card, floating clear of the mic just above the `You` panel. */
-function HintToast({ hint }: { hint: { korean: string; english: string } }) {
+type HintWord = { korean: string; english: string };
+
+/**
+ * The hint card, floating clear of the mic just above the `You` panel: a few
+ * key words as `목  mok  — throat`, not the sentence they make.
+ */
+function HintToast({ hint }: { hint: HintWord[] }) {
   return (
     <Animated.View
       entering={FadeInDown.duration(220)}
@@ -504,8 +514,17 @@ function HintToast({ hint }: { hint: { korean: string; english: string } }) {
       <View style={styles.hintBadge}>
         <Text style={styles.hintBadgeLabel}>Hint</Text>
       </View>
-      <Text style={styles.hintKorean}>{hint.korean}</Text>
-      <Text style={styles.hintEnglish}>{hint.english}</Text>
+      {hint.length === 0 ? (
+        <Text style={styles.hintEnglish}>Answer in your own words.</Text>
+      ) : (
+        hint.map((word) => (
+          <View key={word.korean} style={styles.hintRow}>
+            <Text style={styles.hintKorean}>{word.korean}</Text>
+            <Text style={styles.hintRoman}>{romanize(word.korean)}</Text>
+            <Text style={styles.hintEnglish}>— {word.english}</Text>
+          </View>
+        ))
+      )}
     </Animated.View>
   );
 }
@@ -516,6 +535,7 @@ function HintToast({ hint }: { hint: { korean: string; english: string } }) {
  */
 function SessionBottom({
   userKorean,
+  userIsPrompt,
   micActive,
   onMic,
   leftLabel,
@@ -525,6 +545,8 @@ function SessionBottom({
   take,
 }: {
   userKorean: string;
+  /** True while the panel holds a prompt or notice rather than heard words. */
+  userIsPrompt: boolean;
   micActive: boolean;
   onMic: () => void;
   leftLabel: string;
@@ -540,7 +562,7 @@ function SessionBottom({
     <>
       <View style={styles.userSheet}>
         <Text style={styles.blockLabel}>You</Text>
-        <Text style={styles.userKorean}>{userKorean}</Text>
+        <Text style={userIsPrompt ? styles.userPrompt : styles.userKorean}>{userKorean}</Text>
       </View>
 
       <View style={[styles.controls, { paddingBottom: insets.bottom + spacing.md }]}>
@@ -595,6 +617,7 @@ function SessionBottom({
  * controls, with the left pill pointing back at the roleplay.
  */
 function LiveScript({
+  userIsPrompt,
   situationId,
   take,
   visible,
@@ -607,11 +630,12 @@ function LiveScript({
   onHint,
   onClose,
 }: {
+  userIsPrompt: boolean;
   situationId: string;
   take?: { onRetry: () => void; onSubmit: () => void };
   visible: boolean;
   turns: Turn[];
-  hint: { korean: string; english: string };
+  hint: HintWord[];
   hintOpen: boolean;
   userKorean: string;
   micActive: boolean;
@@ -677,6 +701,7 @@ function LiveScript({
 
         <SessionBottom
           userKorean={userKorean}
+          userIsPrompt={userIsPrompt}
           micActive={micActive}
           onMic={onMic}
           leftLabel="Roleplay"
@@ -799,7 +824,18 @@ const styles = StyleSheet.create({
     ...text(15, 26, '600', colors.ink),
     letterSpacing: -0.3,
   },
-  hintEnglish: gloss(15),
+  hintRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  hintRoman: numeral(13, 18, '500', colors.textSecondary),
+  hintEnglish: text(13, 18, '400', colors.textSecondary),
+  userPrompt: {
+    ...text(15, 22, '500', colors.textTertiary),
+    textAlign: 'center',
+  },
   userSheet: {
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,

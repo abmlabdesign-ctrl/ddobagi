@@ -17,6 +17,7 @@ import {
   SkipForwardIcon,
   SpeakerIcon,
 } from '@/icons';
+import { normalizeSpeech } from '@/services/recognition';
 import { clipFor, useClipPlayer } from '@/services/recorder';
 import { speak, stopSpeaking } from '@/services/speech';
 import { shortDate, useApp, type SessionResult } from '@/store/AppStore';
@@ -94,7 +95,7 @@ export default function MistakeScript() {
           </Text>
         </View>
         <Screen background="surface-alt">
-          <Text style={type.secondary}>There&apos;s no transcript for this situation yet.</Text>
+          <Text style={type.secondary}>Finish this roleplay to see your transcript here.</Text>
         </Screen>
       </ScreenShell>
     );
@@ -223,6 +224,12 @@ export default function MistakeScript() {
                     paddingVertical={16}
                     style={styles.detail}
                   >
+                    {/* What was actually said in this run, from the log entry. */}
+                    <View style={styles.whySection}>
+                      <Text style={styles.whyLabel}>You said</Text>
+                      <Text style={styles.why}>{unquote(turn.mistake.said.korean)}</Text>
+                    </View>
+
                     <View style={styles.detailSection}>
                       <Text style={styles.suggestedLabel}>Suggested sentence</Text>
                       <View style={styles.suggestedRow}>
@@ -319,10 +326,12 @@ export default function MistakeScript() {
 const unquote = (value: string) => value.replace(/["“”]/g, '');
 
 /**
- * The lines RV-6 shows. A played session puts the learner's own words back in
- * and flags only what that run got wrong; before that, the script's example
- * run stands. A situation with no script (logged before scripts existed) shows
- * its logged mistakes on their own.
+ * The lines RV-6 shows, built only from the learner's last finished run: the
+ * AI's lines, then each answer exactly as it was heard. A line is flagged only
+ * when that run logged it as a mistake, and its detail is that log entry —
+ * what was said, the correction, why. No run yet means no transcript (never
+ * the script's example run). A situation with no script shows its logged
+ * mistakes on their own.
  */
 function transcriptFor(
   situationId: string,
@@ -341,18 +350,26 @@ function transcriptFor(
         mistake,
       }));
   }
-  if (!session) return script.turns;
+  if (!session) return [];
 
   return script.turns.map((turn) => {
     if (turn.speaker !== 'user') return turn;
-    const heard = session.said[turn.id]?.trim();
-    const flagged = session.flagged.includes(turn.id);
-    return {
-      ...turn,
-      korean: heard || turn.korean,
-      english: heard ? '' : turn.english,
-      mistake: flagged ? turn.mistake : undefined,
-    };
+    const heard = session.said[turn.id]?.trim() ?? '';
+    if (!heard) {
+      // Nothing was heard for this answer, so there's nothing to show or judge.
+      return { ...turn, korean: '…', english: "We didn't catch this answer.", mistake: undefined };
+    }
+    const logged =
+      session.flagged.includes(turn.id) && turn.mistake
+        ? mistakes.find(
+            (entry) =>
+              entry.situationId === situationId &&
+              !entry.fixed &&
+              normalizeSpeech(entry.suggested.korean) ===
+                normalizeSpeech(turn.mistake!.suggested.korean),
+          )
+        : undefined;
+    return { ...turn, korean: heard, english: '', mistake: logged };
   });
 }
 

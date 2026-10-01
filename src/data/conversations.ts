@@ -7,10 +7,6 @@ import type { ConversationScript, Report } from './types';
 export const conversations: ConversationScript[] = [
   {
     situationId: 'pharmacy-symptoms',
-    hint: {
-      korean: '"이틀 전부터요. 열은 없어요."',
-      english: '“Since two days ago. No fever.”',
-    },
     turns: [
       {
         id: 'ph-1',
@@ -23,6 +19,11 @@ export const conversations: ConversationScript[] = [
         speaker: 'user',
         korean: '목이 아프고 기침이 나요.',
         english: 'My throat hurts and I have a cough.',
+        hintWords: [
+          { korean: '목', english: 'throat' },
+          { korean: '아프다', english: 'to hurt' },
+          { korean: '기침', english: 'cough' },
+        ],
       },
       {
         id: 'ph-3',
@@ -35,6 +36,11 @@ export const conversations: ConversationScript[] = [
         speaker: 'user',
         korean: '이틀 전에부터 아파요.',
         english: 'It hurts since two days ago.',
+        hintWords: [
+          { korean: '이틀', english: 'two days' },
+          { korean: '전부터', english: 'since … ago' },
+          { korean: '열', english: 'fever' },
+        ],
         mistake: {
           skill: 'endings',
           said: {
@@ -60,15 +66,15 @@ export const conversations: ConversationScript[] = [
         speaker: 'user',
         korean: '네, 알겠어요.',
         english: 'Yes, understood.',
+        hintWords: [
+          { korean: '네', english: 'yes' },
+          { korean: '알다', english: 'to understand' },
+        ],
       },
     ],
   },
   {
     situationId: 'cafe-order',
-    hint: {
-      korean: '"여기서 먹을게요."',
-      english: '“I’ll eat here.”',
-    },
     turns: [
       {
         id: 'cf-1',
@@ -81,6 +87,11 @@ export const conversations: ConversationScript[] = [
         speaker: 'user',
         korean: '아이스 아메리카노 한 잔 주세요.',
         english: 'One iced americano, please.',
+        hintWords: [
+          { korean: '아이스 아메리카노', english: 'iced americano' },
+          { korean: '한 잔', english: 'one cup' },
+          { korean: '주세요', english: 'please (give me)' },
+        ],
       },
       {
         id: 'cf-3',
@@ -93,6 +104,11 @@ export const conversations: ConversationScript[] = [
         speaker: 'user',
         korean: '먹어요. 여기',
         english: 'Eat. Here',
+        hintWords: [
+          { korean: '여기서', english: 'here, at this place' },
+          { korean: '먹다', english: 'to eat' },
+          { korean: '-을게요', english: 'I will (deciding now)' },
+        ],
         mistake: {
           skill: 'context',
           said: {
@@ -118,6 +134,10 @@ export const conversations: ConversationScript[] = [
         speaker: 'user',
         korean: '라지요',
         english: 'Large',
+        hintWords: [
+          { korean: '라지', english: 'large' },
+          { korean: '사이즈', english: 'size' },
+        ],
       },
     ],
   },
