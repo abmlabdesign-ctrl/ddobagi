@@ -78,6 +78,25 @@ export function matchSentence(heard: string, targetWords: string[]) {
   return { correct: said.length > 0 && said === target, spokenCount: spoken };
 }
 
+/**
+ * 목표 문장의 앞에서부터 몇 음절이 인식된 말에 순서대로 들어 있는지.
+ * RV-2a가 들린 글자를 하나씩 칠하는 데 씁니다. 인식 엔진은 글자로만 돌려주므로
+ * 이것은 "그 음절로 알아들었다"는 뜻이지, 받침을 정확히 냈다는 채점은 아닙니다.
+ */
+export function matchSyllables(heard: string, target: string) {
+  const said = normalizeSpeech(heard);
+  const goal = normalizeSpeech(target);
+  let cursor = 0;
+  let lit = 0;
+  for (const char of goal) {
+    const at = said.indexOf(char, cursor);
+    if (at === -1) break;
+    cursor = at + 1;
+    lit += 1;
+  }
+  return lit;
+}
+
 export type RecognitionError = 'none' | 'denied' | 'network' | 'nospeech' | 'failed';
 
 /**

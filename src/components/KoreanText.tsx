@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { SpeakerIcon } from '@/icons';
+import { hasHangul, romanize } from '@/services/romanize';
 import { speak } from '@/services/speech';
 import type { Token } from '@/data/types';
 import { colors, radius, shadows } from '@/theme/tokens';
@@ -23,8 +24,9 @@ import { fontFamily, type } from '@/theme/typography';
  *    `toggle` behind Show meaning, `none` for speaking drills.
  *  - Every word carries a dotted underline — that is the affordance for
  *    "tap to hear how it sounds" across RV-2a … RV-2e. Punctuation does not.
- *  - Romanization is never shown by default; a word that has one reveals a
- *    tooltip on tap.
+ *  - Romanization is never shown by default; every Korean word reveals a
+ *    tooltip on tap — the authored `romanization` where there is one, the
+ *    rule-based reading from `services/romanize` otherwise.
  *  - Replay is offered for every Korean utterance.
  */
 export type MeaningMode = 'always' | 'toggle' | 'none';
@@ -41,6 +43,11 @@ type Props = {
   underlineColor?: string;
   /** RV-2b live caption: how many tokens the learner has read so far. */
   spokenCount?: number;
+  /**
+   * RV-2a: how many syllables (punctuation aside) speech recognition has heard
+   * so far, counted from the start of the sentence. Lights up letter by letter.
+   */
+  spokenSyllables?: number;
 };
 
 export function KoreanText({
@@ -53,6 +60,7 @@ export function KoreanText({
   style,
   underlineColor = colors.border,
   spokenCount = 0,
+  spokenSyllables = 0,
 }: Props) {
   const [openToken, setOpenToken] = useState<number | null>(null);
   const [showMeaning, setShowMeaning] = useState(false);
@@ -82,6 +90,7 @@ export function KoreanText({
               textStyle={textStyle}
               underlineColor={underlineColor}
               spoken={index < spokenCount}
+              litSyllables={litIn(tokens, index, spokenSyllables)}
               spaced={index > 0 && !isPunctuation(token.text)}
               open={openToken === index}
               onToggle={() => setOpenToken(openToken === index ? null : index)}
@@ -121,6 +130,7 @@ function KoreanToken({
   onToggle,
   underlineColor,
   spoken,
+  litSyllables,
 }: {
   token: Token;
   textStyle?: StyleProp<TextStyle>;
@@ -129,6 +139,8 @@ function KoreanToken({
   onToggle: () => void;
   underlineColor: string;
   spoken: boolean;
+  /** Leading syllables of this word heard so far (RV-2a). */
+  litSyllables: number;
 }) {
   // `shift` nudges the card back on screen near an edge; the tail stays on the
   // word, so it keeps pointing at what was tapped.
@@ -162,18 +174,25 @@ function KoreanToken({
   ];
 
   const sayWord = () => speak(token.text, { scale: 'word' });
+  const romanization =
+    token.romanization ?? (hasHangul(token.text) ? romanize(token.text) : undefined);
 
-  // 로마자가 없는 낱말도 소리는 들려야 한다. Pressable로 감싸면 정렬이
-  // 틀어지므로 Text의 onPress를 쓴다 — 레이아웃이 그대로다.
-  if (!token.romanization) {
-    return (
-      <Text
-        onPress={isPunctuation(token.text) ? undefined : sayWord}
-        style={[styles.token, rule, gap, textStyle]}
-      >
-        {token.text}
-      </Text>
+  // The heard part of a word turns orange syllable by syllable; the rest stays.
+  const lit = Math.min(litSyllables, token.text.length);
+  const label =
+    lit > 0 && !spoken ? (
+      <>
+        <Text style={styles.spokenToken}>{token.text.slice(0, lit)}</Text>
+        {token.text.slice(lit)}
+      </>
+    ) : (
+      token.text
     );
+
+  // 한글이 없는 토큰(문장부호 등)은 툴팁도 소리도 없다. Pressable로 감싸면
+  // 정렬이 틀어지므로 Text를 그대로 둔다.
+  if (!romanization) {
+    return <Text style={[styles.token, rule, gap, textStyle]}>{label}</Text>;
   }
 
   return (
@@ -186,7 +205,7 @@ function KoreanToken({
         >
           <View style={[styles.tooltipTail, { left: tip.width / 2 - tip.shift - 5 }]} />
           <Text style={styles.tooltipWord}>{token.text}</Text>
-          <Text style={styles.tooltipRoman}>{token.romanization}</Text>
+          <Text style={styles.tooltipRoman}>{romanization}</Text>
         </View>
       ) : null}
       <Pressable
@@ -198,9 +217,30 @@ function KoreanToken({
         accessibilityRole="button"
         accessibilityLabel={`${token.text}, tap for pronunciation`}
       >
-        <Text style={[styles.token, rule, textStyle]}>{token.text}</Text>
+        <Text style={[styles.token, rule, textStyle]}>{label}</Text>
       </Pressable>
     </View>
+  );
+}
+
+/**
+ * How many of `tokens[index]`'s characters fall inside the first `heard`
+ * syllables of the sentence. Punctuation doesn't count as a syllable.
+ */
+function litIn(tokens: Token[], index: number, heard: number) {
+  if (heard <= 0) return 0;
+  let before = 0;
+  for (let i = 0; i < index; i += 1) {
+    if (!isPunctuation(tokens[i].text)) before += tokens[i].text.length;
+  }
+  return Math.max(0, heard - before);
+}
+
+/** Syllables in a sentence, punctuation aside — the total `spokenSyllables` counts toward. */
+export function syllableCount(tokens: Token[]) {
+  return tokens.reduce(
+    (sum, token) => sum + (isPunctuation(token.text) ? 0 : token.text.length),
+    0,
   );
 }
 

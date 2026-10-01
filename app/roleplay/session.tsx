@@ -20,6 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BookmarkedBubble, useLineBookmark } from '@/components/BubbleBookmark';
 import { Button } from '@/components/Button';
 import { KoreanVoiceNotice } from '@/components/KoreanVoiceNotice';
 import { MicButton } from '@/components/MicButton';
@@ -87,6 +88,11 @@ function Conversation({ script }: { script: ConversationScript }) {
   const heard = useSpeechRecognition();
   /** 이번 턴에 실제로 말한 것. 비어 있으면 대본의 예시 문장을 보여준다. */
   const [said, setSaid] = useState('');
+  /**
+   * A finished take waiting for the learner's call — `Submit` sends it,
+   * `Try again` (or the mic) throws it away. Null while there's none.
+   */
+  const [take, setTake] = useState<{ text: string; clip: string | null } | null>(null);
   /** 턴마다 말한 것 — 끝나면 리포트와 오답 로그로 넘긴다. */
   const [lines, setLines] = useState<JudgedLine[]>(draft?.lines ?? []);
   const [micBlocked, setMicBlocked] = useState(false);
@@ -204,10 +210,13 @@ function Conversation({ script }: { script: ConversationScript }) {
       const settled = heard.supported ? heard.stop() : '';
       const final = said || settled;
       const clip = await voice.stop();
-      if (clip && userReply) rememberClip(`${id}/${userReply.id}`, clip);
-      advance(final);
+      setMicOn(false);
+      // Like the level check: stopping holds the take for Submit / Try again.
+      setTake({ text: final, clip });
       return;
     }
+    // A new take replaces the one waiting, if any.
+    setTake(null);
     // AI가 말하는 중에 마이크를 열면 자기 목소리를 덮으므로 먼저 끊는다.
     stopSpeaking();
     setSaid('');
@@ -216,6 +225,20 @@ function Conversation({ script }: { script: ConversationScript }) {
     setMicBlocked(!on);
     if (on && heard.supported) heard.start({ onTranscript: setSaid });
     setMicOn(on);
+  };
+
+  const submitTake = () => {
+    if (!take || finished) return;
+    if (take.clip && userReply) rememberClip(`${id}/${userReply.id}`, take.clip);
+    setTake(null);
+    advance(take.text);
+  };
+
+  /** Try again: clear what was heard and wait for a fresh take. */
+  const retryTake = () => {
+    setTake(null);
+    setSaid('');
+    heard.reset();
   };
 
   const advance = (final: string) => {
@@ -249,13 +272,20 @@ function Conversation({ script }: { script: ConversationScript }) {
   const saidByTurn = Object.fromEntries(lines.map((line) => [line.turnId, line.said]));
   const liveTurns = script.turns
     .slice(0, aiPosition + 1)
-    .map((turn) => (saidByTurn[turn.id] ? { ...turn, korean: saidByTurn[turn.id] } : turn));
+    .map((turn) =>
+      saidByTurn[turn.id] && saidByTurn[turn.id] !== turn.korean
+        ? // The script's English no longer matches what was actually said.
+          { ...turn, korean: saidByTurn[turn.id], english: '' }
+        : turn,
+    );
+
+  const takeControls = take ? { onRetry: retryTake, onSubmit: submitTake } : undefined;
 
   const userKorean = micBlocked
     ? micMessage(voice.permission)
     : heard.error !== 'none'
       ? recognitionMessage[heard.error]
-      : micOn || said
+      : micOn || said || (take && heard.supported)
         ? said || '…'
         : (userReply?.korean ?? '…');
 
@@ -347,9 +377,12 @@ function Conversation({ script }: { script: ConversationScript }) {
         onLeft={() => setShowScript(true)}
         onHint={toggleHint}
         hintOpen={showHint}
+        take={takeControls}
       />
 
       <LiveScript
+        situationId={id}
+        take={takeControls}
         visible={showScript}
         turns={liveTurns}
         hint={hint}
@@ -467,6 +500,7 @@ function SessionBottom({
   onLeft,
   onHint,
   hintOpen,
+  take,
 }: {
   userKorean: string;
   micActive: boolean;
@@ -475,6 +509,8 @@ function SessionBottom({
   onLeft: () => void;
   onHint: () => void;
   hintOpen: boolean;
+  /** Present while a finished take waits — the side pills become Try again / Submit. */
+  take?: { onRetry: () => void; onSubmit: () => void };
 }) {
   const insets = useSafeAreaInsets();
 
@@ -486,24 +522,46 @@ function SessionBottom({
       </View>
 
       <View style={[styles.controls, { paddingBottom: insets.bottom + spacing.md }]}>
-        <Pressable
-          onPress={onLeft}
-          accessibilityRole="button"
-          style={[styles.controlPill, styles.controlPillPrimary]}
-        >
-          <Text style={styles.controlPillLabelPrimary}>{leftLabel}</Text>
-        </Pressable>
+        {take ? (
+          // The same pair the level check offers once a take is done.
+          <Pressable
+            onPress={take.onRetry}
+            accessibilityRole="button"
+            accessibilityLabel="Try again from the start"
+            style={styles.controlPill}
+          >
+            <Text style={styles.controlPillLabel}>Try again</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={onLeft}
+            accessibilityRole="button"
+            style={[styles.controlPill, styles.controlPillPrimary]}
+          >
+            <Text style={styles.controlPillLabelPrimary}>{leftLabel}</Text>
+          </Pressable>
+        )}
 
         <MicButton size={84} active={micActive} onPress={onMic} />
 
-        <Pressable
-          onPress={onHint}
-          accessibilityRole="button"
-          accessibilityState={{ selected: hintOpen }}
-          style={styles.controlPill}
-        >
-          <Text style={styles.controlPillLabel}>Hint</Text>
-        </Pressable>
+        {take ? (
+          <Pressable
+            onPress={take.onSubmit}
+            accessibilityRole="button"
+            style={[styles.controlPill, styles.controlPillPrimary]}
+          >
+            <Text style={styles.controlPillLabelPrimary}>Submit</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={onHint}
+            accessibilityRole="button"
+            accessibilityState={{ selected: hintOpen }}
+            style={styles.controlPill}
+          >
+            <Text style={styles.controlPillLabel}>Hint</Text>
+          </Pressable>
+        )}
       </View>
     </>
   );
@@ -515,6 +573,8 @@ function SessionBottom({
  * controls, with the left pill pointing back at the roleplay.
  */
 function LiveScript({
+  situationId,
+  take,
   visible,
   turns,
   hint,
@@ -525,6 +585,8 @@ function LiveScript({
   onHint,
   onClose,
 }: {
+  situationId: string;
+  take?: { onRetry: () => void; onSubmit: () => void };
   visible: boolean;
   turns: Turn[];
   hint: { korean: string; english: string };
@@ -536,6 +598,7 @@ function LiveScript({
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const lineMark = useLineBookmark(situationId);
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -560,15 +623,19 @@ function LiveScript({
             {turns.map((turn) => {
               const isUser = turn.speaker === 'user';
               return (
-                <View
+                <BookmarkedBubble
                   key={turn.id}
-                  style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAi]}
+                  side={turn.speaker}
+                  saved={lineMark.isSaved(turn.korean)}
+                  onToggle={() => lineMark.toggle(turn)}
                 >
-                  <Text style={styles.bubbleKorean}>{turn.korean}</Text>
-                  {/* Only the AI's lines are glossed — the learner's own words
-                      need no translation back at them. */}
-                  {isUser ? null : <Text style={styles.bubbleGloss}>{turn.english}</Text>}
-                </View>
+                  <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAi]}>
+                    <Text style={styles.bubbleKorean}>{turn.korean}</Text>
+                    {/* Only the AI's lines are glossed — the learner's own words
+                        need no translation back at them. */}
+                    {isUser ? null : <Text style={styles.bubbleGloss}>{turn.english}</Text>}
+                  </View>
+                </BookmarkedBubble>
               );
             })}
           </ScrollView>
@@ -584,6 +651,7 @@ function LiveScript({
           onLeft={onClose}
           onHint={onHint}
           hintOpen={hintOpen}
+          take={take}
         />
       </View>
     </Modal>
