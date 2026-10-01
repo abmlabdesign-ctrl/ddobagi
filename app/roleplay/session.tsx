@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import Animated, {
@@ -70,7 +69,8 @@ export default function Session() {
 function Conversation({ script }: { script: ConversationScript }) {
   const id = script.situationId;
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
+  /** The middle area's size — the waveform is fitted to it, never cropped. */
+  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
   const navigation = useNavigation();
   const { finishSession, drafts, saveDraft } = useApp();
   const lineScrap = useLineScrap(id);
@@ -307,76 +307,78 @@ function Conversation({ script }: { script: ConversationScript }) {
         <View style={styles.topButton} />
       </View>
 
-      {/* Everything between the header and the `You` panel scrolls, so a long
-          meaning can push the waveform down instead of sliding under it — the
-          panel and controls below keep their own height and safe-area inset. */}
+      {/* Three bands: the line on top, the waveform in whatever is left, the
+          `You` panel and controls below. The top band sizes to its text and
+          scrolls on its own if a long meaning outgrows it, so it never slides
+          under the panel; the waveform band takes the rest. */}
       <ScrollView
-        style={styles.body}
-        contentContainerStyle={styles.bodyContent}
+        style={styles.aiScroll}
+        contentContainerStyle={styles.aiBlock}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.aiBlock}>
-          <Text style={styles.blockLabel}>Live conversation script</Text>
-          {/* Long-press keeps the line, the same as a bubble in the script. */}
-          <Pressable
-            onLongPress={() => lineScrap.open(aiTurn)}
-            delayLongPress={450}
-            accessibilityHint="Long-press to save or copy"
-          >
-            <Text style={styles.aiKorean} selectable={false}>
-              {aiTurn.korean}
-            </Text>
-          </Pressable>
+        <Text style={styles.blockLabel}>Live conversation script</Text>
+        {/* Long-press keeps the line, the same as a bubble in the script. */}
+        <Pressable
+          onLongPress={() => lineScrap.open(aiTurn)}
+          delayLongPress={450}
+          accessibilityHint="Long-press to save or copy"
+        >
+          <Text style={styles.aiKorean} selectable={false}>
+            {aiTurn.korean}
+          </Text>
+        </Pressable>
 
-          <Pressable
-            onPress={() => setShowMeaning((value) => !value)}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: showMeaning }}
-          >
-            <Text style={styles.meaningToggle}>
-              {showMeaning ? 'Hide meaning' : 'Show meaning'}
-            </Text>
-          </Pressable>
+        <Pressable
+          onPress={() => setShowMeaning((value) => !value)}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showMeaning }}
+        >
+          <Text style={styles.meaningToggle}>
+            {showMeaning ? 'Hide meaning' : 'Show meaning'}
+          </Text>
+        </Pressable>
 
-          {/* §6.2: English stays hidden on the live screen until the learner asks,
-              and only ever for the AI's line — what the learner said needs no gloss. */}
-          {showMeaning ? <Text style={styles.caption}>{aiTurn.english}</Text> : null}
-          <KoreanVoiceNotice />
-        </View>
+        {/* §6.2: English stays hidden on the live screen until the learner asks,
+            and only ever for the AI's line — what the learner said needs no gloss. */}
+        {showMeaning ? <Text style={styles.caption}>{aiTurn.english}</Text> : null}
+        <KoreanVoiceNotice />
+      </ScrollView>
 
-        <View style={styles.stage}>
+      <View
+        style={styles.stage}
+        onLayout={(event) => {
+          const { width, height } = event.nativeEvent.layout;
+          setStageSize((current) =>
+            current.width === width && current.height === height ? current : { width, height },
+          );
+        }}
+      >
+        {stageSize.height > 0 ? (
           <Image
             source={require('../../assets/graphics/voice-wave.gif')}
-            // 380×340 on a tall phone; shorter screens get a smaller wave rather
-            // than one that crowds the line above it.
-            style={[
-              styles.wave,
-              {
-                height: Math.min(WAVE.height, Math.max(WAVE.minHeight, windowHeight * 0.36)),
-                width: WAVE.width,
-              },
-            ]}
-            resizeMode="cover"
+            // Up to 380×340, scaled down whole to fit the band on a short screen.
+            style={waveSize(stageSize)}
+            resizeMode="contain"
             accessibilityIgnoresInvertColors
             accessibilityLabel="Voice waveform"
           />
+        ) : null}
 
-          {/* Drawn after the waveform: the gif carries its own ground and would
-              otherwise paint over the button. */}
-          <Pressable
-            onPress={() => speak(aiTurn.korean)}
-            accessibilityRole="button"
-            accessibilityLabel="Replay what the other person said"
-            style={styles.replay}
-          >
-            <ReplayIcon size={18} color={colors.ink} />
-            <Text style={styles.replayLabel}>10</Text>
-          </Pressable>
+        {/* Drawn after the waveform: the gif carries its own ground and would
+            otherwise paint over the button. */}
+        <Pressable
+          onPress={() => speak(aiTurn.korean)}
+          accessibilityRole="button"
+          accessibilityLabel="Replay what the other person said"
+          style={styles.replay}
+        >
+          <ReplayIcon size={18} color={colors.ink} />
+          <Text style={styles.replayLabel}>10</Text>
+        </Pressable>
 
-          {showHint ? <HintToast hint={hint} /> : null}
-        </View>
-      </ScrollView>
+        {showHint ? <HintToast hint={hint} /> : null}
+      </View>
 
       <SessionBottom
         // 말하기 시작하면 대본이 아니라 실제로 인식된 말을 보여준다.
@@ -418,7 +420,14 @@ function Conversation({ script }: { script: ConversationScript }) {
   );
 }
 
-const WAVE = { width: 380, height: 340, minHeight: 180 };
+/** The waveform art is 380×340. */
+const WAVE = { width: 380, height: 340 };
+
+/** The biggest 380:340 box that fits the band, never above the art's own size. */
+const waveSize = ({ width, height }: { width: number; height: number }) => {
+  const scale = Math.max(0, Math.min(1, width / WAVE.width, height / WAVE.height));
+  return { width: WAVE.width * scale, height: WAVE.height * scale };
+};
 
 /** The header bar, easing from one reply's share to the next. */
 function ProgressBar({ percent }: { percent: number }) {
@@ -713,12 +722,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.primary,
   },
-  body: {
-    flex: 1,
-  },
-  bodyContent: {
-    flexGrow: 1,
-    paddingBottom: spacing.md,
+  /** Sizes to its text; shrinks and scrolls only if the text outgrows half the screen. */
+  aiScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+    maxHeight: '50%',
   },
   aiBlock: {
     paddingHorizontal: spacing.gutter,
@@ -739,11 +747,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   meaningToggle: text(12, 16, '600', colors.primary),
+  /** The rest of the height, with the waveform centred both ways inside it. */
   stage: {
-    flexGrow: 1,
+    flex: 1,
+    minHeight: 0,
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    overflow: 'hidden',
+    justifyContent: 'center',
   },
   replay: {
     position: 'absolute',
@@ -791,9 +800,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   hintEnglish: gloss(15),
-  wave: {
-    marginBottom: 24,
-  },
   userSheet: {
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,
