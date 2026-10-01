@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BookmarkedBubble, useLineBookmark } from '@/components/BubbleBookmark';
 import { Card } from '@/components/Card';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { conversationBySituation } from '@/data/conversations';
@@ -37,6 +38,7 @@ export default function MistakeScript() {
   const { mistakes, sessions, savedPhrases, savePhrase, removePhrase } = useApp();
   const turns = transcriptFor(situationId, mistakes, sessions[situationId]);
 
+  const lineMark = useLineBookmark(situationId);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   /** Lines whose correction the learner has read — they now show the fix. */
   const [corrected, setCorrected] = useState<string[]>([]);
@@ -160,23 +162,31 @@ export default function MistakeScript() {
 
           return (
             <View key={turn.id} style={styles.turn}>
-              {flagged ? (
-                <Pressable
-                  onPress={() => setExpandedId(expanded ? null : turn.id)}
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded }}
-                  accessibilityLabel={
-                    fix
-                      ? `Corrected to ${unquote(fix.korean)}`
-                      : `Mistake in ${turn.korean}`
-                  }
-                  style={isUser ? styles.alignEnd : styles.alignStart}
-                >
-                  {bubble}
-                </Pressable>
-              ) : (
-                <View style={isUser ? styles.alignEnd : styles.alignStart}>{bubble}</View>
-              )}
+              {/* Any line can go to the Scrapbook, not only a corrected one. A
+                  corrected line saves what it reads now — the fixed sentence. */}
+              <BookmarkedBubble
+                side={turn.speaker}
+                saved={lineMark.isSaved(fix ? fix.korean : turn.korean)}
+                onToggle={() => lineMark.toggle(fix ? { ...turn, ...fix } : turn)}
+              >
+                {flagged ? (
+                  <Pressable
+                    onPress={() => setExpandedId(expanded ? null : turn.id)}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded }}
+                    accessibilityLabel={
+                      fix
+                        ? `Corrected to ${unquote(fix.korean)}`
+                        : `Mistake in ${turn.korean}`
+                    }
+                    style={isUser ? styles.alignEnd : styles.alignStart}
+                  >
+                    {bubble}
+                  </Pressable>
+                ) : (
+                  <View style={isUser ? styles.alignEnd : styles.alignStart}>{bubble}</View>
+                )}
+              </BookmarkedBubble>
 
               {/* Your own take, right under the line — only from this app run. */}
               {isUser && clipFor(`${situationId}/${turn.id}`) ? (

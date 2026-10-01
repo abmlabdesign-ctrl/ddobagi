@@ -93,6 +93,7 @@ RP-1 타이틀은 `Choose a situation`.
 | `components/SituationCard` | HM-1 · RP-1 |
 | `components/KoreanText` | RV-2 · RV-2a~RV-2e (미션 러너 전용) |
 | `components/NativeLanguageSheet` | ON-2 · MY-1 · MY-1b (모국어 목록과 선택 동작) |
+| `components/BubbleBookmark` | RP-3b · RV-6 (대화 말풍선 북마크) |
 | `components/MicButton` | ON-3 · RP-3 · RV-2b (`distinctStates`는 ON-3만 켬) |
 
 `Waveform`(ON-3) · `StepProgress`(RV-2) · `HomeParts`(HM-1)는 단일 화면 전용이라 자유롭게 고쳐도 됩니다.
@@ -125,8 +126,10 @@ RP-1 타이틀은 `Choose a situation`.
 
 ## 아직 목(mock)인 것
 
-AI 대화 생성, RP-4 리포트의 6-스킬 점수, 레벨 진단, 로마자 변환, 로그인, 알림, 결제는 인터페이스만 있고 실제 연동이 없습니다.
+AI 대화 생성, RP-4 리포트의 6-스킬 점수, 레벨 진단, 로그인, 알림, 결제는 인터페이스만 있고 실제 연동이 없습니다.
 결제는 `src/services/billing.ts`의 `sandbox` 모드로 동작하며 청구하지 않습니다. 화면은 이 파일만 부릅니다.
 대본이 없는 상황을 다른 상황의 대본으로 대신하지 않습니다 — 없으면 없다고 보여줍니다.
 RV-2b 말하기는 인식 결과를 목표 문장과 맞춰 실제로 판정하지만, 스킬별 점수는 고정값입니다.
+로마자 툴팁은 `src/services/romanize.ts`의 규칙 기반 변환입니다(데이터의 `romanization`이 있으면 그 값이 우선).
+RV-2a의 음절 하이라이트는 "그 글자로 알아들었다"는 뜻이지 받침 발음을 채점한 것이 아닙니다.
 연동할 때는 `src/data/`의 타입(`src/data/types.ts`)을 그대로 만족시키면 화면을 고치지 않아도 됩니다.

@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { CtaDock } from '@/components/CtaDock';
-import { KoreanText, isPunctuation, joinTokens } from '@/components/KoreanText';
+import { KoreanText, isPunctuation, joinTokens, syllableCount } from '@/components/KoreanText';
 import { KoreanVoiceNotice } from '@/components/KoreanVoiceNotice';
 import { MicButton } from '@/components/MicButton';
 import { NavBar } from '@/components/NavBar';
@@ -26,6 +26,7 @@ import type { ChoiceQuestion, Mission, Token, WriteQuestion } from '@/data/types
 import { BackChevronIcon, CheckIcon, DropdownChevronIcon, SpeakerIcon } from '@/icons';
 import {
   matchSentence,
+  matchSyllables,
   recognitionMessage,
   useSpeechRecognition,
   type RecognitionError,
@@ -77,6 +78,8 @@ export default function MissionRunner() {
   const [entries, setEntries] = useState<string[]>([]);
   const [recording, setRecording] = useState(false);
   const [spokenCount, setSpokenCount] = useState(0);
+  /** RV-2a: syllables heard so far, lit orange one by one. */
+  const [spokenSyllables, setSpokenSyllables] = useState(0);
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [done, setDone] = useState(false);
   const [micBlocked, setMicBlocked] = useState(false);
@@ -100,6 +103,7 @@ export default function MissionRunner() {
     setEntries([]);
     setRecording(false);
     setSpokenCount(0);
+    setSpokenSyllables(0);
     setVerdict(null);
   };
 
@@ -173,8 +177,11 @@ export default function MissionRunner() {
     stopRecording();
 
     const match = matchSentence(spoken, speakWords);
-    if (match.correct) {
+    // Reading the sentence through to its last word is the pass mark: the
+    // orange that follows the reading reaching the end means it was all heard.
+    if (match.correct || match.spokenCount >= speakWords.length) {
       setSpokenCount(speakWords.length);
+      setSpokenSyllables(syllableCount(question.tokens));
       judge({ correct: true, note: question.feedback.explanation });
       return;
     }
@@ -194,7 +201,8 @@ export default function MissionRunner() {
   const onHeard = (text: string) => {
     const match = matchSentence(text, speakWords);
     setSpokenCount(match.spokenCount);
-    if (match.correct) finishSpeak(text);
+    setSpokenSyllables(matchSyllables(text, speakWords.join('')));
+    if (match.correct || match.spokenCount >= speakWords.length) finishSpeak(text);
   };
 
   /**
@@ -205,31 +213,24 @@ export default function MissionRunner() {
   useEffect(() => {
     if (heard.supported) return undefined;
     if (!recording || question.type !== 'speak') return undefined;
-    const total = question.tokens.length;
+    // 낱말 단위(RV-2b)와 음절 단위(RV-2a)를 같은 박자로 채운다.
+    const bySyllable = mission.kind === 'pronunciation';
+    const total = bySyllable ? syllableCount(question.tokens) : question.tokens.length;
     let read = 0;
     const id = setInterval(() => {
       read += 1;
-      setSpokenCount(read);
+      if (bySyllable) setSpokenSyllables(read);
+      else setSpokenCount(read);
       if (read < total) return;
       clearInterval(id);
       setRecording(false);
       stopRecording();
-      setVerdict({
-        correct: question.feedback.correct,
-        note: question.feedback.explanation,
-      });
-      if (question.feedback.correct && step < mission.questionCount) {
-        setFirstTry((value) => value + 1);
-      }
-      if (question.feedback.correct || step >= mission.questionCount) return;
-      setQueue((current) =>
-        current.includes(current[step], mission.questionCount)
-          ? current
-          : [...current, current[step]],
-      );
-    }, 420);
+      // 끝까지 다 읽었으면 정답 — 인식 경로와 같은 기준.
+      setVerdict({ correct: true, note: question.feedback.explanation });
+      if (step < mission.questionCount) setFirstTry((value) => value + 1);
+    }, bySyllable ? 260 : 420);
     return () => clearInterval(id);
-  }, [heard.supported, recording, question, step, mission.questionCount, stopRecording]);
+  }, [heard.supported, recording, question, step, mission.questionCount, mission.kind, stopRecording]);
 
   const submitWrite = () => {
     if (question.type !== 'write') return;
@@ -324,6 +325,7 @@ export default function MissionRunner() {
             <KoreanText
               tokens={question.tokens}
               spokenCount={mission.kind === 'fluency' ? spokenCount : 0}
+              spokenSyllables={mission.kind === 'pronunciation' ? spokenSyllables : 0}
               english={question.english}
               meaning="always"
               captionStyle={styles.sentenceMeaning}
@@ -339,6 +341,7 @@ export default function MissionRunner() {
               recording={recording}
               onSpeak={async () => {
                 setSpokenCount(0);
+                setSpokenSyllables(0);
                 heard.reset();
                 graded.current = false;
                 // 권한이 없으면 파형만 돌고 아무것도 녹음되지 않으므로 함께 막는다.
@@ -651,7 +654,7 @@ function WriteCard({
     />
   );
 
-  /** 빈칸을 정답으로 채운 문장 — 채점이 끝난 뒤에만 읽어준다. */
+  /** 빈칸을 정답으로 채운 문장 — 소리 버튼이 읽어준다. */
   const answerSentence = question.template
     ? question.template
         .split('___')
@@ -661,7 +664,8 @@ function WriteCard({
   return (
     <Card elevation="card" radiusToken="card" padding={24} style={styles.promptCard}>
       <Pressable
-        onPress={judged ? () => speak(answerSentence) : undefined}
+        // The finished sentence, answer filled in — before and after grading alike.
+        onPress={() => speak(answerSentence)}
         accessibilityRole="button"
         accessibilityLabel="Replay the sentence"
         style={styles.speaker}

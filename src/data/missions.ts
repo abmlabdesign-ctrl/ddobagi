@@ -76,9 +76,9 @@ export const missions: Mission[] = [
         ],
         english: 'On weekends I meet a friend and we go to a café.',
         feedback: {
-          correct: false,
-          label: 'Try again',
-          explanation: 'You paused twice mid-sentence',
+          correct: true,
+          label: 'Correct',
+          explanation: 'You read it through to the end in one go',
         },
       },
     ],
