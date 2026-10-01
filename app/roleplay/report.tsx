@@ -40,7 +40,9 @@ export default function ReportScreen() {
   // but goals, date and corrections come from the run that just ended.
   const flaggedTurns = session
     ? (conversationBySituation[situationId]?.turns ?? []).filter(
-        (turn) => turn.mistake && session.flagged.includes(turn.id),
+        // Only answers that were heard can have been judged wrong.
+        (turn) =>
+          turn.mistake && session.flagged.includes(turn.id) && Boolean(session.said[turn.id]?.trim()),
       )
     : [];
   const report = session
@@ -51,8 +53,8 @@ export default function ReportScreen() {
         goalsTotal: session.goalsTotal,
         fixes: flaggedTurns.map((turn) => ({
           said: {
-            korean: `"${session.said[turn.id] || turn.korean}"`,
-            english: turn.mistake!.said.english,
+            korean: `"${session.said[turn.id].trim()}"`,
+            english: '',
           },
           suggested: turn.mistake!.suggested,
         })),

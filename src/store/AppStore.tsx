@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { mistakes as seedMistakes, savedPhrases as seedPhrases } from '@/data/review';
+import { savedPhrases as seedPhrases } from '@/data/review';
 import { freeLimits, planById, type PlanId } from '@/data/plans';
 import { defaultProfile } from '@/data/profile';
 import type { Mistake, SavedPhrase, SkillId } from '@/data/types';
@@ -148,7 +148,8 @@ const initialState: AppState = {
   introSeen: false,
   profile: defaultProfile,
   settings: initialSettings,
-  mistakes: seedMistakes,
+  // The log starts empty: only what a roleplay actually flags goes in.
+  mistakes: [],
   savedPhrases: seedPhrases,
   sessions: {},
   drafts: {},
@@ -217,6 +218,9 @@ function bumpUsage(state: AppState, kind: 'roleplays' | 'missions'): AppState {
   return { ...state, usage: { ...usage, [kind]: usage[kind] + 1 } };
 }
 
+/** Ids of the sample mistakes earlier builds put in every new log. */
+const LEGACY_SAMPLE_MISTAKES = new Set(['mk-1', 'mk-2', 'mk-3', 'mk-4']);
+
 /** Saved state is merged over the defaults so a field added later still has a value. */
 function restore(raw: string | null): AppState {
   if (!raw) return initialState;
@@ -225,6 +229,8 @@ function restore(raw: string | null): AppState {
     return {
       ...initialState,
       ...saved,
+      // Drop the design-time sample mistakes an older build seeded the log with.
+      mistakes: (saved.mistakes ?? []).filter((entry) => !LEGACY_SAMPLE_MISTAKES.has(entry.id)),
       profile: { ...defaultProfile, ...saved.profile },
       settings: { ...initialSettings, ...saved.settings },
     };
@@ -370,10 +376,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /**
-   * RP-3 → RP-4. A scripted mistake only lands in the log when the learner
-   * didn't say the correction; saying it marks an earlier entry fixed. Without
-   * a transcript (native, no STT) there is nothing to judge, so the scripted
-   * line stands in, as it did before.
+   * RP-3 → RP-4. Only what was actually heard is judged, and only against
+   * the correction data the script carries: a heard answer that isn't the
+   * corrected sentence lands in the log (with the words really said); saying
+   * it marks an earlier entry fixed. A line nothing was heard for — no STT,
+   * or silence — is never flagged: there's nothing to judge.
    */
   const finishSession = useCallback<AppActions['finishSession']>(
     ({ situationId, lines, goalsTotal, minutes }) => {
@@ -393,10 +400,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               normalizeSpeech(entry.suggested.korean) === target,
           );
           const heard = line.said.trim();
+          if (!heard) continue;
 
-          const right = Boolean(heard) && normalizeSpeech(heard) === target;
-          // Without a transcript there's nothing measured, so nothing is logged.
-          if (heard) measured.push({ at, skill: line.mistake.skill, correct: right ? 1 : 0, total: 1 });
+          const right = normalizeSpeech(heard) === target;
+          measured.push({ at, skill: line.mistake.skill, correct: right ? 1 : 0, total: 1 });
 
           if (right) {
             if (existing) {
@@ -414,9 +421,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             situationId,
             date,
             fixed: false,
-            said: heard
-              ? { korean: `"${heard}"`, english: '', note: line.mistake.said.note }
-              : line.mistake.said,
+            said: { korean: `"${heard}"`, english: '', note: '' },
           };
           mistakes = existing
             ? mistakes.map((item) => (item === existing ? entry : item))
