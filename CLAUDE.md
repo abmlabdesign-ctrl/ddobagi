@@ -94,7 +94,7 @@ RP-1 타이틀은 `Choose a situation`.
 | `components/KoreanText` | RV-2 · RV-2a~RV-2e (미션 러너 전용) |
 | `components/NativeLanguageSheet` | ON-2 · MY-1 · MY-1b (모국어 목록과 선택 동작) |
 | `components/BubbleBookmark` | RP-3b · RV-6 (대화 말풍선 북마크) |
-| `components/MicButton` | ON-3 · RP-3 · RV-2b (`distinctStates`는 ON-3만 켬) |
+| `components/MicButton` | ON-3 · RP-3 · RV-2b |
 
 `Waveform`(ON-3) · `StepProgress`(RV-2) · `HomeParts`(HM-1)는 단일 화면 전용이라 자유롭게 고쳐도 됩니다.
 

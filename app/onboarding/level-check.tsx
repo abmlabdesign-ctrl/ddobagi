@@ -119,7 +119,8 @@ export default function LevelCheck() {
 
   return (
     <ScreenShell background="surface" bottomEdge="content">
-      <NavBar title="Level check" action="Finish" onAction={submit} />
+      {/* No `Finish` up top: the dock's Submit is the one way to hand it in. */}
+      <NavBar title="Level check" />
 
       <Screen contentStyle={styles.content}>
         <View style={styles.question}>
@@ -181,7 +182,8 @@ export default function LevelCheck() {
               </Pressable>
             ) : null}
           </View>
-          <MicButton active={running} onPress={toggleMic} distinctStates />
+          {/* The roleplay screen's button, so recording looks the same everywhere. */}
+          <MicButton size={84} active={running} onPress={toggleMic} />
           <View style={styles.side}>
             {canRetry ? (
               <Pressable

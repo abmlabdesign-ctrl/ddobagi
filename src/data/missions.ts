@@ -1,5 +1,8 @@
 import type { Mission } from './types';
 
+/** The id RV-1's `Today's focus` CTA opens: a mixed run across every skill. */
+export const TODAYS_FOCUS_ID = 'todays-focus';
+
 /** RV-1 `Today's focus` copy. The skills it names come from `services/recommend.ts`. */
 export const todayFocus = {
   description: "Three minutes on today's weak spots",
@@ -205,6 +208,11 @@ export const missions: Mission[] = [
     ],
   },
 ];
+
+/** Which skill each authored question drills — a mixed run grades by this. */
+export const questionKind = Object.fromEntries(
+  missions.flatMap((mission) => mission.questions.map((question) => [question.id, mission.kind])),
+) as Record<string, Mission['kind']>;
 
 export const missionById = Object.fromEntries(
   missions.map((mission) => [mission.id, mission]),
