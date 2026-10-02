@@ -19,6 +19,8 @@ export const colors = {
 
   surface: '#FFFFFF',
   surfaceAlt: '#F7F8FD',
+  /** surfaceAlt at 0% — the start of a fade from it to white, without a grey dip. */
+  surfaceAltClear: 'rgba(247,248,253,0)',
   /** #FFFFFF at 54% — the HM-1 resume card's glass fill. */
   glassFill: 'rgba(255,255,255,0.54)',
   canvas: '#E6E8EE',

@@ -29,8 +29,8 @@ import { text } from '@/theme/typography';
  * under `skip`, fading to white over 24px; then the centred title and two-line
  * body, the page dots and a full-width CTA. The hero takes whatever height is
  * left, so the bottom block keeps the comp's spacing on every phone.
- * `Next` pages forward, `skip` and the last page's `Check my level` lead into
- * setup.
+ * `Next` pages forward; `skip` (on every page) and the last page's
+ * `Get started` lead into setup.
  */
 export default function Intro() {
   const { finishIntro } = useApp();
@@ -57,11 +57,9 @@ export default function Intro() {
     <ScreenShell background="surface-alt" bottomEdge="dock">
       {/* `skip` sits 25 under the status bar, right-aligned on the 24 gutter. */}
       <View style={styles.topBar}>
-        {last ? null : (
-          <Pressable onPress={done} hitSlop={10} accessibilityRole="button">
-            <Text style={styles.skip}>skip</Text>
-          </Pressable>
-        )}
+        <Pressable onPress={done} hitSlop={10} accessibilityRole="button">
+          <Text style={styles.skip}>skip</Text>
+        </Pressable>
       </View>
 
       <ScrollView
@@ -95,7 +93,7 @@ export default function Intro() {
           ))}
         </View>
         <Button
-          label={last ? 'Check my level' : 'Next'}
+          label={last ? 'Get started' : 'Next'}
           onPress={last ? done : () => goTo(page + 1)}
           style={styles.cta}
         />
@@ -113,14 +111,20 @@ function IntroSlide({ page, width }: { page: IntroPage; width: number }) {
       current.width === w && current.height === h ? current : { width: w, height: h },
     );
   };
-  // Contain: never past the asset's own size, never cropped or stretched.
-  const scale = Math.min(1, box.width / page.artWidth, box.height / page.artHeight);
+  // Never past the asset's own size and never stretched. `fit` also keeps
+  // it whole; `top` lets the hero's bottom edge cut it.
+  const top = page.artLayout === 'top';
+  const scale = Math.min(
+    1,
+    box.width / page.artWidth,
+    top ? Infinity : box.height / page.artHeight,
+  );
   const ready = box.width > 0 && box.height > 0;
 
   return (
     <View style={[styles.slide, { width }]}>
       <View style={styles.hero}>
-        <View style={styles.artArea} onLayout={onArtLayout}>
+        <View style={[styles.artArea, top ? styles.artAreaTop : null]} onLayout={onArtLayout}>
           {ready ? (
             <Image
               source={page.art}
@@ -130,7 +134,12 @@ function IntroSlide({ page, width }: { page: IntroPage; width: number }) {
             />
           ) : null}
         </View>
-        <LinearGradient colors={[colors.surfaceAlt, colors.surface]} style={styles.fade} />
+        {/* Over the art, so a graphic that runs past the hero fades out instead of ending in a hard edge. */}
+        <LinearGradient
+          colors={[colors.surfaceAltClear, colors.surface]}
+          style={styles.fade}
+          pointerEvents="none"
+        />
       </View>
 
       <View style={styles.copy}>
@@ -141,6 +150,7 @@ function IntroSlide({ page, width }: { page: IntroPage; width: number }) {
   );
 }
 
+const FADE = 24;
 /** comp: body → dots 25, dots 4 tall, dots → CTA 34, CTA 56, 25 to the bottom edge. */
 const COPY_TO_DOTS = 25;
 const DOTS_TO_CTA = 34;
@@ -167,16 +177,30 @@ const styles = StyleSheet.create({
   /** Grey ground under the art, fading to the white copy block. */
   hero: {
     flex: 1,
+    overflow: 'hidden',
   },
+  /** The art's box stops where the fade starts; a `top` graphic runs on under it. */
   artArea: {
     flex: 1,
+    marginBottom: FADE,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 22,
   },
+  /** IN-4: the phone hangs 21 under the `skip` row and runs past the fade. */
+  artAreaTop: {
+    justifyContent: 'flex-start',
+    paddingTop: 21,
+    marginBottom: 0,
+    overflow: 'visible',
+  },
   /** comp: #F7F8FD holds to y≈561, white by y≈585. */
   fade: {
-    height: 24,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: FADE,
   },
   /** `padding-top:40` above the title; title 18/26 → 9 → body 14/20 × 2. */
   copy: {
