@@ -42,7 +42,6 @@ export default function TranscriptHistory() {
             </Text>
             <Card radiusToken="group" paddingHorizontal={20} paddingVertical={6}>
               {runs.map((run, index) => {
-                const flagged = run.flagged.length;
                 return (
                   <View key={run.id}>
                     {index > 0 ? <RowDivider /> : null}
@@ -56,13 +55,10 @@ export default function TranscriptHistory() {
                       accessibilityLabel={`Transcript from ${runTime(run.completedAt)}`}
                       style={styles.row}
                     >
-                      <View style={styles.rowText}>
-                        <Text style={type.listTitle}>{runTime(run.completedAt)}</Text>
-                        <Text style={type.caption}>
-                          {run.goalsMet}/{run.goalsTotal} goals · {flagged} mistake
-                          {flagged === 1 ? '' : 's'}
-                        </Text>
-                      </View>
+                      {/* Just when it finished — the transcript itself has the rest. */}
+                      <Text style={[type.listTitle, styles.rowText]}>
+                        {runTime(run.completedAt)}
+                      </Text>
                       <ListChevronIcon />
                     </Pressable>
                   </View>
@@ -91,7 +87,6 @@ const styles = StyleSheet.create({
   },
   rowText: {
     flex: 1,
-    gap: 2,
   },
   empty: {
     alignItems: 'center',

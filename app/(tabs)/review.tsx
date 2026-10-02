@@ -203,13 +203,14 @@ function MistakesTab() {
       </Card>
 
       {mistakeGroups.length === 0 ? (
-        // No log yet: a short line on how it fills, and no list chrome.
-        <View style={styles.emptyState}>
+        // No log yet: a short line on how it fills, in the same white card as
+        // the summary above and the fixed count below — and no list chrome.
+        <Card paddingHorizontal={18} paddingVertical={28} style={styles.mistakesEmpty}>
           <Text style={type.listTitle}>Nothing to review yet</Text>
           <Text style={[type.secondary, styles.emptyStateText]}>
             Finish a roleplay to see your mistakes here.
           </Text>
-        </View>
+        </Card>
       ) : (
         <>
           <View style={styles.sortRow}>
@@ -426,6 +427,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingVertical: spacing.huge,
+  },
+  mistakesEmpty: {
+    alignItems: 'center',
+    gap: 6,
   },
   emptyStateText: {
     textAlign: 'center',
