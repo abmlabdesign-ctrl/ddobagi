@@ -1,55 +1,53 @@
 import type { ImageSourcePropType } from 'react-native';
 
-import { colors } from '@/theme/tokens';
-
 /**
- * IN-1 ~ IN-5 Feature intro. Copy and panel tints are taken verbatim from
- * `docs/design/또박이 UI - 00 기능 소개.dc.html`; the phone shots are real app
- * screens, in the core-loop order the comp lays out.
+ * IN-1 ~ IN-4 Feature intro. Layout and the IN-1 copy follow the final intro
+ * comp (2026-10-02); each page's graphic is the delivered asset as-is, with
+ * its pixel size so the screen can scale it without stretching or cropping.
+ * The comp only spells out IN-1's copy — IN-2 ~ IN-4 follow its two-line
+ * pattern and say what their graphic shows.
  */
 export type IntroPage = {
   id: string;
   title: string;
   body: string;
-  /** The rounded panel behind the phone mockup. */
-  tint: string;
-  shot: ImageSourcePropType;
+  art: ImageSourcePropType;
+  /** The asset's own size in px — its 1× layout size and aspect ratio. */
+  artWidth: number;
+  artHeight: number;
 };
 
 export const introPages: IntroPage[] = [
   {
     id: 'IN-1',
-    title: "Practice the Korean you'll actually use",
-    body: 'Order coffee, see a doctor, open a bank account. Talk it through with AI characters who reply like real people.',
-    tint: colors.primary100,
-    shot: require('../../assets/intro/intro-rp1.jpg'),
+    title: 'Practice Korean for real life',
+    body: 'Order coffee, visit a doctor,\nand handle everyday situations.',
+    art: require('../../assets/intro/intro-1.png'),
+    artWidth: 346,
+    artHeight: 390,
   },
   {
     id: 'IN-2',
-    title: 'Practice Real-Life Conversations with AI',
-    body: 'AI takes on roles like a barista, doctor, or bank clerk and responds just like in real situations.\nInstead of memorizing answers, learn naturally by speaking and interacting.',
-    tint: colors.introLavender,
-    shot: require('../../assets/intro/intro-rp3.jpg'),
+    title: 'Talk it through with AI',
+    body: 'AI plays the barista, doctor or clerk\nand replies just like in real life.',
+    art: require('../../assets/intro/intro-2.png'),
+    artWidth: 362,
+    artHeight: 432,
   },
   {
     id: 'IN-3',
-    title: 'Get feedback on every word',
-    body: 'See which sounds landed and which need work, right after you speak.',
-    tint: colors.infoBg,
-    shot: require('../../assets/intro/intro-rp4.jpg'),
+    title: 'Turn mistakes into quick lessons',
+    body: 'Every slip goes to your Mistake log.\nFix it in a 3-minute mission.',
+    art: require('../../assets/intro/intro-3.png'),
+    artWidth: 351,
+    artHeight: 400,
   },
   {
     id: 'IN-4',
-    title: 'Your mistakes become your next lesson',
-    body: 'Every slip is saved to your Mistake log. Fix them in quick 3-minute missions.',
-    tint: colors.introButter,
-    shot: require('../../assets/intro/intro-rv1.jpg'),
-  },
-  {
-    id: 'IN-5',
     title: 'See yourself get better',
-    body: "Start with a 1-minute level check. We'll track six speaking skills as you go.",
-    tint: colors.successBg,
-    shot: require('../../assets/intro/intro-my2.jpg'),
+    body: 'Get a report on six speaking skills\nafter every conversation.',
+    art: require('../../assets/intro/intro-4.png'),
+    artWidth: 289,
+    artHeight: 602,
   },
 ];
