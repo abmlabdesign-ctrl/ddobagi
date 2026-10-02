@@ -33,16 +33,21 @@ import { gloss, text, type } from '@/theme/typography';
  * orange and opens the correction in place rather than pushing a new screen.
  */
 export default function MistakeScript() {
-  const { situationId } = useLocalSearchParams<{ situationId: string }>();
+  const { situationId, run: runParam } = useLocalSearchParams<{
+    situationId: string;
+    run?: string;
+  }>();
   const insets = useSafeAreaInsets();
   const situation = situationById[situationId];
-  const { mistakes, sessions, savedPhrases, savePhrase, removePhrase, markMistakeRead } = useApp();
-  const turns = transcriptFor(situationId, mistakes, sessions[situationId]);
+  const { mistakes, history, savedPhrases, savePhrase, removePhrase, markMistakeDone } = useApp();
+  // A picked run from the history list; without one, the newest finished run.
+  const record = runParam
+    ? history.find((entry) => entry.id === runParam)
+    : history.find((entry) => entry.situationId === situationId);
+  const turns = runParam && !record ? [] : transcriptFor(situationId, mistakes, record);
 
-  const lineScrap = useLineScrap(situationId);
+  const lineScrap = useLineScrap(situationId, { runId: record?.id });
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  /** Lines whose correction the learner has read — they now show the fix. */
-  const [corrected, setCorrected] = useState<string[]>([]);
   const playClip = useClipPlayer();
   /** The line being read aloud, or null when stopped. */
   const [cursor, setCursor] = useState<number | null>(null);
@@ -95,7 +100,11 @@ export default function MistakeScript() {
           </Text>
         </View>
         <Screen background="surface-alt">
-          <Text style={type.secondary}>Finish this roleplay to see your transcript here.</Text>
+          <Text style={type.secondary}>
+            {runParam
+              ? 'This conversation is no longer on this device.'
+              : 'Finish this roleplay to see your transcript here.'}
+          </Text>
         </Screen>
       </ScreenShell>
     );
@@ -125,9 +134,11 @@ export default function MistakeScript() {
           const reading = cursor === index;
           const expanded = expandedId === turn.id;
           const isUser = turn.speaker === 'user';
-          // Once checked, the bubble carries the corrected sentence, with what
-          // was said struck through above it for comparison.
-          const fix = turn.mistake && corrected.includes(turn.id) ? turn.mistake.suggested : null;
+          // Once `Done` (or fixed in a later run), the bubble carries the
+          // corrected sentence, with what was said struck through above it.
+          const logged = loggedId(turn);
+          const live = logged ? mistakes.find((entry) => entry.id === logged) : undefined;
+          const fix = turn.mistake && (live?.done || live?.fixed) ? turn.mistake.suggested : null;
           const savedPhrase = turn.mistake
             ? savedPhrases.find((phrase) => phrase.korean === unquote(turn.mistake!.suggested.korean))
             : undefined;
@@ -180,12 +191,7 @@ export default function MistakeScript() {
               <Pressable
                 onPress={
                   flagged
-                    ? () => {
-                        // Opening the detail is what "checked" means for the Mistake log.
-                        const logged = loggedId(turn);
-                        if (!expanded && logged) markMistakeRead(logged);
-                        setExpandedId(expanded ? null : turn.id);
-                      }
+                    ? () => setExpandedId(expanded ? null : turn.id)
                     : undefined
                 }
                 onLongPress={() =>
@@ -274,12 +280,17 @@ export default function MistakeScript() {
                                 korean: unquote(turn.mistake!.suggested.korean),
                                 english: unquote(turn.mistake!.suggested.english),
                                 savedOn: shortDate(),
+                                // A copy, so the phrase outlives this conversation.
+                                situationTitle: situation?.title,
+                                said: unquote(turn.mistake!.said.korean),
+                                runId: record?.id,
                               })
                         }
                       />
                       <Pressable
                         onPress={() => {
-                          setCorrected((ids) => (ids.includes(turn.id) ? ids : [...ids, turn.id]));
+                          // The only thing that takes a mistake off the Mistake log count.
+                          if (logged) markMistakeDone(logged);
                           setExpandedId(null);
                         }}
                         accessibilityRole="button"
@@ -339,12 +350,12 @@ const loggedId = (turn: Turn) =>
   turn.mistake && 'id' in turn.mistake ? (turn.mistake as Mistake).id : null;
 
 /**
- * The lines RV-6 shows, built only from the learner's last finished run: the
- * AI's lines, then each answer exactly as it was heard. A line is flagged only
- * when that run logged it as a mistake, and its detail is that log entry —
- * what was said, the correction, why. No run yet means no transcript (never
- * the script's example run). A situation with no script shows its logged
- * mistakes on their own.
+ * The lines RV-6 shows, built only from one finished run: the AI's lines, then
+ * each answer exactly as it was heard. A line is flagged only when that run
+ * logged it as a mistake, and its detail is the entry as that run left it —
+ * what was said, the correction, why. No run means no transcript (never the
+ * script's example run). A situation with no script shows its logged mistakes
+ * on their own.
  */
 function transcriptFor(
   situationId: string,
@@ -372,15 +383,16 @@ function transcriptFor(
       // Nothing was heard for this answer, so there's nothing to show or judge.
       return { ...turn, korean: '…', english: "We didn't catch this answer.", mistake: undefined };
     }
+    // Runs from older builds have no snapshot; they read the live log entry.
     const logged =
       session.flagged.includes(turn.id) && turn.mistake
-        ? mistakes.find(
+        ? (session.mistakes?.[turn.id] ??
+          mistakes.find(
             (entry) =>
               entry.situationId === situationId &&
-              !entry.fixed &&
               normalizeSpeech(entry.suggested.korean) ===
                 normalizeSpeech(turn.mistake!.suggested.korean),
-          )
+          ))
         : undefined;
     return { ...turn, korean: heard, english: '', mistake: logged };
   });

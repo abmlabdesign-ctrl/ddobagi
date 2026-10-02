@@ -19,7 +19,8 @@ type Item = { id: string; title: string; caption: string; href: Href; tone: 'pri
  */
 export default function Notifications() {
   const { profile, mistakes, lastPracticeDay } = useApp();
-  const open = mistakes.filter((mistake) => !mistake.fixed).length;
+  // Same count as the Mistake log headline: open and not yet Done.
+  const open = mistakes.filter((mistake) => !mistake.fixed && !mistake.done).length;
   const goal = profile.weeklyGoal;
 
   const items: Item[] = [];

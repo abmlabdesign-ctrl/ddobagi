@@ -28,7 +28,20 @@ export type SessionResult = {
   flagged: string[];
   goalsMet: number;
   goalsTotal: number;
+  /** `SessionRecord.id` of this run. Missing only on runs from older builds. */
+  id?: string;
+  /**
+   * The log entries this run flagged, by turn id, as they read at the end of
+   * the run — so an older transcript keeps its own "You said".
+   */
+  mistakes?: Record<string, Mistake>;
 };
+
+/** One finished roleplay in the transcript history. */
+export type SessionRecord = SessionResult & { id: string; situationId: string };
+
+/** Keeps the history bounded on the device. */
+const HISTORY_CAP = 300;
 
 /** A learner line the session judged, handed to `finishSession`. */
 export type JudgedLine = {
@@ -81,7 +94,10 @@ type AppState = {
   settings: Settings;
   mistakes: Mistake[];
   savedPhrases: SavedPhrase[];
+  /** The latest finished run per situation — progress and the report read it. */
   sessions: Record<string, SessionResult>;
+  /** Every finished run, newest first. Unfinished ones never land here. */
+  history: SessionRecord[];
   /** Unfinished roleplays the learner chose to keep, by situation id. */
   drafts: Record<string, ConversationDraft>;
   /** `2026-09-29` of the last practice, for the streak. */
@@ -101,8 +117,8 @@ type AppActions = {
   updateProfile: (patch: Partial<Profile>) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   markMistakeFixed: (id: string) => void;
-  /** Marks a mistake as seen. Idempotent, so reopening it changes nothing. */
-  markMistakeRead: (id: string) => void;
+  /** RV-7 `Done`. Idempotent, so pressing it again changes nothing. */
+  markMistakeDone: (id: string) => void;
   savePhrase: (phrase: SavedPhrase) => void;
   removePhrase: (id: string) => void;
   setPhraseNote: (id: string, note: string) => void;
@@ -154,6 +170,7 @@ const initialState: AppState = {
   // Starts empty: only lines the learner actually saves go in.
   savedPhrases: [],
   sessions: {},
+  history: [],
   drafts: {},
   lastPracticeDay: null,
   goalWeek: null,
@@ -167,6 +184,15 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 /** `Sep 29` — the date format every list in the comps uses. */
 export const shortDate = (date = new Date()) => `${MONTHS[date.getMonth()]} ${date.getDate()}`;
+
+/** When a roleplay finished, e.g. `Oct 2, 2026 · 4:18 PM` — the history list's row title. */
+export const runTime = (at: number) => {
+  const date = new Date(at);
+  const hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const clock = `${hours % 12 || 12}:${minutes} ${hours < 12 ? 'AM' : 'PM'}`;
+  return `${shortDate(date)}, ${date.getFullYear()} · ${clock}`;
+};
 
 export const dayKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -225,6 +251,20 @@ const LEGACY_SAMPLE_MISTAKES = new Set(['mk-1', 'mk-2', 'mk-3', 'mk-4']);
 /** Ids of the sample phrases earlier builds put in every new Scrapbook. */
 const LEGACY_SAMPLE_PHRASES = new Set(['sp-1', 'sp-2', 'sp-3']);
 
+function historyFromSessions(sessions: Record<string, SessionResult>): SessionRecord[] {
+  return Object.entries(sessions)
+    .map(([situationId, session]) => ({
+      ...session,
+      id: session.id ?? `${situationId}-${session.completedAt}`,
+      situationId,
+    }))
+    .sort((a, b) => b.completedAt - a.completedAt);
+}
+
+/** The run a session result belongs to, for the latest-run lookups. */
+export const runIdOf = (situationId: string, session: SessionResult) =>
+  session.id ?? `${situationId}-${session.completedAt}`;
+
 /** Saved state is merged over the defaults so a field added later still has a value. */
 function restore(raw: string | null): AppState {
   if (!raw) return initialState;
@@ -239,6 +279,9 @@ function restore(raw: string | null): AppState {
       savedPhrases: (saved.savedPhrases ?? []).filter(
         (phrase) => !LEGACY_SAMPLE_PHRASES.has(phrase.id),
       ),
+      // Builds before the history kept only the latest run per situation;
+      // those runs become its first entries.
+      history: saved.history ?? historyFromSessions(saved.sessions ?? {}),
       profile: { ...defaultProfile, ...saved.profile },
       settings: { ...initialSettings, ...saved.settings },
     };
@@ -286,7 +329,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [hydrated, state]);
 
   const [reminderStatus, setReminderStatus] = useState<Derived['reminderStatus']>('ok');
-  const openMistakes = state.mistakes.filter((mistake) => !mistake.fixed).length;
+  const openMistakes = state.mistakes.filter((mistake) => !mistake.fixed && !mistake.done).length;
   const trialEndsAt =
     state.subscription?.trial && state.subscription.autoRenew ? state.subscription.renewsAt : null;
   const trialPlan = state.subscription?.planId ?? null;
@@ -356,13 +399,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
-  const markMistakeRead = useCallback((id: string) => {
+  const markMistakeDone = useCallback((id: string) => {
     setState((current) =>
-      current.mistakes.some((mistake) => mistake.id === id && !mistake.read)
+      current.mistakes.some((mistake) => mistake.id === id && !mistake.done)
         ? {
             ...current,
             mistakes: current.mistakes.map((mistake) =>
-              mistake.id === id ? { ...mistake, read: true } : mistake,
+              mistake.id === id ? { ...mistake, done: true } : mistake,
             ),
           }
         : current,
@@ -409,6 +452,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const date = shortDate();
         let mistakes = current.mistakes;
         const flagged: string[] = [];
+        const flaggedEntries: Record<string, Mistake> = {};
         const measured: ActivityEntry[] = [];
         const at = Date.now();
 
@@ -442,16 +486,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             situationId,
             date,
             fixed: false,
-            // Made again in this run, so it's news to the log even if read before.
-            read: false,
+            // Made again in this run, so it's back on the list even if done before.
+            done: false,
             said: { korean: `"${heard}"`, english: '', note: '' },
           };
+          flaggedEntries[line.turnId] = entry;
           mistakes = existing
             ? mistakes.map((item) => (item === existing ? entry : item))
             : [entry, ...mistakes];
         }
 
         const firstTime = !current.sessions[situationId];
+        const run: SessionRecord = {
+          id: `${situationId}-${at}`,
+          situationId,
+          completedOn: date,
+          completedAt: at,
+          said: Object.fromEntries(lines.map((line) => [line.turnId, line.said])),
+          flagged,
+          // Each goal maps to a learner turn in the scripted sessions; a
+          // flagged turn is a goal not met cleanly.
+          goalsMet: Math.max(0, goalsTotal - flagged.length),
+          goalsTotal,
+          mistakes: flaggedEntries,
+        };
         const next = bumpUsage(countLesson(current, minutes), 'roleplays');
         // A finished run supersedes whatever was saved part-way.
         const { [situationId]: _finished, ...drafts } = current.drafts;
@@ -460,19 +518,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           drafts,
           mistakes,
           activity: [...current.activity, ...measured].slice(-ACTIVITY_CAP),
-          sessions: {
-            ...current.sessions,
-            [situationId]: {
-              completedOn: date,
-              completedAt: Date.now(),
-              said: Object.fromEntries(lines.map((line) => [line.turnId, line.said])),
-              flagged,
-              // Each goal maps to a learner turn in the scripted sessions; a
-              // flagged turn is a goal not met cleanly.
-              goalsMet: Math.max(0, goalsTotal - flagged.length),
-              goalsTotal,
-            },
-          },
+          sessions: { ...current.sessions, [situationId]: run },
+          history: [run, ...current.history].slice(0, HISTORY_CAP),
           profile: {
             ...next.profile,
             situationsDone: next.profile.situationsDone + (firstTime ? 1 : 0),
@@ -562,7 +609,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateProfile,
       updateSettings,
       markMistakeFixed,
-      markMistakeRead,
+      markMistakeDone,
       savePhrase,
       removePhrase,
       setPhraseNote,
@@ -589,7 +636,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateProfile,
       updateSettings,
       markMistakeFixed,
-      markMistakeRead,
+      markMistakeDone,
       savePhrase,
       removePhrase,
       setPhraseNote,

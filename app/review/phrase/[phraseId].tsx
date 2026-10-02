@@ -21,7 +21,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
  */
 export default function SavedPhraseDetail() {
   const { phraseId } = useLocalSearchParams<{ phraseId: string }>();
-  const { savedPhrases, setPhraseNote } = useApp();
+  const { savedPhrases, history, setPhraseNote } = useApp();
 
   const phrase = savedPhrases.find((entry) => entry.id === phraseId);
 
@@ -42,9 +42,18 @@ export default function SavedPhraseDetail() {
   }
 
   const situation = situationById[phrase.situationId];
+  // The phrase is its own copy; only the way back to its conversation depends
+  // on that conversation still being on the device.
+  const source = phrase.runId
+    ? history.some((run) => run.id === phrase.runId)
+      ? `/review/script/${phrase.situationId}?run=${encodeURIComponent(phrase.runId)}`
+      : null
+    : history.some((run) => run.situationId === phrase.situationId)
+      ? `/review/history/${phrase.situationId}`
+      : null;
 
   return (
-    <ScreenShell>
+    <ScreenShell bottomEdge={source ? undefined : 'content'}>
       <NavBar title="Saved phrase" />
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>
@@ -61,8 +70,10 @@ export default function SavedPhraseDetail() {
             </Pressable>
           </View>
           <Text style={styles.english}>{phrase.english}</Text>
+          {phrase.said ? <Text style={styles.meta}>You said: {phrase.said}</Text> : null}
           <Text style={styles.meta}>
-            {situation?.title ?? phrase.situationId} · Saved {phrase.savedOn}
+            {phrase.situationTitle ?? situation?.title ?? phrase.situationId} · Saved{' '}
+            {phrase.savedOn}
           </Text>
         </Card>
 
@@ -126,12 +137,11 @@ export default function SavedPhraseDetail() {
         </View>
       </Screen>
 
-      <CtaDock paddingTop={12}>
-        <Button
-          label="View transcript"
-          onPress={() => router.push(`/review/script/${phrase.situationId}`)}
-        />
-      </CtaDock>
+      {source ? (
+        <CtaDock paddingTop={12}>
+          <Button label="View transcript" onPress={() => router.push(source)} />
+        </CtaDock>
+      ) : null}
     </ScreenShell>
   );
 }

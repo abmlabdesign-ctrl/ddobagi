@@ -109,7 +109,7 @@ export default function ScenarioDetail() {
                 label="View transcript"
                 variant="elevated"
                 height={48}
-                onPress={() => router.push(`/review/script/${situation.id}`)}
+                onPress={() => router.push(`/review/history/${situation.id}`)}
               />
             </View>
           ) : null}

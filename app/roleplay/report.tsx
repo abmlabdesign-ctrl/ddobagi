@@ -70,6 +70,9 @@ export default function ReportScreen() {
         korean: fix.suggested.korean.replace(/"/g, ''),
         english: fix.suggested.english.replace(/[“”]/g, ''),
         savedOn: report.completedOn,
+        situationTitle: situation?.title,
+        said: fix.said.korean.replace(/"/g, ''),
+        runId: session?.id,
       });
     });
     router.replace('/(tabs)/roleplay');
@@ -127,7 +130,7 @@ export default function ReportScreen() {
             reprinting a pair of them here. */}
         <Card radiusToken="group" paddingHorizontal={24} paddingVertical={8}>
           <Pressable
-            onPress={() => router.push(`/review/script/${report.situationId}`)}
+            onPress={() => router.push(`/review/history/${report.situationId}`)}
             accessibilityRole="button"
             accessibilityLabel="View the transcript of this conversation"
             style={styles.transcriptRow}

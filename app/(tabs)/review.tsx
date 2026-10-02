@@ -18,7 +18,7 @@ import type { Mistake, SavedPhrase } from '@/data/types';
 import { ListChevronIcon, MoreIcon, SpeakerIcon } from '@/icons';
 import { speak } from '@/services/speech';
 import { todayFocus as recommendFocus } from '@/services/recommend';
-import { useApp } from '@/store/AppStore';
+import { useApp, type SessionRecord } from '@/store/AppStore';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
 
@@ -131,36 +131,60 @@ function MissionsTab() {
 
 /**
  * RV-3a rows from the live log: open mistakes grouped by situation, newest
- * first. `unread` is what the badge counts — opening a mistake in RV-6 reads it.
+ * first. `toReview` — not yet `Done` in RV-7 — is what the badge and the
+ * headline count; opening a mistake without pressing `Done` changes nothing.
  */
 function groupMistakes(mistakes: Mistake[]) {
   const groups = new Map<
     string,
-    { situationId: string; count: number; unread: number; skills: string[]; date: string }
+    {
+      situationId: string;
+      count: number;
+      toReview: number;
+      ids: string[];
+      skills: string[];
+      date: string;
+    }
   >();
   for (const mistake of mistakes) {
     if (mistake.fixed) continue;
     const group = groups.get(mistake.situationId) ?? {
       situationId: mistake.situationId,
       count: 0,
-      unread: 0,
+      toReview: 0,
+      ids: [],
       skills: [],
       date: mistake.date,
     };
     group.count += 1;
-    if (!mistake.read) group.unread += 1;
+    group.ids.push(mistake.id);
+    if (!mistake.done) group.toReview += 1;
     if (!group.skills.includes(mistake.skill)) group.skills.push(mistake.skill);
     groups.set(mistake.situationId, group);
   }
   return [...groups.values()];
 }
 
+/**
+ * Where a Mistake log row opens: the newest finished run that flagged one of
+ * the situation's open mistakes, so its `Done` is right there.
+ */
+function runWithMistake(history: SessionRecord[], situationId: string, ids: string[]) {
+  return history.find(
+    (run) =>
+      run.situationId === situationId &&
+      run.flagged.some((turnId) =>
+        ids.includes(run.mistakes?.[turnId]?.id ?? `${situationId}-${turnId}`),
+      ),
+  );
+}
+
 function MistakesTab() {
-  const { mistakes } = useApp();
+  const { mistakes, history } = useApp();
   const mistakeGroups = groupMistakes(mistakes);
-  // The headline counts mistakes not yet checked, across the situations that have them.
-  const open = mistakeGroups.reduce((sum, group) => sum + group.unread, 0);
-  const openSituations = mistakeGroups.filter((group) => group.unread > 0).length;
+  // Headline and badges read the same per-situation numbers.
+  const open = mistakeGroups.reduce((sum, group) => sum + group.toReview, 0);
+  const openSituations = mistakeGroups.filter((group) => group.toReview > 0).length;
   const fixedCount = mistakes.filter((mistake) => mistake.fixed).length;
 
   return (
@@ -178,50 +202,66 @@ function MistakesTab() {
         </View>
       </Card>
 
-      <View style={styles.sortRow}>
-        <Text style={type.label}>Pick a situation</Text>
-        <Text style={type.caption}>{mistakesSummary.sort}</Text>
-      </View>
-
       {mistakeGroups.length === 0 ? (
-        <Text style={type.secondary}>Nothing to review. Finish a roleplay to fill the log.</Text>
-      ) : null}
+        // No log yet: a short line on how it fills, in the same white card as
+        // the summary above and the fixed count below — and no list chrome.
+        <Card paddingHorizontal={18} paddingVertical={28} style={styles.mistakesEmpty}>
+          <Text style={type.listTitle}>Nothing to review yet</Text>
+          <Text style={[type.secondary, styles.emptyStateText]}>
+            Finish a roleplay to see your mistakes here.
+          </Text>
+        </Card>
+      ) : (
+        <>
+          <View style={styles.sortRow}>
+            <Text style={type.label}>Pick a situation</Text>
+            <Text style={type.caption}>{mistakesSummary.sort}</Text>
+          </View>
 
-      <Card paddingHorizontal={18} paddingVertical={4}>
-        {mistakeGroups.map((group, index) => {
-          const situation = situationById[group.situationId];
-          const category = situation ? categoryById[situation.categoryId] : undefined;
-          return (
-            <View key={group.situationId}>
-              {index > 0 ? <RowDivider /> : null}
-              <Pressable
-                onPress={() => router.push(`/review/script/${group.situationId}`)}
-                accessibilityRole="button"
-                style={styles.mistakeRow}
-              >
-                {category ? (
-                  <Image
-                    source={category.illustration}
-                    style={styles.thumb}
-                    resizeMode="cover"
-                    accessibilityIgnoresInvertColors
-                  />
-                ) : null}
-                <View style={styles.listText}>
-                  <Text style={type.listTitle}>{situation?.title ?? group.situationId}</Text>
-                  <Text style={type.caption}>
-                    {group.count} mistakes · {group.skills.join(' · ')} · {group.date}
-                  </Text>
+          <Card paddingHorizontal={18} paddingVertical={4}>
+            {mistakeGroups.map((group, index) => {
+              const situation = situationById[group.situationId];
+              const category = situation ? categoryById[situation.categoryId] : undefined;
+              const run = runWithMistake(history, group.situationId, group.ids);
+              return (
+                <View key={group.situationId}>
+                  {index > 0 ? <RowDivider /> : null}
+                  <Pressable
+                    onPress={() =>
+                      router.push(
+                        run
+                          ? `/review/script/${group.situationId}?run=${encodeURIComponent(run.id)}`
+                          : `/review/script/${group.situationId}`,
+                      )
+                    }
+                    accessibilityRole="button"
+                    style={styles.mistakeRow}
+                  >
+                    {category ? (
+                      <Image
+                        source={category.illustration}
+                        style={styles.thumb}
+                        resizeMode="cover"
+                        accessibilityIgnoresInvertColors
+                      />
+                    ) : null}
+                    <View style={styles.listText}>
+                      <Text style={type.listTitle}>{situation?.title ?? group.situationId}</Text>
+                      <Text style={type.caption}>
+                        {group.count} mistakes · {group.skills.join(' · ')} · {group.date}
+                      </Text>
+                    </View>
+                    <View style={styles.mistakeRight}>
+                      {group.toReview > 0 ? <CountBadge label={`${group.toReview}`} /> : null}
+                      <ListChevronIcon />
+                    </View>
+                  </Pressable>
                 </View>
-                <View style={styles.mistakeRight}>
-                  {group.unread > 0 ? <CountBadge label={`${group.unread}`} /> : null}
-                  <ListChevronIcon />
-                </View>
-              </Pressable>
-            </View>
-          );
-        })}
-      </Card>
+              );
+            })}
+          </Card>
+        </>
+      )}
 
       <Card paddingHorizontal={18} paddingVertical={14} style={styles.fixedCard}>
         <Text style={type.row}>Mistakes you fixed</Text>
@@ -233,7 +273,9 @@ function MistakesTab() {
   );
 }
 
-const situationTitle = (situationId: string) => situationById[situationId]?.title ?? situationId;
+/** The title saved with the phrase wins — it outlives the conversation and the catalog. */
+const situationTitle = (phrase: SavedPhrase) =>
+  phrase.situationTitle ?? situationById[phrase.situationId]?.title ?? phrase.situationId;
 
 /**
  * RV-5 Scrapbook — the shelf of saved phrases. Each card carries its own source,
@@ -247,7 +289,7 @@ function ScrapbookTab() {
   const needle = query.trim().toLowerCase();
   const phrases = needle
     ? savedPhrases.filter((phrase) =>
-        [phrase.korean, phrase.english, situationTitle(phrase.situationId)]
+        [phrase.korean, phrase.english, situationTitle(phrase)]
           .join(' ')
           .toLowerCase()
           .includes(needle),
@@ -262,9 +304,9 @@ function ScrapbookTab() {
 
       {savedPhrases.length === 0 ? (
         // Empty until the learner saves something — no sample phrases.
-        <View style={styles.scrapEmpty}>
+        <View style={styles.emptyState}>
           <Text style={type.listTitle}>Nothing saved yet</Text>
-          <Text style={[type.secondary, styles.scrapEmptyText]}>
+          <Text style={[type.secondary, styles.emptyStateText]}>
             Long-press a line in a roleplay and choose Save to Scrapbook.
           </Text>
         </View>
@@ -326,7 +368,7 @@ function PhraseCard({ phrase, onMore }: { phrase: SavedPhrase; onMore: () => voi
 
         <View style={styles.phraseFooter}>
           <Text style={styles.phraseMeta} numberOfLines={1}>
-            {situationTitle(phrase.situationId)} · {phrase.savedOn}
+            {situationTitle(phrase)} · {phrase.savedOn}
           </Text>
           <Pressable
             onPress={() => speak(phrase.korean)}
@@ -380,13 +422,17 @@ function PhraseMenu({
 }
 
 const styles = StyleSheet.create({
-  /** The Scrapbook before anything is saved: a short line on how to fill it. */
-  scrapEmpty: {
+  /** An empty tab: a short line on how it fills. */
+  emptyState: {
     alignItems: 'center',
     gap: 6,
     paddingVertical: spacing.huge,
   },
-  scrapEmptyText: {
+  mistakesEmpty: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  emptyStateText: {
     textAlign: 'center',
   },
   tabs: {
