@@ -36,7 +36,7 @@ export default function MistakeScript() {
   const { situationId } = useLocalSearchParams<{ situationId: string }>();
   const insets = useSafeAreaInsets();
   const situation = situationById[situationId];
-  const { mistakes, sessions, savedPhrases, savePhrase, removePhrase } = useApp();
+  const { mistakes, sessions, savedPhrases, savePhrase, removePhrase, markMistakeRead } = useApp();
   const turns = transcriptFor(situationId, mistakes, sessions[situationId]);
 
   const lineScrap = useLineScrap(situationId);
@@ -178,7 +178,16 @@ export default function MistakeScript() {
               {/* Any line can go to the Scrapbook by long-press. A corrected line
                   saves what it reads now — the fixed sentence. */}
               <Pressable
-                onPress={flagged ? () => setExpandedId(expanded ? null : turn.id) : undefined}
+                onPress={
+                  flagged
+                    ? () => {
+                        // Opening the detail is what "checked" means for the Mistake log.
+                        const logged = loggedId(turn);
+                        if (!expanded && logged) markMistakeRead(logged);
+                        setExpandedId(expanded ? null : turn.id);
+                      }
+                    : undefined
+                }
                 onLongPress={() =>
                   lineScrap.open(fix ? { id: turn.id, korean: fix.korean, english: fix.english } : turn)
                 }
@@ -324,6 +333,10 @@ export default function MistakeScript() {
 }
 
 const unquote = (value: string) => value.replace(/["“”]/g, '');
+
+/** transcriptFor() puts the log entry itself on a flagged line, so its id is the log id. */
+const loggedId = (turn: Turn) =>
+  turn.mistake && 'id' in turn.mistake ? (turn.mistake as Mistake).id : null;
 
 /**
  * The lines RV-6 shows, built only from the learner's last finished run: the

@@ -129,18 +129,26 @@ function MissionsTab() {
   );
 }
 
-/** RV-3a rows from the live log: open mistakes grouped by situation, newest first. */
+/**
+ * RV-3a rows from the live log: open mistakes grouped by situation, newest
+ * first. `unread` is what the badge counts — opening a mistake in RV-6 reads it.
+ */
 function groupMistakes(mistakes: Mistake[]) {
-  const groups = new Map<string, { situationId: string; count: number; skills: string[]; date: string }>();
+  const groups = new Map<
+    string,
+    { situationId: string; count: number; unread: number; skills: string[]; date: string }
+  >();
   for (const mistake of mistakes) {
     if (mistake.fixed) continue;
     const group = groups.get(mistake.situationId) ?? {
       situationId: mistake.situationId,
       count: 0,
+      unread: 0,
       skills: [],
       date: mistake.date,
     };
     group.count += 1;
+    if (!mistake.read) group.unread += 1;
     if (!group.skills.includes(mistake.skill)) group.skills.push(mistake.skill);
     groups.set(mistake.situationId, group);
   }
@@ -150,7 +158,9 @@ function groupMistakes(mistakes: Mistake[]) {
 function MistakesTab() {
   const { mistakes } = useApp();
   const mistakeGroups = groupMistakes(mistakes);
-  const open = mistakeGroups.reduce((sum, group) => sum + group.count, 0);
+  // The headline counts mistakes not yet checked, across the situations that have them.
+  const open = mistakeGroups.reduce((sum, group) => sum + group.unread, 0);
+  const openSituations = mistakeGroups.filter((group) => group.unread > 0).length;
   const fixedCount = mistakes.filter((mistake) => mistake.fixed).length;
 
   return (
@@ -159,8 +169,8 @@ function MistakesTab() {
         <View style={styles.summaryText}>
           <Text style={type.caption}>Mistakes to review</Text>
           <Text style={type.cardTitle}>
-            {open} left across {mistakeGroups.length} situation
-            {mistakeGroups.length === 1 ? '' : 's'}
+            {open} left across {openSituations} situation
+            {openSituations === 1 ? '' : 's'}
           </Text>
         </View>
         <View style={styles.summaryCount}>
@@ -204,7 +214,7 @@ function MistakesTab() {
                   </Text>
                 </View>
                 <View style={styles.mistakeRight}>
-                  <CountBadge label={`${group.count}`} />
+                  {group.unread > 0 ? <CountBadge label={`${group.unread}`} /> : null}
                   <ListChevronIcon />
                 </View>
               </Pressable>
@@ -250,12 +260,23 @@ function ScrapbookTab() {
     <View style={styles.tabBody}>
       <SearchField value={query} onChangeText={setQuery} placeholder="Search saved phrases" />
 
-      {phrases.length === 0 ? (
-        <Text style={type.secondary}>
-          {savedPhrases.length === 0
-            ? 'Nothing saved yet. Save a phrase from a report.'
-            : `No saved phrases match \u201c${query.trim()}\u201d.`}
+      {savedPhrases.length === 0 ? (
+        // Empty until the learner saves something — no sample phrases.
+        <View style={styles.scrapEmpty}>
+          <Text style={type.listTitle}>Nothing saved yet</Text>
+          <Text style={[type.secondary, styles.scrapEmptyText]}>
+            Long-press a line in a roleplay and choose Save to Scrapbook.
+          </Text>
+        </View>
+      ) : (
+        <Text style={type.caption}>
+          {needle ? `${phrases.length} of ` : ''}
+          {savedPhrases.length} saved phrase{savedPhrases.length === 1 ? '' : 's'}
         </Text>
+      )}
+
+      {savedPhrases.length === 0 ? null : phrases.length === 0 ? (
+        <Text style={type.secondary}>{`No saved phrases match \u201c${query.trim()}\u201d.`}</Text>
       ) : (
         <View style={styles.phraseList}>
           {phrases.map((phrase) => (
@@ -359,6 +380,15 @@ function PhraseMenu({
 }
 
 const styles = StyleSheet.create({
+  /** The Scrapbook before anything is saved: a short line on how to fill it. */
+  scrapEmpty: {
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: spacing.huge,
+  },
+  scrapEmptyText: {
+    textAlign: 'center',
+  },
   tabs: {
     flexDirection: 'row',
     gap: 8,

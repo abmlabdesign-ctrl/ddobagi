@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { savedPhrases as seedPhrases } from '@/data/review';
 import { freeLimits, planById, type PlanId } from '@/data/plans';
 import { defaultProfile } from '@/data/profile';
 import type { Mistake, SavedPhrase, SkillId } from '@/data/types';
@@ -102,6 +101,8 @@ type AppActions = {
   updateProfile: (patch: Partial<Profile>) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   markMistakeFixed: (id: string) => void;
+  /** Marks a mistake as seen. Idempotent, so reopening it changes nothing. */
+  markMistakeRead: (id: string) => void;
   savePhrase: (phrase: SavedPhrase) => void;
   removePhrase: (id: string) => void;
   setPhraseNote: (id: string, note: string) => void;
@@ -150,7 +151,8 @@ const initialState: AppState = {
   settings: initialSettings,
   // The log starts empty: only what a roleplay actually flags goes in.
   mistakes: [],
-  savedPhrases: seedPhrases,
+  // Starts empty: only lines the learner actually saves go in.
+  savedPhrases: [],
   sessions: {},
   drafts: {},
   lastPracticeDay: null,
@@ -220,6 +222,8 @@ function bumpUsage(state: AppState, kind: 'roleplays' | 'missions'): AppState {
 
 /** Ids of the sample mistakes earlier builds put in every new log. */
 const LEGACY_SAMPLE_MISTAKES = new Set(['mk-1', 'mk-2', 'mk-3', 'mk-4']);
+/** Ids of the sample phrases earlier builds put in every new Scrapbook. */
+const LEGACY_SAMPLE_PHRASES = new Set(['sp-1', 'sp-2', 'sp-3']);
 
 /** Saved state is merged over the defaults so a field added later still has a value. */
 function restore(raw: string | null): AppState {
@@ -231,6 +235,10 @@ function restore(raw: string | null): AppState {
       ...saved,
       // Drop the design-time sample mistakes an older build seeded the log with.
       mistakes: (saved.mistakes ?? []).filter((entry) => !LEGACY_SAMPLE_MISTAKES.has(entry.id)),
+      // …and the sample phrases it seeded the Scrapbook with.
+      savedPhrases: (saved.savedPhrases ?? []).filter(
+        (phrase) => !LEGACY_SAMPLE_PHRASES.has(phrase.id),
+      ),
       profile: { ...defaultProfile, ...saved.profile },
       settings: { ...initialSettings, ...saved.settings },
     };
@@ -348,6 +356,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const markMistakeRead = useCallback((id: string) => {
+    setState((current) =>
+      current.mistakes.some((mistake) => mistake.id === id && !mistake.read)
+        ? {
+            ...current,
+            mistakes: current.mistakes.map((mistake) =>
+              mistake.id === id ? { ...mistake, read: true } : mistake,
+            ),
+          }
+        : current,
+    );
+  }, []);
+
   const savePhrase = useCallback((phrase: SavedPhrase) => {
     setState((current) =>
       current.savedPhrases.some(
@@ -421,6 +442,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             situationId,
             date,
             fixed: false,
+            // Made again in this run, so it's news to the log even if read before.
+            read: false,
             said: { korean: `"${heard}"`, english: '', note: '' },
           };
           mistakes = existing
@@ -539,6 +562,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateProfile,
       updateSettings,
       markMistakeFixed,
+      markMistakeRead,
       savePhrase,
       removePhrase,
       setPhraseNote,
@@ -565,6 +589,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateProfile,
       updateSettings,
       markMistakeFixed,
+      markMistakeRead,
       savePhrase,
       removePhrase,
       setPhraseNote,

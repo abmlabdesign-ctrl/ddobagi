@@ -210,6 +210,11 @@ export type Mistake = {
   suggested: { korean: string; english: string };
   why: string;
   fixed: boolean;
+  /**
+   * The learner has opened this mistake's detail in RV-6. The Mistake log
+   * counts only unread ones; logging the same mistake again clears it.
+   */
+  read?: boolean;
 };
 
 export type SavedPhrase = {

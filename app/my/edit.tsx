@@ -1,7 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 
 import { Button } from '@/components/Button';
 import { Card, RowDivider } from '@/components/Card';
@@ -84,11 +83,6 @@ export default function EditProfile() {
                     resizeMode="cover"
                     accessibilityIgnoresInvertColors
                   />
-                  {selected ? (
-                    <View style={styles.avatarCheck}>
-                      <CheckMark />
-                    </View>
-                  ) : null}
                 </Pressable>
               );
             })}
@@ -197,21 +191,6 @@ export default function EditProfile() {
   );
 }
 
-function CheckMark() {
-  return (
-    <Svg width={11} height={9} viewBox="0 0 11 9">
-      <Path
-        d="M1 4.6L4 7.6 10 1.4"
-        stroke={colors.surface}
-        strokeWidth={1.8}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </Svg>
-  );
-}
-
 const styles = StyleSheet.create({
   content: {
     gap: 16,
@@ -248,17 +227,6 @@ const styles = StyleSheet.create({
   avatarImage: {
     width: '100%',
     height: '100%',
-  },
-  avatarCheck: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    width: 22,
-    height: 22,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   fieldRow: {
     height: 50,
