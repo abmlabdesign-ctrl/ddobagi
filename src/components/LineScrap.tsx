@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
 import { CheckRow } from '@/components/CheckRow';
+import { situationById } from '@/data/situations';
 import type { Turn } from '@/data/types';
 import { shortDate, useApp } from '@/store/AppStore';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
@@ -23,7 +24,7 @@ export type ScrapLine = Pick<Turn, 'id' | 'korean' | 'english'>;
  * inside the screen (inside its Modal, if the screen is one) so the sheet and
  * the toast draw over that screen.
  */
-export function useLineScrap(situationId: string) {
+export function useLineScrap(situationId: string, source: { runId?: string } = {}) {
   const { savePhrase } = useApp();
   const [line, setLine] = useState<ScrapLine | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -51,6 +52,9 @@ export function useLineScrap(situationId: string) {
       korean: unquote(line.korean),
       english: unquote(line.english ?? ''),
       savedOn: shortDate(),
+      // Copied in, so the phrase stays readable once its conversation is gone.
+      situationTitle: situationById[situationId]?.title,
+      runId: source.runId,
     });
     setLine(null);
     showToast('Saved to your Scrapbook');

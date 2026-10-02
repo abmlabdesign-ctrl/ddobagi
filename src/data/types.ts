@@ -211,10 +211,11 @@ export type Mistake = {
   why: string;
   fixed: boolean;
   /**
-   * The learner has opened this mistake's detail in RV-6. The Mistake log
-   * counts only unread ones; logging the same mistake again clears it.
+   * The learner pressed `Done` on this mistake's detail in RV-7. The Mistake
+   * log counts only mistakes not done yet; logging the same mistake again in
+   * a later roleplay clears it.
    */
-  read?: boolean;
+  done?: boolean;
 };
 
 export type SavedPhrase = {
@@ -226,6 +227,15 @@ export type SavedPhrase = {
   savedOn: string;
   /** The learner's own note, written from the phrase's detail screen. */
   note?: string;
+  /**
+   * Kept with the phrase so it stands on its own once the conversation it
+   * came from is gone. Older saves don't have it and fall back to the catalog.
+   */
+  situationTitle?: string;
+  /** For a saved correction: what the learner actually said instead. */
+  said?: string;
+  /** The finished roleplay it came from (`SessionRecord.id`), if any. */
+  runId?: string;
 };
 
 export type StatsPeriod = 'weekly' | 'monthly';

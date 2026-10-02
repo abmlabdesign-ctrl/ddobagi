@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import Svg, { Defs, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { InProgressBadge } from './Badge';
@@ -72,6 +72,16 @@ function BellIcon() {
     </Svg>
   );
 }
+
+/**
+ * `backdrop-filter: blur(16px)`. The web build applies it; iOS and Android
+ * Views have no backdrop blur, so there the card is the translucent fill alone.
+ */
+const glassBlur = (
+  Platform.OS === 'web'
+    ? { backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }
+    : {}
+) as ViewStyle;
 
 /** HM-1 resume card — a glow card, not a plain one. */
 export function ResumeCard({
@@ -169,11 +179,10 @@ const styles = StyleSheet.create({
   },
   resume: {
     borderRadius: radius.button,
-    // The comp declares rgba(255,255,255,0.43), which it composites over the
-    // #F7F8FD page ground. The card is sticky now and floats over the situation
-    // grid, so it carries that composite as an opaque fill — same colour where
-    // the comp shows it, and the list no longer reads through it.
-    backgroundColor: '#FAFBFE',
+    // Glass: white at 54% over a 16px backdrop blur, so the situation grid
+    // scrolling under the sticky card reads through it, softened.
+    backgroundColor: colors.glassFill,
+    ...glassBlur,
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 16,

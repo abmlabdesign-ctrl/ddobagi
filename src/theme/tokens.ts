@@ -19,6 +19,8 @@ export const colors = {
 
   surface: '#FFFFFF',
   surfaceAlt: '#F7F8FD',
+  /** #FFFFFF at 54% — the HM-1 resume card's glass fill. */
+  glassFill: 'rgba(255,255,255,0.54)',
   canvas: '#E6E8EE',
 
   fill: '#F2F3F5',
