@@ -1,30 +1,27 @@
 import { TODAYS_FOCUS_ID, missions, questionKind } from '@/data/missions';
 import type { Mission, MissionQuestion } from '@/data/types';
 
+import { freshFirst, shuffle } from './questionPicker';
+
 /** RV-1 `Today's focus` length. */
 export const MIXED_LENGTH = 10;
 
-const shuffle = <T>(items: T[]) => {
-  const out = [...items];
-  for (let i = out.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-};
-
 /**
  * Today's focus: ten questions across all six skills, in a fresh random order
- * each time. Every skill puts in at least one question; the rest are drawn at
- * random from what's authored, and no two neighbours drill the same skill when
- * the mix allows it. Built on the device — there's no server to pick for us.
+ * each time. Every skill puts in at least one question; the rest are drawn from
+ * what's authored, questions not seen lately first (`recent`, newest first), and
+ * no two neighbours drill the same skill when the mix allows it. Built on the
+ * device — there's no server to pick for us.
  */
-export function buildMixedMission(): Mission {
-  const perSkill = missions.map((mission) => shuffle(mission.questions));
+export function buildMixedMission(recent: string[] = []): Mission {
+  const perSkill = missions.map((mission) => freshFirst(mission.questions, recent));
   // One from each skill first, so no skill is left out…
   const picked: MissionQuestion[] = perSkill.map((questions) => questions[0]);
-  // …then fill to ten from everything left, at random.
-  const rest = shuffle(perSkill.flatMap((questions) => questions.slice(1)));
+  // …then fill to ten from everything left, the least recently seen first.
+  const rest = freshFirst(
+    perSkill.flatMap((questions) => questions.slice(1)),
+    recent,
+  );
   while (picked.length < MIXED_LENGTH && rest.length) picked.push(rest.shift()!);
   // A very small bank still reaches ten by repeating, never one skill alone.
   for (let i = 0; picked.length < MIXED_LENGTH; i += 1) picked.push(picked[i]);

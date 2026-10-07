@@ -33,6 +33,7 @@ import {
 } from '@/services/recognition';
 import { micMessage, useVoiceRecorder } from '@/services/recorder';
 import { buildMixedMission } from '@/services/mixedMission';
+import { dealMission } from '@/services/questionPicker';
 import { speak } from '@/services/speech';
 import { useApp } from '@/store/AppStore';
 import { useMeaning } from '@/store/useMeaning';
@@ -67,9 +68,13 @@ type Verdict = {
  */
 export default function MissionRunner() {
   const { missionId } = useLocalSearchParams<{ missionId: string }>();
-  // Today's focus is built on the spot: ten questions mixed across all six skills.
+  const { finishMission, freeLeft, recentQuestions, markQuestionsDealt } = useApp();
+  // Every run is dealt on the spot, questions not seen lately first: Today's
+  // focus mixes ten across all six skills, a skill mission deals from its bank.
   const pickMission = () =>
-    missionId === TODAYS_FOCUS_ID ? buildMixedMission() : (missionById[missionId] ?? missions[0]);
+    missionId === TODAYS_FOCUS_ID
+      ? buildMixedMission(recentQuestions)
+      : dealMission(missionById[missionId] ?? missions[0], recentQuestions);
   const [mission, setMission] = useState(pickMission);
   const insets = useSafeAreaInsets();
 
@@ -96,13 +101,17 @@ export default function MissionRunner() {
     setFirstTryHits((current) => (current.includes(at) ? current : [...current, at]));
   const [startedAt, setStartedAt] = useState(() => Date.now());
   const [elapsed, setElapsed] = useState(0);
-  const { finishMission, freeLeft } = useApp();
   const meaningOf = useMeaning();
   // Judged on entry (and on Retry), never mid-run: the finish itself uses
   // the allowance, and RV-2f must still show.
   const [allowed] = useState(freeLeft.missions > 0);
   const voice = useVoiceRecorder();
   const heard = useSpeechRecognition();
+
+  // Remember what this run deals, so the next one leads with other questions.
+  useEffect(() => {
+    markQuestionsDealt(buildQueue(mission).map((index) => mission.questions[index].id));
+  }, [mission, markQuestionsDealt]);
 
   const question = mission.questions[queue[step]];
   /** The skill this question drills — in a mixed run it changes question to question. */
@@ -164,8 +173,8 @@ export default function MissionRunner() {
       return;
     }
     reset();
-    // A mixed run deals a fresh ten; a single-skill mission starts over as is.
-    const again = mission.id === TODAYS_FOCUS_ID ? pickMission() : mission;
+    // A fresh deal, so Retry doesn't replay the same questions in the same order.
+    const again = pickMission();
     setMission(again);
     setQueue(buildQueue(again));
     setStep(0);

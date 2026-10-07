@@ -5,6 +5,7 @@ import { freeLimits, planById, type PlanId } from '@/data/plans';
 import { defaultProfile } from '@/data/profile';
 import type { Mistake, SavedPhrase, SkillId } from '@/data/types';
 import { renewalFrom, type Receipt } from '@/services/billing';
+import { rememberDealt } from '@/services/questionPicker';
 import { normalizeSpeech } from '@/services/recognition';
 import { syncReminders } from '@/services/reminders';
 import { setSpeechSpeed } from '@/services/speech';
@@ -111,6 +112,8 @@ type AppState = {
   receipts: Receipt[];
   usage: Usage;
   activity: ActivityEntry[];
+  /** Mission question ids dealt lately, newest first — the next run deals others first. */
+  recentQuestions: string[];
 };
 
 type AppActions = {
@@ -138,6 +141,8 @@ type AppActions = {
   saveDraft: (situationId: string, draft: ConversationDraft) => void;
   clearDraft: (situationId: string) => void;
   /** One lesson; `results` holds a row per skill drilled (a mixed run has several). */
+  /** A mission run was dealt these questions, in the order they're asked. */
+  markQuestionsDealt: (ids: string[]) => void;
   finishMission: (input: {
     minutes: number;
     results: { skill: SkillId; correct: number; total: number }[];
@@ -185,6 +190,7 @@ const initialState: AppState = {
   subscription: null,
   receipts: [],
   activity: [],
+  recentQuestions: [],
   usage: { day: '', roleplays: 0, missions: 0 },
 };
 
@@ -569,6 +575,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const markQuestionsDealt = useCallback((ids: string[]) => {
+    setState((current) => ({
+      ...current,
+      recentQuestions: rememberDealt(current.recentQuestions, ids),
+    }));
+  }, []);
+
   const finishMission = useCallback<AppActions['finishMission']>(
     ({ minutes, results }) => {
       setState((current) => {
@@ -646,6 +659,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       saveDraft,
       clearDraft,
       finishMission,
+      markQuestionsDealt,
       subscribe,
       cancelSubscription,
       resumeSubscription,
@@ -675,6 +689,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       saveDraft,
       clearDraft,
       finishMission,
+      markQuestionsDealt,
     ],
   );
 
