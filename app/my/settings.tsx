@@ -127,7 +127,7 @@ export default function Settings() {
         title="Account"
         lines={[
           `${profile.nickname} · signed in with ${profile.signInProvider}.`,
-          'Your progress is saved on this device. Log out to clear it.',
+          'Your progress is saved on this device. Delete account to clear it.',
         ]}
         onClose={close}
       />
