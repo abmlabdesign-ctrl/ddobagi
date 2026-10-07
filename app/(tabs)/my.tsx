@@ -1,11 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card, RowDivider } from '@/components/Card';
 import { MenuRow } from '@/components/Controls';
-import { NativeLanguageSheet } from '@/components/NativeLanguageSheet';
 import { ScreenTitleBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { avatars, formatPractice } from '@/data/profile';
@@ -23,7 +21,6 @@ const MENU = [
 /** MY-1 My Page */
 export default function MyPage() {
   const { profile, isPlus } = useApp();
-  const [languageOpen, setLanguageOpen] = useState(false);
   const avatar = avatars.find((entry) => entry.id === profile.avatarId) ?? avatars[0];
   const goal = profile.weeklyGoal;
   const percent = Math.min(100, Math.round((goal.completed / goal.total) * 100));
@@ -115,15 +112,10 @@ export default function MyPage() {
         )}
 
         <Card radiusToken="group" elevation="card" paddingHorizontal={20} paddingVertical={6}>
-          {/* The same sheet as ON-2 and MY-1b; the pick shows here at once. */}
-          <MenuRow
-            label="Native language"
-            value={profile.nativeLanguage}
-            onPress={() => setLanguageOpen(true)}
-          />
-          {MENU.map((entry) => (
+          {/* The language lives in Settings (`App language`), not here. */}
+          {MENU.map((entry, index) => (
             <View key={entry.label}>
-              <RowDivider />
+              {index > 0 ? <RowDivider /> : null}
               <MenuRow
                 label={entry.label}
                 value={entry.label === 'Subscription' ? (isPlus ? 'Plus' : 'Free') : undefined}
@@ -133,8 +125,6 @@ export default function MyPage() {
           ))}
         </Card>
       </Screen>
-
-      <NativeLanguageSheet visible={languageOpen} onClose={() => setLanguageOpen(false)} />
     </ScreenShell>
   );
 }

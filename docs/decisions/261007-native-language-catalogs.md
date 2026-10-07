@@ -36,8 +36,9 @@
 
 ### 언어 설정 통합
 
-- 언어 설정은 `profile.nativeLanguage` **하나**입니다. Settings의 `App language`는 `Native language` 행으로 바꿨고,
-  About you(ON-2) · My Page(MY-1) · Edit profile(MY-1b) · Settings(MY-3)가 모두 같은 `NativeLanguageSheet`를 엽니다.
+- 언어 설정은 `profile.nativeLanguage` **하나**입니다. About you(ON-2) · Edit profile(MY-1b) · Settings(MY-3)가 모두 같은
+  `NativeLanguageSheet`를 엽니다. Settings에서는 행과 시트 제목을 `App language`로 부릅니다.
+- My Page(MY-1)의 `Native language` 행은 없앴습니다(추가 요청). 언어는 Settings에서 바꿉니다.
 - 고르는 즉시 프로필에 저장되고(AsyncStorage) 모든 화면이 같은 값을 읽으므로, 한 곳에서 바꾸면 다른 화면에도 바로 반영되고
   새로고침·재진입 후에도 유지됩니다.
 - `profile.appLanguage`는 없앴습니다. 이전 빌드의 저장 상태에 남은 값은 불러올 때 버립니다.
