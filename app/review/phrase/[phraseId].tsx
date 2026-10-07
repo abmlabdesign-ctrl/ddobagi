@@ -10,6 +10,7 @@ import { situationById } from '@/data/situations';
 import { EditIcon, SpeakerIcon } from '@/icons';
 import { speak } from '@/services/speech';
 import { useApp } from '@/store/AppStore';
+import { useMeaning } from '@/store/useMeaning';
 import { colors, spacing } from '@/theme/tokens';
 import { text, type } from '@/theme/typography';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -22,6 +23,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 export default function SavedPhraseDetail() {
   const { phraseId } = useLocalSearchParams<{ phraseId: string }>();
   const { savedPhrases, history, setPhraseNote } = useApp();
+  const meaningOf = useMeaning();
 
   const phrase = savedPhrases.find((entry) => entry.id === phraseId);
 
@@ -69,7 +71,7 @@ export default function SavedPhraseDetail() {
               <SpeakerIcon size={16} color={colors.inkAlt} />
             </Pressable>
           </View>
-          <Text style={styles.english}>{phrase.english}</Text>
+          <Text style={styles.english}>{meaningOf(phrase)}</Text>
           {phrase.said ? <Text style={styles.meta}>You said: {phrase.said}</Text> : null}
           <Text style={styles.meta}>
             {phrase.situationTitle ?? situation?.title ?? phrase.situationId} · Saved{' '}

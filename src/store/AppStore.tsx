@@ -5,6 +5,7 @@ import { freeLimits, planById, type PlanId } from '@/data/plans';
 import { defaultProfile } from '@/data/profile';
 import type { Mistake, SavedPhrase, SkillId } from '@/data/types';
 import { renewalFrom, type Receipt } from '@/services/billing';
+import { rememberDealt } from '@/services/questionPicker';
 import { normalizeSpeech } from '@/services/recognition';
 import { syncReminders } from '@/services/reminders';
 import { setSpeechSpeed } from '@/services/speech';
@@ -87,7 +88,10 @@ const ACTIVITY_CAP = 2000;
 type Usage = { day: string; roleplays: number; missions: number };
 
 type AppState = {
+  /** Finished onboarding once. Log out keeps it; only Delete account clears it. */
   onboarded: boolean;
+  /** Signed in on this device. Log out flips only this, so logging back in skips onboarding. */
+  signedIn: boolean;
   /** IN-1 ~ IN-4 have been shown once; they never come back, even after log out. */
   introSeen: boolean;
   profile: Profile;
@@ -108,12 +112,18 @@ type AppState = {
   receipts: Receipt[];
   usage: Usage;
   activity: ActivityEntry[];
+  /** Mission question ids dealt lately, newest first — the next run deals others first. */
+  recentQuestions: string[];
 };
 
 type AppActions = {
   completeOnboarding: () => void;
   finishIntro: () => void;
-  resetOnboarding: () => void;
+  /** ON-1 for a learner who already finished onboarding on this device. */
+  logIn: () => void;
+  logOut: () => void;
+  /** Wipes the learner, so the next sign-up starts onboarding from ON-1. */
+  deleteAccount: () => void;
   updateProfile: (patch: Partial<Profile>) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   markMistakeFixed: (id: string) => void;
@@ -131,6 +141,8 @@ type AppActions = {
   saveDraft: (situationId: string, draft: ConversationDraft) => void;
   clearDraft: (situationId: string) => void;
   /** One lesson; `results` holds a row per skill drilled (a mixed run has several). */
+  /** A mission run was dealt these questions, in the order they're asked. */
+  markQuestionsDealt: (ids: string[]) => void;
   finishMission: (input: {
     minutes: number;
     results: { skill: SkillId; correct: number; total: number }[];
@@ -162,6 +174,7 @@ const initialSettings: Settings = {
 
 const initialState: AppState = {
   onboarded: false,
+  signedIn: false,
   introSeen: false,
   profile: defaultProfile,
   settings: initialSettings,
@@ -177,6 +190,7 @@ const initialState: AppState = {
   subscription: null,
   receipts: [],
   activity: [],
+  recentQuestions: [],
   usage: { day: '', roleplays: 0, missions: 0 },
 };
 
@@ -273,6 +287,8 @@ function restore(raw: string | null): AppState {
     return {
       ...initialState,
       ...saved,
+      // Builds before log out kept the learner had no `signedIn`: onboarded meant signed in.
+      signedIn: saved.signedIn ?? saved.onboarded ?? false,
       // Drop the design-time sample mistakes an older build seeded the log with.
       mistakes: (saved.mistakes ?? []).filter((entry) => !LEGACY_SAMPLE_MISTAKES.has(entry.id)),
       // …and the sample phrases it seeded the Scrapbook with.
@@ -335,15 +351,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const trialPlan = state.subscription?.planId ?? null;
 
   // Reminders live in the OS scheduler, so the settings are pushed into it.
-  // Only once someone is signed in: the permission prompt must not greet ON-1.
+  // Only while someone is signed in: the permission prompt must not greet ON-1,
+  // and a logged-out phone must stop reminding. An empty plan clears the
+  // schedule without asking for permission.
+  const remindersOn = state.onboarded && state.signedIn;
   useEffect(() => {
-    if (!hydrated || !state.onboarded) return;
+    if (!hydrated) return;
     let cancelled = false;
     syncReminders({
-      practice: state.settings.practiceReminder,
-      review: state.settings.reviewAlerts,
+      practice: remindersOn && state.settings.practiceReminder,
+      review: remindersOn && state.settings.reviewAlerts,
       openMistakes,
-      trialEndsAt,
+      trialEndsAt: remindersOn ? trialEndsAt : null,
       trialPrice: trialPlan ? planById[trialPlan].price : null,
     }).then((result) => {
       if (!cancelled) setReminderStatus(result);
@@ -353,7 +372,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, [
     hydrated,
-    state.onboarded,
+    remindersOn,
     state.settings.practiceReminder,
     state.settings.reviewAlerts,
     openMistakes,
@@ -367,18 +386,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [state.settings.aiSpeechSpeed]);
 
   const completeOnboarding = useCallback(() => {
-    setState((current) => ({ ...current, onboarded: true }));
+    setState((current) => ({ ...current, onboarded: true, signedIn: true }));
   }, []);
 
   const finishIntro = useCallback(() => {
     setState((current) => (current.introSeen ? current : { ...current, introSeen: true }));
   }, []);
 
+  const logIn = useCallback(() => {
+    setState((current) => (current.signedIn ? current : { ...current, signedIn: true }));
+  }, []);
+
   /**
-   * Log out: this device forgets the learner entirely — except that it has
-   * seen the feature intro, which is first-launch only.
+   * Log out keeps the learner's progress and onboarding on the device, so
+   * signing back in goes straight home. With an account server, the server's
+   * copy decides this instead.
    */
-  const resetOnboarding = useCallback(() => {
+  const logOut = useCallback(() => {
+    setState((current) => ({ ...current, signedIn: false }));
+  }, []);
+
+  /**
+   * Delete account: this device forgets the learner entirely, so a new
+   * sign-up starts onboarding over — except that it has seen the feature
+   * intro, which is first-launch only.
+   */
+  const deleteAccount = useCallback(() => {
     setState((current) => ({ ...initialState, introSeen: current.introSeen }));
   }, []);
 
@@ -542,6 +575,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const markQuestionsDealt = useCallback((ids: string[]) => {
+    setState((current) => ({
+      ...current,
+      recentQuestions: rememberDealt(current.recentQuestions, ids),
+    }));
+  }, []);
+
   const finishMission = useCallback<AppActions['finishMission']>(
     ({ minutes, results }) => {
       setState((current) => {
@@ -605,7 +645,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       freeLeft: { roleplays: roleplaysLeft, missions: missionsLeft },
       completeOnboarding,
       finishIntro,
-      resetOnboarding,
+      logIn,
+      logOut,
+      deleteAccount,
       updateProfile,
       updateSettings,
       markMistakeFixed,
@@ -617,6 +659,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       saveDraft,
       clearDraft,
       finishMission,
+      markQuestionsDealt,
       subscribe,
       cancelSubscription,
       resumeSubscription,
@@ -632,7 +675,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       resumeSubscription,
       completeOnboarding,
       finishIntro,
-      resetOnboarding,
+      logIn,
+      logOut,
+      deleteAccount,
       updateProfile,
       updateSettings,
       markMistakeFixed,
@@ -644,6 +689,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       saveDraft,
       clearDraft,
       finishMission,
+      markQuestionsDealt,
     ],
   );
 

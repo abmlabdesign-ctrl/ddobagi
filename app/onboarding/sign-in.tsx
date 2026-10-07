@@ -11,7 +11,7 @@ import { text, type } from '@/theme/typography';
 
 /** ON-1 Sign up / Log in */
 export default function SignIn() {
-  const { updateProfile } = useApp();
+  const { onboarded, updateProfile, logIn } = useApp();
 
   // No auth server yet: the choice is remembered so Settings can show which
   // account this is, and the real sign-in plugs in here.
@@ -21,6 +21,12 @@ export default function SignIn() {
       return;
     }
     updateProfile({ signInProvider: provider, email: null });
+    // Logged out, not deleted: onboarding is already done, so straight home.
+    if (onboarded) {
+      logIn();
+      router.replace('/(tabs)');
+      return;
+    }
     router.push('/onboarding/consent');
   };
 

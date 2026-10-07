@@ -19,3 +19,6 @@
 | 26-10-01 | [Mistake log 숫자는 확인하지 않은 오류만 센다](./261001-mistake-read-state.md) | 적용됨 |
 | 26-10-02 | [대화 기록 History · Done 기준 오류 수 · 독립 스크랩 · 홈 글라스 카드](./261002-transcript-history-done-count.md) | 적용됨 |
 | 26-10-02 | [기능 소개를 최종 시안 4장으로 바꾼다](./261002-feature-intro-final.md) | 적용됨 |
+| 26-10-07 | [로그아웃은 온보딩을 유지하고, 계정 삭제만 초기화한다](./261007-logout-vs-delete-account.md) | 적용됨 |
+| 26-10-07 | [뜻 캡션은 Native language로, 번역이 없으면 영어로](./261007-native-language-meanings.md) | 적용됨 (번역 데이터 없음) |
+| 26-10-07 | [미션 문제 은행 확장과 최근 문제 회피 출제](./261007-mission-question-bank.md) | 적용됨 (문항 검수 필요) |

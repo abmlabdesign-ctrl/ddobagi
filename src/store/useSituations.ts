@@ -8,7 +8,7 @@ import { useApp, type ConversationDraft } from './AppStore';
 /**
  * The catalog with the learner's own progress on it. The card's bar is how far
  * through the conversation they got: a run saved part-way shows its percent,
- * a finished one shows 100%. Unplayed situations keep the catalog's value.
+ * a finished one shows 100%. A situation never played has no progress at all.
  */
 export function useSituations() {
   const { sessions, drafts } = useApp();
@@ -20,17 +20,19 @@ export function useSituations() {
       if (sessions[situation.id]) {
         return { ...situation, progress: { completed: 1, total: 1, percent: 100 } };
       }
-      return situation;
+      // Only saved runs count — whatever the catalog carries is ignored.
+      return { ...situation, progress: undefined };
     };
 
     const situations = seedSituations.map(withProgress);
     const homeFeatured = seedFeatured.map(withProgress);
 
-    // HM-1's resume card: the most recently saved run, else the catalog's.
+    // HM-1's resume card: the most recently saved unfinished run. No saved
+    // run (a first visit, or everything finished) means no card.
     const lastSaved = Object.entries(drafts).sort(([, a], [, b]) => b.savedAt - a.savedAt)[0];
     const inProgress = lastSaved
-      ? situations.find((situation) => situation.id === lastSaved[0])
-      : situations.find((situation) => isInProgress(situation) && !sessions[situation.id]);
+      ? situations.find((situation) => situation.id === lastSaved[0] && isInProgress(situation))
+      : undefined;
 
     return { situations, homeFeatured, inProgress };
   }, [sessions, drafts]);

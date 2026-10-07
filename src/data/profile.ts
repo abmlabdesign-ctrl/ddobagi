@@ -1,3 +1,5 @@
+import type { NativeLanguage } from './types';
+
 export const avatars = [
   { id: 'blue', source: require('../../assets/avatars/avatar-1-blue.png') },
   { id: 'purple', source: require('../../assets/avatars/avatar-2-purple.png') },
@@ -11,7 +13,7 @@ export const defaultProfile = {
   nickname: 'Ddobak',
   avatarId: 'blue',
   appLanguage: 'English',
-  nativeLanguage: 'Vietnamese',
+  nativeLanguage: 'Vietnamese' as NativeLanguage,
   koreanLevel: 'Intermediate' as 'Beginner' | 'Intermediate' | 'Advanced',
   /** ON-2 answers. */
   studyDuration: null as string | null,
@@ -50,7 +52,7 @@ export const weeklyGoalOptions = [5, 10, 15, 20];
 export const weeklyGoalLabel = (total: number) => `Finish ${total} lessons`;
 
 /** MY-1b Native language list. */
-export const nativeLanguageOptions = [
+export const nativeLanguageOptions: NativeLanguage[] = [
   'English',
   'Vietnamese',
   'Chinese',

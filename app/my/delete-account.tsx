@@ -18,7 +18,7 @@ import { type } from '@/theme/typography';
  * clears it; with an account server, `remove` also calls its delete endpoint.
  */
 export default function DeleteAccount() {
-  const { profile, mistakes, savedPhrases, isPlus, subscription, resetOnboarding } = useApp();
+  const { profile, mistakes, savedPhrases, isPlus, subscription, deleteAccount } = useApp();
   const [confirmed, setConfirmed] = useState(false);
 
   const lost = [
@@ -29,7 +29,7 @@ export default function DeleteAccount() {
   ];
 
   const remove = () => {
-    resetOnboarding();
+    deleteAccount();
     router.replace('/onboarding/sign-in');
   };
 

@@ -70,9 +70,11 @@ Reply with JSON only, no other text:
 {
   "korean": "your line in Korean",
   "english": "a natural English translation of your line",
+  "meaning": "the same translation in {{native_language}}, or null when that is English",
   "hint": {
     "korean": "one thing the learner could say next, at their level, that moves toward the next unmet goal",
-    "english": "its English meaning"
+    "english": "its English meaning",
+    "meaning": "its meaning in {{native_language}}, or null when that is English"
   },
   "goals_met": [numbers of every goal met so far, including earlier turns],
   "done": true or false
@@ -86,7 +88,8 @@ Reply with JSON only, no other text:
 | 출력 | 앱 |
 |---|---|
 | `korean`, `english` | `Turn` (speaker `ai`) — RP-3 가운데 문장, `Show meaning` |
-| `hint` | RP-3 `Hint` 카드 |
+| `meaning` | `Turn.meanings[모국어]` — 있으면 `Show meaning`이 영어 대신 이 값을 보여줌 |
+| `hint` | RP-3 `Hint` 카드 (`hint.meaning` → `hintWords[].meanings[모국어]`) |
 | `goals_met` | 끝날 때 `SessionResult.goalsMet` |
 | `done` | `true`면 RP-4 리포트로 이동하고 채점 지시문 호출 |
 

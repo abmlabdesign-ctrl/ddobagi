@@ -19,6 +19,7 @@ import { ListChevronIcon, MoreIcon, SpeakerIcon } from '@/icons';
 import { speak } from '@/services/speech';
 import { todayFocus as recommendFocus } from '@/services/recommend';
 import { useApp, type SessionRecord } from '@/store/AppStore';
+import { useMeaning } from '@/store/useMeaning';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
 
@@ -283,13 +284,14 @@ const situationTitle = (phrase: SavedPhrase) =>
  */
 function ScrapbookTab() {
   const { savedPhrases, removePhrase } = useApp();
+  const meaningOf = useMeaning();
   const [query, setQuery] = useState('');
   const [menuId, setMenuId] = useState<string | null>(null);
 
   const needle = query.trim().toLowerCase();
   const phrases = needle
     ? savedPhrases.filter((phrase) =>
-        [phrase.korean, phrase.english, situationTitle(phrase)]
+        [phrase.korean, phrase.english, meaningOf(phrase), situationTitle(phrase)]
           .join(' ')
           .toLowerCase()
           .includes(needle),
@@ -342,6 +344,7 @@ function ScrapbookTab() {
 }
 
 function PhraseCard({ phrase, onMore }: { phrase: SavedPhrase; onMore: () => void }) {
+  const meaningOf = useMeaning();
   return (
     <Pressable
       onPress={() => router.push(`/review/phrase/${phrase.id}`)}
@@ -353,7 +356,7 @@ function PhraseCard({ phrase, onMore }: { phrase: SavedPhrase; onMore: () => voi
         <View style={styles.phraseTop}>
           <View style={styles.phraseText}>
             <Text style={styles.phraseKorean}>{phrase.korean}</Text>
-            <Text style={styles.phraseGloss}>{phrase.english}</Text>
+            <Text style={styles.phraseGloss}>{meaningOf(phrase)}</Text>
           </View>
           <Pressable
             onPress={onMore}

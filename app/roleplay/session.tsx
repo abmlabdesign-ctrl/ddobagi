@@ -33,8 +33,10 @@ import { romanize } from '@/services/romanize';
 import { recognitionMessage, useSpeechRecognition } from '@/services/recognition';
 import { micMessage, rememberClip, useVoiceRecorder } from '@/services/recorder';
 import { speak, stopSpeaking } from '@/services/speech';
+import { NOTHING_HEARD, asSaid, type SaidTurn } from '@/services/transcript';
 import { useApp, type JudgedLine } from '@/store/AppStore';
-import { colors, radius, shadows, spacing } from '@/theme/tokens';
+import { useMeaning } from '@/store/useMeaning';
+import { colors, hairline, radius, shadows, spacing } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
 
 /**
@@ -74,6 +76,7 @@ function Conversation({ script }: { script: ConversationScript }) {
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
   const navigation = useNavigation();
   const { finishSession, drafts, saveDraft } = useApp();
+  const meaningOf = useMeaning();
   const lineScrap = useLineScrap(id);
   // A run saved with `Save and leave` resumes where it stopped.
   const [draft] = useState(() => drafts[id]);
@@ -262,17 +265,12 @@ function Conversation({ script }: { script: ConversationScript }) {
     heard.reset();
   };
 
-  // RP-3b shows the conversation so far, with the learner's own words in
-  // place of the script's where they were heard.
+  // RP-3b shows the conversation so far as it actually went: the learner's
+  // own words, or "No answer heard" — never the script's example answer.
   const saidByTurn = Object.fromEntries(lines.map((line) => [line.turnId, line.said]));
   const liveTurns = script.turns
     .slice(0, aiPosition + 1)
-    .map((turn) =>
-      saidByTurn[turn.id] && saidByTurn[turn.id] !== turn.korean
-        ? // The script's English no longer matches what was actually said.
-          { ...turn, korean: saidByTurn[turn.id], english: '' }
-        : turn,
-    );
+    .map((turn) => asSaid(turn, saidByTurn[turn.id]));
 
   const takeControls = take ? { onRetry: retryTake, onSubmit: submitTake } : undefined;
 
@@ -344,7 +342,7 @@ function Conversation({ script }: { script: ConversationScript }) {
 
         {/* §6.2: English stays hidden on the live screen until the learner asks,
             and only ever for the AI's line — what the learner said needs no gloss. */}
-        {showMeaning ? <Text style={styles.caption}>{aiTurn.english}</Text> : null}
+        {showMeaning ? <Text style={styles.caption}>{meaningOf(aiTurn)}</Text> : null}
         <KoreanVoiceNotice />
       </ScrollView>
 
@@ -497,13 +495,14 @@ function LeaveSheet({
   );
 }
 
-type HintWord = { korean: string; english: string };
+type HintWord = NonNullable<Turn['hintWords']>[number];
 
 /**
  * The hint card, floating clear of the mic just above the `You` panel: a few
  * key words as `목  mok  — throat`, not the sentence they make.
  */
 function HintToast({ hint }: { hint: HintWord[] }) {
+  const meaningOf = useMeaning();
   return (
     <Animated.View
       entering={FadeInDown.duration(220)}
@@ -521,7 +520,7 @@ function HintToast({ hint }: { hint: HintWord[] }) {
           <View key={word.korean} style={styles.hintRow}>
             <Text style={styles.hintKorean}>{word.korean}</Text>
             <Text style={styles.hintRoman}>{romanize(word.korean)}</Text>
-            <Text style={styles.hintEnglish}>— {word.english}</Text>
+            <Text style={styles.hintEnglish}>— {meaningOf(word)}</Text>
           </View>
         ))
       )}
@@ -634,7 +633,7 @@ function LiveScript({
   situationId: string;
   take?: { onRetry: () => void; onSubmit: () => void };
   visible: boolean;
-  turns: Turn[];
+  turns: SaidTurn[];
   hint: HintWord[];
   hintOpen: boolean;
   userKorean: string;
@@ -643,12 +642,21 @@ function LiveScript({
   onHint: () => void;
   onClose: () => void;
 }) {
+  const meaningOf = useMeaning();
   const insets = useSafeAreaInsets();
   // Its own sheet and toast: this screen is a Modal, so they must draw inside it.
   const lineScrap = useLineScrap(situationId);
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    // Edge to edge like the screen under it, so the safe-area insets — and
+    // with them the bottom controls — come out the same on Android too.
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      navigationBarTranslucent
+    >
       <View style={[styles.root, { paddingTop: insets.top }]}>
         <View style={styles.topBar}>
           <Pressable
@@ -669,6 +677,16 @@ function LiveScript({
           >
             {turns.map((turn) => {
               const isUser = turn.speaker === 'user';
+              if (turn.unheard) {
+                return (
+                  <View
+                    key={turn.id}
+                    style={[styles.bubble, styles.bubbleUser, styles.bubbleUnheard]}
+                  >
+                    <Text style={styles.bubbleUnheardLabel}>{NOTHING_HEARD}</Text>
+                  </View>
+                );
+              }
               return (
                 <Pressable
                   key={turn.id}
@@ -688,7 +706,7 @@ function LiveScript({
                       need no translation back at them. */}
                   {isUser ? null : (
                     <Text style={styles.bubbleGloss} selectable={false}>
-                      {turn.english}
+                      {meaningOf(turn)}
                     </Text>
                   )}
                 </Pressable>
@@ -858,9 +876,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.gutter,
     paddingTop: spacing.xl,
   },
+  /**
+   * Fixed width, so the mic sits in the same spot on RP-3 and RP-3b and in
+   * every state: sized to content, `Roleplay` / `Try again` are wider than
+   * `Script` / `Hint` and push it off centre.
+   */
   controlPill: {
+    width: 104,
     height: 44,
-    paddingHorizontal: 18,
     borderRadius: radius.search,
     backgroundColor: colors.surfaceAlt,
     alignItems: 'center',
@@ -908,6 +931,12 @@ const styles = StyleSheet.create({
   },
   bubbleKorean: text(15, 23, '500', colors.inkAlt),
   bubbleGloss: text(12, 18, '400', colors.textSecondary),
+  /** A turn nothing was heard for: a quiet placeholder, not a line of Korean. */
+  bubbleUnheard: {
+    backgroundColor: colors.surface,
+    ...hairline,
+  },
+  bubbleUnheardLabel: text(13, 20, '500', colors.textTertiary),
   /** Held for a long-press: a light dim says the line is being picked up. */
   bubblePressed: {
     opacity: 0.7,

@@ -11,6 +11,7 @@ import { SpeakerIcon } from '@/icons';
 import { recognitionMessage, useSpeechRecognition } from '@/services/recognition';
 import { useVoiceRecorder } from '@/services/recorder';
 import { speak } from '@/services/speech';
+import { useMeaning } from '@/store/useMeaning';
 import {
   levelCheckQuestion,
   levelCheckSeconds,
@@ -25,6 +26,7 @@ import { text, type } from '@/theme/typography';
  * a question they didn't understand (handoff §6.2).
  */
 export default function LevelCheck() {
+  const meaningOf = useMeaning();
   const [recording, setRecording] = useState(false);
   const voice = useVoiceRecorder();
   const heard = useSpeechRecognition();
@@ -133,7 +135,7 @@ export default function LevelCheck() {
           </Pressable>
           <View style={styles.questionText}>
             <Text style={styles.korean}>{levelCheckQuestion.korean}</Text>
-            <Text style={styles.english}>{levelCheckQuestion.english}</Text>
+            <Text style={styles.english}>{meaningOf(levelCheckQuestion)}</Text>
           </View>
         </View>
         <KoreanVoiceNotice />
