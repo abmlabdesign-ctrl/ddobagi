@@ -88,7 +88,7 @@ type Usage = { day: string; roleplays: number; missions: number };
 
 type AppState = {
   onboarded: boolean;
-  /** IN-1 ~ IN-5 have been shown once; they never come back, even after log out. */
+  /** IN-1 ~ IN-4 have been shown once; they never come back, even after log out. */
   introSeen: boolean;
   profile: Profile;
   settings: Settings;

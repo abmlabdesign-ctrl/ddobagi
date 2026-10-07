@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
@@ -8,25 +9,33 @@ import {
   Text,
   useWindowDimensions,
   View,
+  type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/Button';
 import { ScreenShell } from '@/components/Screen';
 import { introPages, type IntroPage } from '@/data/intro';
 import { useApp } from '@/store/AppStore';
-import { colors, radius, shadows } from '@/theme/tokens';
+import { colors, radius } from '@/theme/tokens';
 import { text } from '@/theme/typography';
 
 /**
- * IN-1 ~ IN-5 Feature intro — ON-1b → here → ON-2. A five-page swipe carousel
- * (`또박이 UI - 00 기능 소개.dc.html`). `Skip` and the last page's
- * `Check my level` both lead into setup; it's shown once and never again.
+ * IN-1 ~ IN-4 Feature intro — ON-1b → here → ON-2, shown once.
+ *
+ * Final intro comp (390×844): a #F7F8FD hero with the page graphic centred
+ * under `skip`, fading to white over 24px; then the centred title and two-line
+ * body, the page dots and a full-width CTA. The hero takes whatever height is
+ * left, so the bottom block keeps the comp's spacing on every phone.
+ * `Next` pages forward; `skip` (on every page) and the last page's
+ * `Get started` lead into setup.
  */
 export default function Intro() {
   const { finishIntro } = useApp();
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const pager = useRef<ScrollView>(null);
   const [page, setPage] = useState(0);
   const last = page === introPages.length - 1;
@@ -42,33 +51,15 @@ export default function Intro() {
     if (next !== page) setPage(next);
   };
 
-  // The dots double as a way to page without a swipe (a laptop has none).
   const goTo = (index: number) => pager.current?.scrollTo({ x: index * width, animated: true });
 
   return (
-    <ScreenShell background="surface" bottomEdge="content">
-      {/* `height:48; padding:0 24` — Skip on the right; IN-5 keeps the row empty. */}
+    <ScreenShell background="surface-alt" bottomEdge="dock">
+      {/* `skip` sits 25 under the status bar, right-aligned on the 24 gutter. */}
       <View style={styles.topBar}>
-        {last ? null : (
-          <Pressable onPress={done} hitSlop={10} accessibilityRole="button">
-            <Text style={styles.skip}>Skip</Text>
-          </Pressable>
-        )}
-      </View>
-
-      <View style={styles.dots} accessibilityRole="tablist">
-        {introPages.map((entry, index) => (
-          <Pressable
-            key={entry.id}
-            onPress={() => goTo(index)}
-            hitSlop={6}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: index === page }}
-            accessibilityLabel={`Page ${index + 1} of ${introPages.length}`}
-          >
-            <View style={[styles.dot, index === page ? styles.dotActive : null]} />
-          </Pressable>
-        ))}
+        <Pressable onPress={done} hitSlop={10} accessibilityRole="button">
+          <Text style={styles.skip}>skip</Text>
+        </Pressable>
       </View>
 
       <ScrollView
@@ -79,142 +70,179 @@ export default function Intro() {
         onScroll={onScroll}
         scrollEventThrottle={16}
         style={styles.pager}
+        contentContainerStyle={styles.pagerContent}
       >
-        {introPages.map((entry, index) => (
-          <IntroSlide
-            key={entry.id}
-            page={entry}
-            width={width}
-            onFinish={index === introPages.length - 1 ? done : undefined}
-          />
+        {introPages.map((entry) => (
+          <IntroSlide key={entry.id} page={entry} width={width} />
         ))}
       </ScrollView>
+
+      <View style={[styles.bottom, { paddingBottom: Math.max(25, insets.bottom) }]}>
+        <View style={styles.dots} accessibilityRole="tablist">
+          {introPages.map((entry, index) => (
+            <Pressable
+              key={entry.id}
+              onPress={() => goTo(index)}
+              hitSlop={6}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: index === page }}
+              accessibilityLabel={`Page ${index + 1} of ${introPages.length}`}
+            >
+              <View style={[styles.dot, index === page ? styles.dotActive : null]} />
+            </Pressable>
+          ))}
+        </View>
+        <Button
+          label={last ? 'Get started' : 'Next'}
+          onPress={last ? done : () => goTo(page + 1)}
+          style={styles.cta}
+        />
+      </View>
     </ScreenShell>
   );
 }
 
-function IntroSlide({
-  page,
-  width,
-  onFinish,
-}: {
-  page: IntroPage;
-  width: number;
-  onFinish?: () => void;
-}) {
+function IntroSlide({ page, width }: { page: IntroPage; width: number }) {
+  /** The room the hero leaves for the art, measured — it depends on the phone. */
+  const [box, setBox] = useState({ width: 0, height: 0 });
+  const onArtLayout = (event: LayoutChangeEvent) => {
+    const { width: w, height: h } = event.nativeEvent.layout;
+    setBox((current) =>
+      current.width === w && current.height === h ? current : { width: w, height: h },
+    );
+  };
+  // Never past the asset's own size and never stretched. `fit` also keeps
+  // it whole; `top` lets the hero's bottom edge cut it.
+  const top = page.artLayout === 'top';
+  const scale = Math.min(
+    1,
+    box.width / page.artWidth,
+    top ? Infinity : box.height / page.artHeight,
+  );
+  const ready = box.width > 0 && box.height > 0;
+
   return (
     <View style={[styles.slide, { width }]}>
+      <View style={styles.hero}>
+        <View style={[styles.artArea, top ? styles.artAreaTop : null]} onLayout={onArtLayout}>
+          {ready ? (
+            <Image
+              source={page.art}
+              style={{ width: page.artWidth * scale, height: page.artHeight * scale }}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
+            />
+          ) : null}
+        </View>
+        {/* Over the art, so a graphic that runs past the hero fades out instead of ending in a hard edge. */}
+        <LinearGradient
+          colors={[colors.surfaceAltClear, colors.surface]}
+          style={styles.fade}
+          pointerEvents="none"
+        />
+      </View>
+
       <View style={styles.copy}>
         <Text style={styles.title}>{page.title}</Text>
         <Text style={styles.body}>{page.body}</Text>
       </View>
-
-      <View style={[styles.panel, { backgroundColor: page.tint }]}>
-        <View style={styles.device}>
-          <View style={styles.screen}>
-            <Image
-              source={page.shot}
-              style={styles.shot}
-              resizeMode="cover"
-              accessibilityIgnoresInvertColors
-            />
-          </View>
-        </View>
-      </View>
-
-      {onFinish ? (
-        <View style={styles.cta}>
-          <Button label="Check my level" onPress={onFinish} />
-        </View>
-      ) : null}
     </View>
   );
 }
 
+const FADE = 24;
+/** comp: body → dots 25, dots 4 tall, dots → CTA 34, CTA 56, 25 to the bottom edge. */
+const COPY_TO_DOTS = 25;
+const DOTS_TO_CTA = 34;
+const CTA_HEIGHT = 56;
+
 const styles = StyleSheet.create({
   topBar: {
-    height: 48,
+    height: 50,
     paddingHorizontal: 24,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
-  skip: text(15, 22, '500', colors.textSecondary),
-  /** 20×6 primary pill for the current page, 6×6 #D1D5D9 dots for the rest, gap 6. */
-  dots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: radius.pill,
-    backgroundColor: colors.border,
-  },
-  dotActive: {
-    width: 20,
-    backgroundColor: colors.primary,
-  },
+  skip: text(14, 20, '400', colors.introSkip),
   pager: {
     flex: 1,
+  },
+  pagerContent: {
+    flexGrow: 1,
   },
   slide: {
     flex: 1,
   },
-  /** `padding:22px 28px 0; gap:4`, and it takes the slack so the panel sits low. */
+  /** Grey ground under the art, fading to the white copy block. */
+  hero: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  /** The art's box stops where the fade starts; a `top` graphic runs on under it. */
+  artArea: {
+    flex: 1,
+    marginBottom: FADE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 22,
+  },
+  /** IN-4: the phone hangs 21 under the `skip` row and runs past the fade. */
+  artAreaTop: {
+    justifyContent: 'flex-start',
+    paddingTop: 21,
+    marginBottom: 0,
+    overflow: 'visible',
+  },
+  /** comp: #F7F8FD holds to y≈561, white by y≈585. */
+  fade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: FADE,
+  },
+  /** `padding-top:40` above the title; title 18/26 → 9 → body 14/20 × 2. */
   copy: {
-    flexGrow: 1,
-    flexShrink: 0,
-    paddingTop: 22,
-    paddingHorizontal: 28,
-    gap: 4,
+    backgroundColor: colors.surface,
+    paddingTop: 40,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    gap: 9,
   },
   title: {
-    ...text(18, 38, '700', colors.ink),
-    letterSpacing: -0.18,
+    ...text(18, 26, '700', colors.ink),
+    textAlign: 'center',
   },
-  body: text(14, 25, '400', colors.introBody),
-  /**
-   * `margin:8px 24px 24px; height:500; radius 32; padding-top 32`. On a phone
-   * shorter than the 844 frame the panel gives way first — the mockup inside
-   * is already cropped by it, so it just shows a little less of the shot.
-   */
-  panel: {
-    flexBasis: 500,
-    flexShrink: 1,
-    maxHeight: 500,
-    minHeight: 240,
-    marginTop: 8,
-    marginHorizontal: 24,
-    marginBottom: 24,
-    borderRadius: 32,
-    overflow: 'hidden',
-    alignItems: 'center',
-    paddingTop: 32,
+  body: {
+    ...text(14, 20, '400', colors.introBody),
+    textAlign: 'center',
   },
-  /** 258×560, radius 38, ink bezel 7px. */
-  device: {
-    width: 258,
-    height: 560,
-    borderRadius: 38,
-    backgroundColor: colors.ink,
-    padding: 7,
-    ...shadows.device,
-  },
-  screen: {
-    width: 244,
-    height: 528,
-    borderRadius: 31,
-    overflow: 'hidden',
-  },
-  shot: {
-    width: '100%',
-    height: '100%',
-  },
-  /** IN-5 only — `padding:0 24px 12px`. */
-  cta: {
+  bottom: {
+    backgroundColor: colors.surface,
+    paddingTop: COPY_TO_DOTS,
     paddingHorizontal: 24,
-    paddingBottom: 12,
+    gap: DOTS_TO_CTA,
+  },
+  /** 16×4 primary pill for the current page, 4×4 #D1D5D9 dots for the rest, gap 4. */
+  dots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  dot: {
+    width: 4,
+    height: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.border,
+  },
+  dotActive: {
+    width: 16,
+    backgroundColor: colors.primary,
+  },
+  /** comp: 342×56, radius 16 — a touch tighter than the shared 18. */
+  cta: {
+    height: CTA_HEIGHT,
+    borderRadius: 16,
   },
 });

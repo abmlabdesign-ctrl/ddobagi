@@ -19,6 +19,8 @@ export const colors = {
 
   surface: '#FFFFFF',
   surfaceAlt: '#F7F8FD',
+  /** surfaceAlt at 0% — the start of a fade from it to white, without a grey dip. */
+  surfaceAltClear: 'rgba(247,248,253,0)',
   /** #FFFFFF at 54% — the HM-1 resume card's glass fill. */
   glassFill: 'rgba(255,255,255,0.54)',
   canvas: '#E6E8EE',
@@ -41,11 +43,10 @@ export const colors = {
   info: '#0091FF',
   infoBg: '#EBF9FF',
 
-  /** IN-1 ~ IN-5 body copy — a touch darker than textSecondary. */
+  /** IN-1 ~ IN-4 body copy — a touch darker than textSecondary. */
   introBody: '#6B727A',
-  /** IN-2 / IN-4 panel tints; the other three reuse primary100 / infoBg / successBg. */
-  introLavender: '#F3F0FF',
-  introButter: '#FFF8E5',
+  /** IN-1 ~ IN-4 `skip` — measured off the final intro comp. */
+  introSkip: '#585C61',
 
   bubbleUser: '#E5EFFF',
   bubbleUserStrong: '#D8E7FF',
@@ -86,7 +87,6 @@ export const radius = {
   group: 24,
   /** 24 — bottom sheets. */
   sheet: 24,
-  device: 40,
   pill: 999,
 } as const;
 
@@ -132,8 +132,6 @@ export const shadows = {
   float: shadow('#324458', 12, 40, 0.14, 8),
   /** 0 -4px 24px rgba(50,68,88,0.08) */
   bottomNav: shadow('#324458', -4, 24, 0.08, 12),
-  /** 0 16px 40px rgba(50,68,88,0.18) — IN-1 ~ IN-5 phone mockup. */
-  device: shadow('#324458', 16, 40, 0.18, 12),
   /** 0 8px 24px rgba(25,31,40,0.18) */
   modal: shadow('#191F28', 8, 24, 0.18, 10),
   /** 0 0 32px rgba(255,106,61,0.5) — mic button and the home resume card. */
