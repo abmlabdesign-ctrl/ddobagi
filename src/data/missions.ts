@@ -161,7 +161,7 @@ export const missions: Mission[] = [
     title: 'Speak without pausing',
     kind: 'fluency',
     mode: 'speak',
-    questionCount: 4,
+    questionCount: 6,
     minutes: 3,
     questions: [
       {
@@ -321,7 +321,7 @@ export const missions: Mission[] = [
     title: 'Fill in the particles',
     kind: 'particles',
     mode: 'write',
-    questionCount: 7,
+    questionCount: 6,
     minutes: 2,
     questions: [
       {
@@ -513,7 +513,7 @@ export const missions: Mission[] = [
     title: 'Rewrite it politely',
     kind: 'politeness',
     mode: 'write',
-    questionCount: 8,
+    questionCount: 6,
     minutes: 3,
     questions: [
       {
@@ -603,7 +603,7 @@ export const missions: Mission[] = [
     title: 'Pick the answer that fits',
     kind: 'context',
     mode: 'choice',
-    questionCount: 5,
+    questionCount: 6,
     minutes: 3,
     questions: [
       {
