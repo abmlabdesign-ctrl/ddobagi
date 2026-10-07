@@ -33,9 +33,10 @@ import { romanize } from '@/services/romanize';
 import { recognitionMessage, useSpeechRecognition } from '@/services/recognition';
 import { micMessage, rememberClip, useVoiceRecorder } from '@/services/recorder';
 import { speak, stopSpeaking } from '@/services/speech';
+import { NOTHING_HEARD, asSaid, type SaidTurn } from '@/services/transcript';
 import { useApp, type JudgedLine } from '@/store/AppStore';
 import { useMeaning } from '@/store/useMeaning';
-import { colors, radius, shadows, spacing } from '@/theme/tokens';
+import { colors, hairline, radius, shadows, spacing } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
 
 /**
@@ -264,17 +265,12 @@ function Conversation({ script }: { script: ConversationScript }) {
     heard.reset();
   };
 
-  // RP-3b shows the conversation so far, with the learner's own words in
-  // place of the script's where they were heard.
+  // RP-3b shows the conversation so far as it actually went: the learner's
+  // own words, or "No answer heard" — never the script's example answer.
   const saidByTurn = Object.fromEntries(lines.map((line) => [line.turnId, line.said]));
   const liveTurns = script.turns
     .slice(0, aiPosition + 1)
-    .map((turn) =>
-      saidByTurn[turn.id] && saidByTurn[turn.id] !== turn.korean
-        ? // The script's English no longer matches what was actually said.
-          { ...turn, korean: saidByTurn[turn.id], english: '', meanings: undefined }
-        : turn,
-    );
+    .map((turn) => asSaid(turn, saidByTurn[turn.id]));
 
   const takeControls = take ? { onRetry: retryTake, onSubmit: submitTake } : undefined;
 
@@ -637,7 +633,7 @@ function LiveScript({
   situationId: string;
   take?: { onRetry: () => void; onSubmit: () => void };
   visible: boolean;
-  turns: Turn[];
+  turns: SaidTurn[];
   hint: HintWord[];
   hintOpen: boolean;
   userKorean: string;
@@ -652,7 +648,15 @@ function LiveScript({
   const lineScrap = useLineScrap(situationId);
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    // Edge to edge like the screen under it, so the safe-area insets — and
+    // with them the bottom controls — come out the same on Android too.
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      navigationBarTranslucent
+    >
       <View style={[styles.root, { paddingTop: insets.top }]}>
         <View style={styles.topBar}>
           <Pressable
@@ -673,6 +677,16 @@ function LiveScript({
           >
             {turns.map((turn) => {
               const isUser = turn.speaker === 'user';
+              if (turn.unheard) {
+                return (
+                  <View
+                    key={turn.id}
+                    style={[styles.bubble, styles.bubbleUser, styles.bubbleUnheard]}
+                  >
+                    <Text style={styles.bubbleUnheardLabel}>{NOTHING_HEARD}</Text>
+                  </View>
+                );
+              }
               return (
                 <Pressable
                   key={turn.id}
@@ -862,9 +876,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.gutter,
     paddingTop: spacing.xl,
   },
+  /**
+   * Fixed width, so the mic sits in the same spot on RP-3 and RP-3b and in
+   * every state: sized to content, `Roleplay` / `Try again` are wider than
+   * `Script` / `Hint` and push it off centre.
+   */
   controlPill: {
+    width: 104,
     height: 44,
-    paddingHorizontal: 18,
     borderRadius: radius.search,
     backgroundColor: colors.surfaceAlt,
     alignItems: 'center',
@@ -912,6 +931,12 @@ const styles = StyleSheet.create({
   },
   bubbleKorean: text(15, 23, '500', colors.inkAlt),
   bubbleGloss: text(12, 18, '400', colors.textSecondary),
+  /** A turn nothing was heard for: a quiet placeholder, not a line of Korean. */
+  bubbleUnheard: {
+    backgroundColor: colors.surface,
+    ...hairline,
+  },
+  bubbleUnheardLabel: text(13, 20, '500', colors.textTertiary),
   /** Held for a long-press: a light dim says the line is being picked up. */
   bubblePressed: {
     opacity: 0.7,

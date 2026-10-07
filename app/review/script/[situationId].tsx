@@ -20,9 +20,10 @@ import {
 import { normalizeSpeech } from '@/services/recognition';
 import { clipFor, useClipPlayer } from '@/services/recorder';
 import { speak, stopSpeaking } from '@/services/speech';
+import { NOTHING_HEARD, asSaid, type SaidTurn } from '@/services/transcript';
 import { shortDate, useApp, type SessionResult } from '@/store/AppStore';
 import { useMeaning } from '@/store/useMeaning';
-import { colors, layout, radius, shadows, spacing } from '@/theme/tokens';
+import { colors, hairline, layout, radius, shadows, spacing } from '@/theme/tokens';
 import { gloss, text, type } from '@/theme/typography';
 
 /**
@@ -72,6 +73,11 @@ export default function MistakeScript() {
     if (index < 0 || index >= turns.length) {
       stopSpeaking();
       setCursor(null);
+      return;
+    }
+    // Nothing was said on an unheard turn, so there's nothing to read.
+    if (turns[index].unheard) {
+      playFrom(index + 1);
       return;
     }
     setCursor(index);
@@ -144,6 +150,16 @@ export default function MistakeScript() {
           const savedPhrase = turn.mistake
             ? savedPhrases.find((phrase) => phrase.korean === unquote(turn.mistake!.suggested.korean))
             : undefined;
+
+          if (turn.unheard) {
+            return (
+              <View key={turn.id} style={[styles.turn, styles.alignEnd]}>
+                <View style={[styles.bubble, styles.bubbleUser, styles.bubbleUnheard]}>
+                  <Text style={styles.unheardLabel}>{NOTHING_HEARD}</Text>
+                </View>
+              </View>
+            );
+          }
 
           const bubble = (
             <View
@@ -368,7 +384,7 @@ function transcriptFor(
   situationId: string,
   mistakes: Mistake[],
   session: SessionResult | undefined,
-): Turn[] {
+): SaidTurn[] {
   const script = conversationBySituation[situationId];
   if (!script) {
     return mistakes
@@ -386,17 +402,10 @@ function transcriptFor(
 
   return script.turns.map((turn) => {
     if (turn.speaker !== 'user') return turn;
-    const heard = session.said[turn.id]?.trim() ?? '';
-    if (!heard) {
-      // Nothing was heard for this answer, so there's nothing to show or judge.
-      return {
-        ...turn,
-        korean: '…',
-        english: "We didn't catch this answer.",
-        meanings: undefined,
-        mistake: undefined,
-      };
-    }
+    // The same reading RP-3b gives the live transcript.
+    const said = asSaid(turn, session.said[turn.id]);
+    // Nothing was heard for this answer, so there's nothing to show or judge.
+    if (said.unheard) return said;
     // Runs from older builds have no snapshot; they read the live log entry.
     const logged =
       session.flagged.includes(turn.id) && turn.mistake
@@ -408,7 +417,7 @@ function transcriptFor(
                 normalizeSpeech(turn.mistake!.suggested.korean),
           ))
         : undefined;
-    return { ...turn, korean: heard, english: '', meanings: undefined, mistake: logged };
+    return { ...said, mistake: logged };
   });
 }
 
@@ -531,6 +540,12 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
   },
   korean: text(15, 23, '500', colors.inkAlt),
+  /** A turn nothing was heard for — matches RP-3b. */
+  bubbleUnheard: {
+    backgroundColor: colors.surface,
+    ...hairline,
+  },
+  unheardLabel: text(13, 20, '500', colors.textTertiary),
   koreanFlagged: text(15, 23, '600', colors.primary),
   gloss: text(12, 18, '400', colors.textSecondary),
   detailBlock: {
