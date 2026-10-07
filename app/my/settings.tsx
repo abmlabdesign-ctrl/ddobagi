@@ -32,9 +32,9 @@ export default function Settings() {
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>
         <Group title="Learning">
-          {/* The one language setting — the same one About you and My Page change. */}
+          {/* The one language setting — the same value About you and Edit profile change. */}
           <MenuRow
-            label="Native language"
+            label="App language"
             value={profile.nativeLanguage}
             height={56}
             onPress={() => setSheet('language')}
@@ -115,7 +115,7 @@ export default function Settings() {
         <Text style={styles.version}>{settingsCopy.appVersion}</Text>
       </Screen>
 
-      <NativeLanguageSheet visible={sheet === 'language'} onClose={close} />
+      <NativeLanguageSheet visible={sheet === 'language'} title="App language" onClose={close} />
       <NoticeSheet
         visible={sheet === 'account'}
         title="Account"
