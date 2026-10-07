@@ -3,7 +3,10 @@ import type { NativeLanguage } from '@/data/types';
 import es from './es';
 import id from './id';
 import ja from './ja';
+import mn from './mn';
+import ne from './ne';
 import th from './th';
+import uz from './uz';
 import vi from './vi';
 import zh from './zh';
 
@@ -22,4 +25,7 @@ export const catalogs: Partial<Record<NativeLanguage, Catalog>> = {
   Indonesian: id,
   Thai: th,
   Spanish: es,
+  Mongolian: mn,
+  Uzbek: uz,
+  Nepali: ne,
 };

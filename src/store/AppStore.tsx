@@ -284,6 +284,10 @@ function restore(raw: string | null): AppState {
   if (!raw) return initialState;
   try {
     const saved = JSON.parse(raw) as Partial<AppState>;
+    // `appLanguage` was a second language setting; `nativeLanguage` is the only one now.
+    const { appLanguage: _dropped, ...savedProfile } = (saved.profile ?? {}) as Partial<Profile> & {
+      appLanguage?: string;
+    };
     return {
       ...initialState,
       ...saved,
@@ -298,7 +302,7 @@ function restore(raw: string | null): AppState {
       // Builds before the history kept only the latest run per situation;
       // those runs become its first entries.
       history: saved.history ?? historyFromSessions(saved.sessions ?? {}),
-      profile: { ...defaultProfile, ...saved.profile },
+      profile: { ...defaultProfile, ...savedProfile },
       settings: { ...initialSettings, ...saved.settings },
     };
   } catch {

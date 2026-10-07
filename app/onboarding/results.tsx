@@ -52,19 +52,9 @@ export default function Results() {
         </Card>
       </Screen>
 
-      <CtaDock row gap={8}>
-        <Button
-          label="Home"
-          variant="tonal"
-          height={52}
-          onPress={start}
-        />
-        <Button
-          label="Start practicing"
-          height={52}
-          style={styles.primary}
-          onPress={start}
-        />
+      {/* One way on: the old `Home` button went to the same place. */}
+      <CtaDock>
+        <Button label="Start practicing" height={52} onPress={start} />
       </CtaDock>
     </ScreenShell>
   );
@@ -86,8 +76,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
-  },
-  primary: {
-    flex: 1,
   },
 });

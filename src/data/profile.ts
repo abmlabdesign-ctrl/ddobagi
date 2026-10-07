@@ -12,7 +12,6 @@ export const avatars = [
 export const defaultProfile = {
   nickname: 'Ddobak',
   avatarId: 'blue',
-  appLanguage: 'English',
   nativeLanguage: 'Vietnamese' as NativeLanguage,
   koreanLevel: 'Intermediate' as 'Beginner' | 'Intermediate' | 'Advanced',
   /** ON-2 answers. */
@@ -64,9 +63,6 @@ export const nativeLanguageOptions: NativeLanguage[] = [
   'Thai',
   'Spanish',
 ];
-
-/** The UI ships in English only for now (§6); the picker says so rather than hiding the row. */
-export const appLanguageOptions = ['English'];
 
 /** `380` → `6h 20m`. */
 export function formatPractice(minutes: number) {
