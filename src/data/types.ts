@@ -69,7 +69,10 @@ export type Situation = {
   minutes: number;
   /** Second half of the RP-2 breadcrumb, e.g. `Clinic · Pharmacy`. */
   place?: string;
-  /** Shown on the home and browse cards when the learner has started it. */
+  /**
+   * Shown on the home and browse cards when the learner has started it.
+   * Derived from saved runs by `useSituations` — never set in the catalog.
+   */
   progress?: { completed: number; total: number; percent: number };
   /** Featured situations lead the unfiltered browse list and the home rail. */
   featured?: boolean;

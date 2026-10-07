@@ -17,7 +17,6 @@ export const situations: Situation[] = [
     minutes: 8,
     place: 'Café',
     featured: true,
-    progress: { completed: 7, total: 8, percent: 88 },
     detail: {
       situation:
         "You stop by a café before class. Order a drink, say whether you're staying, and pick a size.",
@@ -38,7 +37,6 @@ export const situations: Situation[] = [
     minutes: 8,
     place: 'Pharmacy',
     featured: true,
-    progress: { completed: 1, total: 4, percent: 25 },
     detail: {
       situation:
         "You've caught a cold and stop by a pharmacy. Describe your symptoms, get a recommendation, and buy the medicine.",
