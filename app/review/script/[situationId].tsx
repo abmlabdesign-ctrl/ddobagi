@@ -22,7 +22,7 @@ import { clipFor, useClipPlayer } from '@/services/recorder';
 import { speak, stopSpeaking } from '@/services/speech';
 import { NOTHING_HEARD, asSaid, type SaidTurn } from '@/services/transcript';
 import { shortDate, useApp, type SessionResult } from '@/store/AppStore';
-import { useMeaning } from '@/store/useMeaning';
+import { useHelpText, useMeaning } from '@/store/useMeaning';
 import { colors, hairline, layout, radius, shadows, spacing } from '@/theme/tokens';
 import { gloss, text, type } from '@/theme/typography';
 
@@ -43,6 +43,7 @@ export default function MistakeScript() {
   const situation = situationById[situationId];
   const { mistakes, history, savedPhrases, savePhrase, removePhrase, markMistakeDone } = useApp();
   const meaningOf = useMeaning();
+  const helpText = useHelpText();
   // A picked run from the history list; without one, the newest finished run.
   const record = runParam
     ? history.find((entry) => entry.id === runParam)
@@ -287,7 +288,7 @@ export default function MistakeScript() {
 
                     <View style={styles.whySection}>
                       <Text style={styles.whyLabel}>Why</Text>
-                      <Text style={styles.why}>{turn.mistake.why}</Text>
+                      <Text style={styles.why}>{helpText(turn.mistake.why)}</Text>
                     </View>
 
                     <View style={styles.detailActions}>

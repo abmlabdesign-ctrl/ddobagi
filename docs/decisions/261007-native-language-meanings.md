@@ -1,7 +1,7 @@
 # 뜻 캡션은 Native language로, 번역이 없으면 영어로
 
 - 날짜: 26-10-07
-- 상태: 적용됨 (구조만, 번역 데이터 없음)
+- 상태: 적용됨 — 번역 데이터와 적용 범위는 [261007-native-language-catalogs](./261007-native-language-catalogs.md)에서 이어짐
 - 정한 사람: 기획 요청 — "Native Language 실제 UI 반영"
 
 ## 배경

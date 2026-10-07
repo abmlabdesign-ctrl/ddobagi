@@ -5,16 +5,17 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Card, RowDivider } from '@/components/Card';
 import { MenuRow, SliderRow, Toggle } from '@/components/Controls';
 import { NavBar } from '@/components/NavBar';
-import { NoticeSheet, PickerSheet } from '@/components/PickerSheet';
+import { NativeLanguageSheet } from '@/components/NativeLanguageSheet';
+import { NoticeSheet } from '@/components/PickerSheet';
 import { Screen, ScreenShell } from '@/components/Screen';
-import { appLanguageOptions, settings as settingsCopy } from '@/data/profile';
+import { settings as settingsCopy } from '@/data/profile';
 import { useApp } from '@/store/AppStore';
 import { colors, spacing } from '@/theme/tokens';
 import { text, type } from '@/theme/typography';
 
 /** MY-3 Settings */
 export default function Settings() {
-  const { profile, settings, isPlus, reminderStatus, updateProfile, updateSettings, logOut } =
+  const { profile, settings, isPlus, reminderStatus, updateSettings, logOut } =
     useApp();
   const [sheet, setSheet] = useState<'language' | 'account' | null>(null);
   const close = () => setSheet(null);
@@ -31,9 +32,10 @@ export default function Settings() {
 
       <Screen scroll background="surface-alt" contentStyle={styles.content}>
         <Group title="Learning">
+          {/* The one language setting — the same one About you and My Page change. */}
           <MenuRow
-            label="App language"
-            value={profile.appLanguage}
+            label="Native language"
+            value={profile.nativeLanguage}
             height={56}
             onPress={() => setSheet('language')}
           />
@@ -113,15 +115,7 @@ export default function Settings() {
         <Text style={styles.version}>{settingsCopy.appVersion}</Text>
       </Screen>
 
-      <PickerSheet
-        visible={sheet === 'language'}
-        title="App language"
-        note="Ddobak is in English for now. More languages are coming."
-        options={appLanguageOptions}
-        selected={profile.appLanguage}
-        onSelect={(appLanguage) => updateProfile({ appLanguage })}
-        onClose={close}
-      />
+      <NativeLanguageSheet visible={sheet === 'language'} onClose={close} />
       <NoticeSheet
         visible={sheet === 'account'}
         title="Account"

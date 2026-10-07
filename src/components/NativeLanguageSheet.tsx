@@ -4,9 +4,11 @@ import { useApp } from '@/store/AppStore';
 import { PickerSheet } from './PickerSheet';
 
 /**
- * The one native-language picker. ON-2 (About you), MY-1 and MY-1b all open
- * this sheet, so the list and what a pick does can't drift between them: a
- * pick lands in the profile right away, and reopening shows it selected.
+ * The app's one language setting. ON-2 (About you), MY-1, MY-1b and MY-3
+ * (Settings) all open this sheet, so the list and what a pick does can't drift
+ * between them: a pick lands in `profile.nativeLanguage` right away (saved on
+ * the device), and every screen reads it from there. It sets the language of
+ * meanings and explanations; the app's own UI stays in English (§6).
  */
 export function NativeLanguageSheet({
   visible,

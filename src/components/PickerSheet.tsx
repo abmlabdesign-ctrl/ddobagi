@@ -5,8 +5,7 @@ import { colors, radius, spacing } from '@/theme/tokens';
 import { text, type } from '@/theme/typography';
 
 /**
- * Bottom-sheet single select for the `>` rows (App language, Native language,
- * Weekly goal). Same sheet as the RP-1 category filter, so the pickers look
+ * Bottom-sheet single select for the `>` rows (Native language, Weekly goal). Same sheet as the RP-1 category filter, so the pickers look
  * like one family. Picking closes it; `note` explains a short list.
  */
 export function PickerSheet<T extends string | number>({
