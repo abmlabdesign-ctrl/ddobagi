@@ -69,6 +69,7 @@ export default function ReportScreen() {
         situationId: report.situationId,
         korean: fix.suggested.korean.replace(/"/g, ''),
         english: fix.suggested.english.replace(/[“”]/g, ''),
+        meanings: fix.suggested.meanings,
         savedOn: report.completedOn,
         situationTitle: situation?.title,
         said: fix.said.korean.replace(/"/g, ''),

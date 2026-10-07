@@ -1,6 +1,6 @@
 import { colors } from '@/theme/tokens';
 
-import type { SkillBand, SkillId, SkillScore } from './types';
+import type { Meanings, SkillBand, SkillId, SkillScore } from './types';
 
 /** Fixed order — every 6-skill breakdown in the app reads top to bottom. */
 export const skillOrder: SkillId[] = [
@@ -55,7 +55,7 @@ export const levelCheckSummary: [string, string] = [
 ];
 
 /** The level-check prompt. Its English caption is always visible (see §6). */
-export const levelCheckQuestion = {
+export const levelCheckQuestion: { korean: string; english: string; meanings?: Meanings } = {
   korean: '주말에 보통 뭐 하세요?',
   english: 'What do you usually do on weekends?',
 };

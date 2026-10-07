@@ -17,6 +17,26 @@ export type SkillScore = {
   band: SkillBand;
 };
 
+/** MY-1b Native language list — `nativeLanguageOptions` in `profile.ts`. */
+export type NativeLanguage =
+  | 'English'
+  | 'Vietnamese'
+  | 'Chinese'
+  | 'Japanese'
+  | 'Mongolian'
+  | 'Uzbek'
+  | 'Nepali'
+  | 'Indonesian'
+  | 'Thai'
+  | 'Spanish';
+
+/**
+ * The meaning of a Korean line in the learner's native language, next to its
+ * `english`. Optional per language: a missing one falls back to English
+ * (`useMeaning`), so content can be translated a language at a time.
+ */
+export type Meanings = Partial<Record<Exclude<NativeLanguage, 'English'>, string>>;
+
 export type Difficulty = 'Easy' | 'Medium' | 'Hard';
 
 export type CategoryId =
@@ -72,6 +92,7 @@ export type Turn = {
   speaker: 'ai' | 'user';
   korean: string;
   english: string;
+  meanings?: Meanings;
   /**
    * The correction data for a learner line: what a common slip sounds like,
    * the corrected sentence and why. A heard answer that doesn't match the
@@ -82,7 +103,7 @@ export type Turn = {
    * Learner lines only — RP-3 `Hint`: 2–4 key words that help build the
    * answer, never the answer itself. Romanization is generated on the device.
    */
-  hintWords?: { korean: string; english: string }[];
+  hintWords?: { korean: string; english: string; meanings?: Meanings }[];
 };
 
 export type ConversationScript = {
@@ -91,8 +112,8 @@ export type ConversationScript = {
 };
 
 export type SentenceFix = {
-  said: { korean: string; english: string };
-  suggested: { korean: string; english: string };
+  said: { korean: string; english: string; meanings?: Meanings };
+  suggested: { korean: string; english: string; meanings?: Meanings };
 };
 
 export type Report = {
@@ -149,6 +170,7 @@ export type SpeakQuestion = {
    * "what am I saying", which is a different job from the per-word tooltip.
    */
   english: string;
+  meanings?: Meanings;
   /** Shown after the learner speaks. */
   feedback: { correct: boolean; label: string; explanation: string };
 };
@@ -186,6 +208,7 @@ export type ChoiceQuestion = {
   promptTokens: Token[];
   /** English caption behind `Show meaning`. */
   promptEnglish: string;
+  promptMeanings?: Meanings;
   /** Sentence with a blank; `null` marks the gap. */
   sentenceTokens: (Token | null)[];
   /** Particles attach to the word before them, so the filled gap takes no space. */
@@ -206,8 +229,8 @@ export type Mistake = {
   situationId: string;
   skill: Extract<SkillId, 'endings' | 'politeness' | 'particles' | 'context'>;
   date: string;
-  said: { korean: string; english: string; note: string };
-  suggested: { korean: string; english: string };
+  said: { korean: string; english: string; meanings?: Meanings; note: string };
+  suggested: { korean: string; english: string; meanings?: Meanings };
   why: string;
   fixed: boolean;
   /**
@@ -223,6 +246,8 @@ export type SavedPhrase = {
   situationId: string;
   korean: string;
   english: string;
+  /** Copied in with the phrase, so it reads in the learner's language later too. */
+  meanings?: Meanings;
   /** When it went into the scrapbook, e.g. `Aug 22`. */
   savedOn: string;
   /** The learner's own note, written from the phrase's detail screen. */

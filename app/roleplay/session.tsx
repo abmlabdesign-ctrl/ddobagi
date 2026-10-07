@@ -34,6 +34,7 @@ import { recognitionMessage, useSpeechRecognition } from '@/services/recognition
 import { micMessage, rememberClip, useVoiceRecorder } from '@/services/recorder';
 import { speak, stopSpeaking } from '@/services/speech';
 import { useApp, type JudgedLine } from '@/store/AppStore';
+import { useMeaning } from '@/store/useMeaning';
 import { colors, radius, shadows, spacing } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
 
@@ -74,6 +75,7 @@ function Conversation({ script }: { script: ConversationScript }) {
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
   const navigation = useNavigation();
   const { finishSession, drafts, saveDraft } = useApp();
+  const meaningOf = useMeaning();
   const lineScrap = useLineScrap(id);
   // A run saved with `Save and leave` resumes where it stopped.
   const [draft] = useState(() => drafts[id]);
@@ -270,7 +272,7 @@ function Conversation({ script }: { script: ConversationScript }) {
     .map((turn) =>
       saidByTurn[turn.id] && saidByTurn[turn.id] !== turn.korean
         ? // The script's English no longer matches what was actually said.
-          { ...turn, korean: saidByTurn[turn.id], english: '' }
+          { ...turn, korean: saidByTurn[turn.id], english: '', meanings: undefined }
         : turn,
     );
 
@@ -344,7 +346,7 @@ function Conversation({ script }: { script: ConversationScript }) {
 
         {/* §6.2: English stays hidden on the live screen until the learner asks,
             and only ever for the AI's line — what the learner said needs no gloss. */}
-        {showMeaning ? <Text style={styles.caption}>{aiTurn.english}</Text> : null}
+        {showMeaning ? <Text style={styles.caption}>{meaningOf(aiTurn)}</Text> : null}
         <KoreanVoiceNotice />
       </ScrollView>
 
@@ -497,13 +499,14 @@ function LeaveSheet({
   );
 }
 
-type HintWord = { korean: string; english: string };
+type HintWord = NonNullable<Turn['hintWords']>[number];
 
 /**
  * The hint card, floating clear of the mic just above the `You` panel: a few
  * key words as `목  mok  — throat`, not the sentence they make.
  */
 function HintToast({ hint }: { hint: HintWord[] }) {
+  const meaningOf = useMeaning();
   return (
     <Animated.View
       entering={FadeInDown.duration(220)}
@@ -521,7 +524,7 @@ function HintToast({ hint }: { hint: HintWord[] }) {
           <View key={word.korean} style={styles.hintRow}>
             <Text style={styles.hintKorean}>{word.korean}</Text>
             <Text style={styles.hintRoman}>{romanize(word.korean)}</Text>
-            <Text style={styles.hintEnglish}>— {word.english}</Text>
+            <Text style={styles.hintEnglish}>— {meaningOf(word)}</Text>
           </View>
         ))
       )}
@@ -643,6 +646,7 @@ function LiveScript({
   onHint: () => void;
   onClose: () => void;
 }) {
+  const meaningOf = useMeaning();
   const insets = useSafeAreaInsets();
   // Its own sheet and toast: this screen is a Modal, so they must draw inside it.
   const lineScrap = useLineScrap(situationId);
@@ -688,7 +692,7 @@ function LiveScript({
                       need no translation back at them. */}
                   {isUser ? null : (
                     <Text style={styles.bubbleGloss} selectable={false}>
-                      {turn.english}
+                      {meaningOf(turn)}
                     </Text>
                   )}
                 </Pressable>

@@ -16,7 +16,7 @@ import { text, type } from '@/theme/typography';
 const unquote = (value: string) => value.replace(/["“”]/g, '').trim();
 
 /** A conversation line as it reads now — a corrected line passes its fix. */
-export type ScrapLine = Pick<Turn, 'id' | 'korean' | 'english'>;
+export type ScrapLine = Pick<Turn, 'id' | 'korean' | 'english' | 'meanings'>;
 
 /**
  * Long-press a conversation line → action sheet → Save to Scrapbook / Copy.
@@ -51,6 +51,7 @@ export function useLineScrap(situationId: string, source: { runId?: string } = {
       situationId,
       korean: unquote(line.korean),
       english: unquote(line.english ?? ''),
+      meanings: line.meanings,
       savedOn: shortDate(),
       // Copied in, so the phrase stays readable once its conversation is gone.
       situationTitle: situationById[situationId]?.title,

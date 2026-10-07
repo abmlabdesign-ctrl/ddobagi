@@ -21,6 +21,7 @@ import { normalizeSpeech } from '@/services/recognition';
 import { clipFor, useClipPlayer } from '@/services/recorder';
 import { speak, stopSpeaking } from '@/services/speech';
 import { shortDate, useApp, type SessionResult } from '@/store/AppStore';
+import { useMeaning } from '@/store/useMeaning';
 import { colors, layout, radius, shadows, spacing } from '@/theme/tokens';
 import { gloss, text, type } from '@/theme/typography';
 
@@ -40,6 +41,7 @@ export default function MistakeScript() {
   const insets = useSafeAreaInsets();
   const situation = situationById[situationId];
   const { mistakes, history, savedPhrases, savePhrase, removePhrase, markMistakeDone } = useApp();
+  const meaningOf = useMeaning();
   // A picked run from the history list; without one, the newest finished run.
   const record = runParam
     ? history.find((entry) => entry.id === runParam)
@@ -166,7 +168,7 @@ export default function MistakeScript() {
                     {unquote(fix.korean)}
                   </Text>
                   <Text style={styles.gloss} selectable={false}>
-                    {unquote(fix.english)}
+                    {unquote(meaningOf(fix))}
                   </Text>
                 </View>
               ) : (
@@ -176,7 +178,7 @@ export default function MistakeScript() {
                   </Text>
                   {turn.english ? (
                     <Text style={styles.gloss} selectable={false}>
-                      {turn.english}
+                      {meaningOf(turn)}
                     </Text>
                   ) : null}
                 </View>
@@ -195,7 +197,11 @@ export default function MistakeScript() {
                     : undefined
                 }
                 onLongPress={() =>
-                  lineScrap.open(fix ? { id: turn.id, korean: fix.korean, english: fix.english } : turn)
+                  lineScrap.open(
+                    fix
+                      ? { id: turn.id, korean: fix.korean, english: fix.english, meanings: fix.meanings }
+                      : turn,
+                  )
                 }
                 delayLongPress={450}
                 accessibilityRole="button"
@@ -258,7 +264,7 @@ export default function MistakeScript() {
                         </Pressable>
                         <View style={styles.suggestedText}>
                           <Text style={styles.suggestedKorean}>{turn.mistake.suggested.korean}</Text>
-                          <Text style={styles.suggestedGloss}>{turn.mistake.suggested.english}</Text>
+                          <Text style={styles.suggestedGloss}>{meaningOf(turn.mistake.suggested)}</Text>
                         </View>
                       </View>
                     </View>
@@ -279,6 +285,7 @@ export default function MistakeScript() {
                                 situationId,
                                 korean: unquote(turn.mistake!.suggested.korean),
                                 english: unquote(turn.mistake!.suggested.english),
+                                meanings: turn.mistake!.suggested.meanings,
                                 savedOn: shortDate(),
                                 // A copy, so the phrase outlives this conversation.
                                 situationTitle: situation?.title,
@@ -371,6 +378,7 @@ function transcriptFor(
         speaker: 'user',
         korean: unquote(mistake.said.korean),
         english: unquote(mistake.said.english),
+        meanings: mistake.said.meanings,
         mistake,
       }));
   }
@@ -381,7 +389,13 @@ function transcriptFor(
     const heard = session.said[turn.id]?.trim() ?? '';
     if (!heard) {
       // Nothing was heard for this answer, so there's nothing to show or judge.
-      return { ...turn, korean: '…', english: "We didn't catch this answer.", mistake: undefined };
+      return {
+        ...turn,
+        korean: '…',
+        english: "We didn't catch this answer.",
+        meanings: undefined,
+        mistake: undefined,
+      };
     }
     // Runs from older builds have no snapshot; they read the live log entry.
     const logged =
@@ -394,7 +408,7 @@ function transcriptFor(
                 normalizeSpeech(turn.mistake!.suggested.korean),
           ))
         : undefined;
-    return { ...turn, korean: heard, english: '', mistake: logged };
+    return { ...turn, korean: heard, english: '', meanings: undefined, mistake: logged };
   });
 }
 

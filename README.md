@@ -100,6 +100,7 @@ Help center에 `Contact us`가 나타납니다. 라이선스 목록은 의존성
 
 1. **한국어를 항상 먼저 읽게 한다.** 1차 텍스트는 한국어이고 가장 큰 타이포(18~22/600)를 씁니다.
 2. **영어는 캡션이다.** `meaning` prop으로 노출 정책을 정합니다.
+   캡션은 학습자의 Native language로 나옵니다(`useMeaning`). 데이터의 `meanings`에 그 언어가 없으면 영어로 보여줍니다.
    - `always` — ON-3 레벨 체크 (질문을 못 알아들으면 진단이 불가)
    - `toggle` — RP-3 실전 대화, RV-2c/2e 선택형 미션 (`Show meaning` / `Hide meaning`)
    - `none` — RV-2a/2b 발화형 미션

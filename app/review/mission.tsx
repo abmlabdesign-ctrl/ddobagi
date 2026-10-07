@@ -35,6 +35,7 @@ import { micMessage, useVoiceRecorder } from '@/services/recorder';
 import { buildMixedMission } from '@/services/mixedMission';
 import { speak } from '@/services/speech';
 import { useApp } from '@/store/AppStore';
+import { useMeaning } from '@/store/useMeaning';
 import { colors, layout, radius, shadows, spacing } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
 
@@ -96,6 +97,7 @@ export default function MissionRunner() {
   const [startedAt, setStartedAt] = useState(() => Date.now());
   const [elapsed, setElapsed] = useState(0);
   const { finishMission, freeLeft } = useApp();
+  const meaningOf = useMeaning();
   // Judged on entry (and on Retry), never mid-run: the finish itself uses
   // the allowance, and RV-2f must still show.
   const [allowed] = useState(freeLeft.missions > 0);
@@ -347,7 +349,7 @@ export default function MissionRunner() {
               tokens={question.tokens}
               spokenCount={kind === 'fluency' ? spokenCount : 0}
               spokenSyllables={kind === 'pronunciation' ? spokenSyllables : 0}
-              english={question.english}
+              english={meaningOf(question)}
               meaning="always"
               captionStyle={styles.sentenceMeaning}
             />
@@ -682,6 +684,7 @@ function WriteCard({
 
 /** RV-2f — pick the answer that fits. */
 function ChoiceCard({ question, answer }: { question: ChoiceQuestion; answer: number | null }) {
+  const meaningOf = useMeaning();
   const [showMeaning, setShowMeaning] = useState(false);
 
   // The comp draws the answer sentence word by word, each on its own dotted rule.
@@ -733,7 +736,7 @@ function ChoiceCard({ question, answer }: { question: ChoiceQuestion; answer: nu
       </View>
 
       <KoreanText tokens={question.promptTokens} />
-      {showMeaning ? <Text style={type.caption}>{question.promptEnglish}</Text> : null}
+      {showMeaning ? <Text style={type.caption}>{meaningOf({ english: question.promptEnglish, meanings: question.promptMeanings })}</Text> : null}
 
       {sentenceTokens.length > 0 ? (
         <KoreanText
