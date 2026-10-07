@@ -20,7 +20,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * exists, `next` sends the one-time code and pushes a code-entry step here.
  */
 export default function EmailSignIn() {
-  const { profile, updateProfile } = useApp();
+  const { profile, onboarded, updateProfile, logIn } = useApp();
   const [email, setEmail] = useState(profile.email ?? '');
   const [focused, setFocused] = useState(false);
   const [touched, setTouched] = useState(false);
@@ -29,6 +29,12 @@ export default function EmailSignIn() {
 
   const next = () => {
     updateProfile({ signInProvider: 'Email', email: email.trim().toLowerCase() });
+    // Logged out, not deleted: onboarding is already done, so straight home.
+    if (onboarded) {
+      logIn();
+      router.replace('/(tabs)');
+      return;
+    }
     router.push('/onboarding/consent');
   };
 
