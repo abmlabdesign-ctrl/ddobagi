@@ -36,7 +36,7 @@ import { buildMixedMission } from '@/services/mixedMission';
 import { dealMission } from '@/services/questionPicker';
 import { speak } from '@/services/speech';
 import { useApp } from '@/store/AppStore';
-import { useMeaning } from '@/store/useMeaning';
+import { useHelpText, useMeaning } from '@/store/useMeaning';
 import { colors, layout, radius, shadows, spacing } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
 
@@ -102,6 +102,7 @@ export default function MissionRunner() {
   const [startedAt, setStartedAt] = useState(() => Date.now());
   const [elapsed, setElapsed] = useState(0);
   const meaningOf = useMeaning();
+  const helpText = useHelpText();
   // Judged on entry (and on Retry), never mid-run: the finish itself uses
   // the allowance, and RV-2f must still show.
   const [allowed] = useState(freeLeft.missions > 0);
@@ -213,7 +214,7 @@ export default function MissionRunner() {
     if (match.correct || match.spokenCount >= speakWords.length) {
       setSpokenCount(speakWords.length);
       setSpokenSyllables(syllableCount(question.tokens));
-      judge({ correct: true, note: question.feedback.explanation });
+      judge({ correct: true, note: helpText(question.feedback.explanation) });
       return;
     }
     judge({
@@ -257,11 +258,20 @@ export default function MissionRunner() {
       setRecording(false);
       stopRecording();
       // 끝까지 다 읽었으면 정답 — 인식 경로와 같은 기준.
-      setVerdict({ correct: true, note: question.feedback.explanation });
+      setVerdict({ correct: true, note: helpText(question.feedback.explanation) });
       if (step < mission.questionCount) hit(step);
     }, bySyllable ? 260 : 420);
     return () => clearInterval(id);
-  }, [heard.supported, recording, question, step, mission.questionCount, kind, stopRecording]);
+  }, [
+    heard.supported,
+    recording,
+    question,
+    step,
+    mission.questionCount,
+    kind,
+    stopRecording,
+    helpText,
+  ]);
 
   const submitWrite = () => {
     if (question.type !== 'write') return;
@@ -270,7 +280,7 @@ export default function MissionRunner() {
         !accepted.some((option) => normalize(option) === normalize(entries[gap] ?? '')),
     );
     if (!wrong.some(Boolean)) {
-      judge({ correct: true, note: question.explanation });
+      judge({ correct: true, note: helpText(question.explanation) });
       return;
     }
     // The headline and the note follow the first gap that was missed, so the
@@ -279,7 +289,7 @@ export default function MissionRunner() {
     judge({
       correct: false,
       headline: `The answer is ${question.blanks[missedGap][0]}.`,
-      note: question.blankNotes?.[missedGap] ?? question.explanation,
+      note: helpText(question.blankNotes?.[missedGap] ?? question.explanation),
     });
   };
 
@@ -293,7 +303,7 @@ export default function MissionRunner() {
     const correct = answer === question.answerIndex;
     judge({
       correct,
-      note: question.explanation,
+      note: helpText(question.explanation),
       headline: correct ? undefined : `The answer is ${question.options[question.answerIndex]}`,
     });
   };
@@ -613,6 +623,7 @@ function WriteCard({
   judged: boolean;
   onChange: (gap: number, value: string) => void;
 }) {
+  const helpText = useHelpText();
   const segments = question.template ? question.template.split('___') : null;
 
   // Each gap is marked on its own: getting the particle wrong should not paint
@@ -686,7 +697,7 @@ function WriteCard({
         field(0, false)
       )}
 
-      <Text style={styles.sentenceMeaning}>{question.prompt}</Text>
+      <Text style={styles.sentenceMeaning}>{helpText(question.prompt)}</Text>
     </Card>
   );
 }
