@@ -24,8 +24,13 @@
 - **주간 목표 설정(ON-2a):** About you 다음, Microphone 앞. 5/10/15/20 중 고르기 전에는 `Next`가 비활성. MY-1b에서 바꿀 수 있습니다.
 - **RP-2 Last time:** 실제로 끝낸 회차가 있을 때만, 점수 대신 목표 달성 수와 날짜. RP-4의 "N points more than last time" 문구 삭제
   (점수가 아직 고정값이라 비교가 성립하지 않음).
-- **미션 무응답:** 녹음했는데 인식된 말이 없으면 채점하지 않고 "We didn't hear anything. Tap the mic and say it again."을 띄웁니다.
-- **미션 Skip:** 마이크 권한이 없거나 브라우저 음성 인식이 거부되면 마이크 아래에 `Skip`이 나옵니다.
+- **미션 말하기 무응답 (추가 요청으로 갱신):**
+  - 무응답 = 녹음했는데 인식된 말이 없음, 또는 마이크를 켜고 8초(`NO_ANSWER_MS`) 안에 첫 마디가 없음.
+  - 첫 번째 무응답: 오답 처리하지 않고 하단 시트 "Skip this one? / We'll skip speaking practice for this question."
+    `Cancel`(문제로 돌아감) / `Continue`(이 문제 건너뜀).
+  - 같은 문제에서 두 번째 무응답: 오답 처리("We didn't hear an answer this time either.").
+  - 음성 인식 거부·네트워크·인식 불가는 무응답으로 세지 않고 이유를 안내합니다.
+- **미션 Skip:** 말하기 문제의 마이크 오른쪽에 `Skip`이 항상 있습니다(녹음 중에는 숨김). 누르면 같은 시트가 뜹니다.
   건너뛴 문제는 맞음/틀림 어디에도 들어가지 않고 Stats 기록에서도 빠집니다. 전부 건너뛴 실행은 레슨으로 세지 않습니다.
 
 ## 남은 것
