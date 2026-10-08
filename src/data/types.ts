@@ -242,6 +242,11 @@ export type Mistake = {
    * a later roleplay clears it.
    */
   done?: boolean;
+  /**
+   * Epoch ms the mistake left the log — `Done` pressed, or the correction said
+   * right in a later roleplay. Older entries completed before it existed have none.
+   */
+  doneAt?: number;
 };
 
 export type SavedPhrase = {

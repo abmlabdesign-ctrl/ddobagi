@@ -203,6 +203,13 @@ const initialState: AppState = {
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** `Sep 29` — the date format every list in the comps uses. */
+/**
+ * A mistake is completed once `Done` is pressed on it or its correction is
+ * said right in a later roleplay. `Mistakes to review` counts the rest;
+ * `Mistakes you fixed` counts these — one rule, so the two always add up.
+ */
+export const mistakeCompleted = (mistake: Mistake) => Boolean(mistake.done || mistake.fixed);
+
 export const shortDate = (date = new Date()) => `${MONTHS[date.getMonth()]} ${date.getDate()}`;
 
 /** When a roleplay finished, e.g. `Oct 2, 2026 · 4:18 PM` — the history list's row title. */
@@ -370,7 +377,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [hydrated, state]);
 
   const [reminderStatus, setReminderStatus] = useState<Derived['reminderStatus']>('ok');
-  const openMistakes = state.mistakes.filter((mistake) => !mistake.fixed && !mistake.done).length;
+  const openMistakes = state.mistakes.filter((mistake) => !mistakeCompleted(mistake)).length;
   const trialEndsAt =
     state.subscription?.trial && state.subscription.autoRenew ? state.subscription.renewsAt : null;
   const trialPlan = state.subscription?.planId ?? null;
@@ -463,7 +470,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ? {
             ...current,
             mistakes: current.mistakes.map((mistake) =>
-              mistake.id === id ? { ...mistake, done: true } : mistake,
+              mistake.id === id
+                ? { ...mistake, done: true, doneAt: mistake.doneAt ?? Date.now() }
+                : mistake,
             ),
           }
         : current,
@@ -531,7 +540,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (right) {
             if (existing) {
               mistakes = mistakes.map((entry) =>
-                entry === existing ? { ...entry, fixed: true } : entry,
+                entry === existing ? { ...entry, fixed: true, doneAt: entry.doneAt ?? at } : entry,
               );
             }
             continue;
@@ -546,6 +555,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             fixed: false,
             // Made again in this run, so it's back on the list even if done before.
             done: false,
+            doneAt: undefined,
             said: { korean: `"${heard}"`, english: '', note: '' },
           };
           flaggedEntries[line.turnId] = entry;
