@@ -89,11 +89,11 @@ export default function ReportScreen() {
           <View style={styles.headlineText}>
             <PillLabel label={situation?.title ?? ''} />
             <Text style={styles.headlineBody}>
+              {/* No "points more than last time": the score is still scripted, so
+                  a comparison would be made up. */}
               {allGoals
                 ? `You hit all ${report.goalsTotal} goal${report.goalsTotal === 1 ? '' : 's'}.`
                 : `You hit ${report.goalsMet} of ${report.goalsTotal} goals.`}
-              {'\n'}
-              That&apos;s {report.scoreDelta} points more than last time.
             </Text>
           </View>
 
