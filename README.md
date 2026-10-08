@@ -59,6 +59,7 @@ npm run export:web # 웹 번들 — 모든 라우트가 컴파일되는지 확�
 | Saved phrase 상세 | RV-5b | `app/review/phrase/[phraseId].tsx` |
 | Transcript history (완료한 롤플레이 목록) | — | `app/review/history/[situationId].tsx` |
 | Mistake script + 인라인 상세 (`?run=` 기록 하나) | RV-6 / RV-7 | `app/review/script/[situationId].tsx` |
+| Mistakes you fixed (완료한 오답 · 최근순/상황별) | RV-3a › | `app/review/fixed.tsx` |
 | My Page | MY-1 | `app/(tabs)/my.tsx` |
 | Edit profile | MY-1b | `app/my/edit.tsx` |
 | Stats (주간 / 월간) | MY-2 / MY-2b | `app/my/stats.tsx` |

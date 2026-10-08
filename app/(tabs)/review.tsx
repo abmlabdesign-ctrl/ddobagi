@@ -14,11 +14,12 @@ import { categoryById } from '@/data/categories';
 import { TODAYS_FOCUS_ID, missions, todayFocus } from '@/data/missions';
 import { mistakesSummary } from '@/data/review';
 import { situationById } from '@/data/situations';
+import { skillLabels } from '@/data/skills';
 import type { Mistake, SavedPhrase } from '@/data/types';
 import { ListChevronIcon, MoreIcon, SpeakerIcon } from '@/icons';
 import { speak } from '@/services/speech';
 import { todayFocus as recommendFocus } from '@/services/recommend';
-import { useApp, type SessionRecord } from '@/store/AppStore';
+import { mistakeCompleted, useApp, type SessionRecord } from '@/store/AppStore';
 import { useMeaning } from '@/store/useMeaning';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
@@ -131,9 +132,10 @@ function MissionsTab() {
 }
 
 /**
- * RV-3a rows from the live log: open mistakes grouped by situation, newest
- * first. `toReview` — not yet `Done` in RV-7 — is what the badge and the
- * headline count; opening a mistake without pressing `Done` changes nothing.
+ * RV-3a rows from the live log: mistakes still to review, grouped by
+ * situation, newest first. Completed ones (`Done` in RV-7, or fixed in a later
+ * roleplay) leave the list for `Mistakes you fixed`; opening a mistake
+ * without pressing `Done` changes nothing.
  */
 function groupMistakes(mistakes: Mistake[]) {
   const groups = new Map<
@@ -143,12 +145,12 @@ function groupMistakes(mistakes: Mistake[]) {
       count: number;
       toReview: number;
       ids: string[];
-      skills: string[];
+      skills: Mistake['skill'][];
       date: string;
     }
   >();
   for (const mistake of mistakes) {
-    if (mistake.fixed) continue;
+    if (mistakeCompleted(mistake)) continue;
     const group = groups.get(mistake.situationId) ?? {
       situationId: mistake.situationId,
       count: 0,
@@ -159,7 +161,7 @@ function groupMistakes(mistakes: Mistake[]) {
     };
     group.count += 1;
     group.ids.push(mistake.id);
-    if (!mistake.done) group.toReview += 1;
+    group.toReview += 1;
     if (!group.skills.includes(mistake.skill)) group.skills.push(mistake.skill);
     groups.set(mistake.situationId, group);
   }
@@ -186,7 +188,8 @@ function MistakesTab() {
   // Headline and badges read the same per-situation numbers.
   const open = mistakeGroups.reduce((sum, group) => sum + group.toReview, 0);
   const openSituations = mistakeGroups.filter((group) => group.toReview > 0).length;
-  const fixedCount = mistakes.filter((mistake) => mistake.fixed).length;
+  // The same rule splits both cards, so `Done` moves one from top to bottom.
+  const fixedCount = mistakes.filter(mistakeCompleted).length;
 
   return (
     <View style={styles.tabBody}>
@@ -204,12 +207,16 @@ function MistakesTab() {
       </Card>
 
       {mistakeGroups.length === 0 ? (
-        // No log yet: a short line on how it fills, in the same white card as
-        // the summary above and the fixed count below — and no list chrome.
+        // Nothing open: a short line, in the same white card as the summary
+        // above and the fixed row below — and no list chrome.
         <Card paddingHorizontal={18} paddingVertical={28} style={styles.mistakesEmpty}>
-          <Text style={type.listTitle}>Nothing to review yet</Text>
+          <Text style={type.listTitle}>
+            {fixedCount > 0 ? "You're all caught up" : 'Nothing to review yet'}
+          </Text>
           <Text style={[type.secondary, styles.emptyStateText]}>
-            Finish a roleplay to see your mistakes here.
+            {fixedCount > 0
+              ? 'New mistakes from your roleplays will show up here.'
+              : 'Finish a roleplay to see your mistakes here.'}
           </Text>
         </Card>
       ) : (
@@ -249,7 +256,9 @@ function MistakesTab() {
                     <View style={styles.listText}>
                       <Text style={type.listTitle}>{situation?.title ?? group.situationId}</Text>
                       <Text style={type.caption}>
-                        {group.count} mistakes · {group.skills.join(' · ')} · {group.date}
+                        {group.count} mistake{group.count === 1 ? '' : 's'} ·{' '}
+                        {group.skills.map((skill) => skillLabels[skill]).join(' · ')} ·{' '}
+                        {group.date}
                       </Text>
                     </View>
                     <View style={styles.mistakeRight}>
@@ -264,12 +273,24 @@ function MistakesTab() {
         </>
       )}
 
-      <Card paddingHorizontal={18} paddingVertical={14} style={styles.fixedCard}>
-        <Text style={type.row}>Mistakes you fixed</Text>
-        <Text style={styles.fixedCount}>
-          {fixedCount} · {mistakesSummary.fixedWindow}
-        </Text>
-      </Card>
+      {/* The way into the completed history; inert until there is one. */}
+      <Pressable
+        onPress={fixedCount > 0 ? () => router.push('/review/fixed') : undefined}
+        disabled={fixedCount === 0}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: fixedCount === 0 }}
+        accessibilityLabel={`Mistakes you fixed, ${fixedCount}`}
+      >
+        <Card paddingHorizontal={18} paddingVertical={14} style={styles.fixedCard}>
+          <Text style={fixedCount > 0 ? type.row : styles.fixedRowOff}>Mistakes you fixed</Text>
+          <View style={styles.mistakeRight}>
+            <Text style={fixedCount > 0 ? styles.fixedCount : styles.fixedCountOff}>
+              {fixedCount > 0 ? fixedCount : 'None yet'}
+            </Text>
+            {fixedCount > 0 ? <ListChevronIcon /> : null}
+          </View>
+        </Card>
+      </Pressable>
     </View>
   );
 }
@@ -527,6 +548,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   fixedCount: text(14, 20, '600', colors.success),
+  fixedCountOff: text(14, 20, '500', colors.textTertiary),
+  fixedRowOff: {
+    ...type.row,
+    color: colors.textTertiary,
+  },
   phraseList: {
     gap: 12,
   },
