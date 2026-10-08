@@ -1,16 +1,17 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card, RowDivider } from '@/components/Card';
 import { Segmented } from '@/components/Controls';
 import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
+import { categoryById } from '@/data/categories';
 import { situationById } from '@/data/situations';
 import type { Mistake } from '@/data/types';
 import { ListChevronIcon } from '@/icons';
 import { mistakeCompleted, shortDate, useApp } from '@/store/AppStore';
-import { spacing } from '@/theme/tokens';
+import { colors, radius, spacing } from '@/theme/tokens';
 import { type } from '@/theme/typography';
 
 const views = ['Recent', 'By situation'] as const;
@@ -64,39 +65,55 @@ export default function FixedMistakes() {
               {fixed.length} mistake{fixed.length === 1 ? '' : 's'} fixed
             </Text>
 
-            <Card radiusToken="group" paddingHorizontal={20} paddingVertical={6}>
-              {view === 'Recent'
-                ? fixed.map((mistake, index) => {
-                    const date = fixedOn(mistake);
-                    return (
-                      <View key={mistake.id}>
-                        {index > 0 ? <RowDivider /> : null}
-                        <Pressable
-                          onPress={() => open(mistake.situationId)}
-                          accessibilityRole="button"
-                          style={styles.row}
-                        >
-                          <View style={styles.rowText}>
-                            <Text style={type.listTitle}>{unquote(mistake.suggested.korean)}</Text>
-                            <Text style={type.caption}>
-                              {titleOf(mistake.situationId)}
-                              {date ? ` · Fixed ${date}` : ''}
-                            </Text>
-                          </View>
-                          <ListChevronIcon />
-                        </Pressable>
-                      </View>
-                    );
-                  })
-                : groups.map((group, index) => (
+            {view === 'Recent' ? (
+              <Card radiusToken="group" paddingHorizontal={20} paddingVertical={6}>
+                {fixed.map((mistake, index) => {
+                  const date = fixedOn(mistake);
+                  return (
+                    <View key={mistake.id}>
+                      {index > 0 ? <RowDivider /> : null}
+                      <Pressable
+                        onPress={() => open(mistake.situationId)}
+                        accessibilityRole="button"
+                        style={styles.row}
+                      >
+                        <View style={styles.rowText}>
+                          <Text style={type.listTitle}>{unquote(mistake.suggested.korean)}</Text>
+                          <Text style={type.caption}>
+                            {titleOf(mistake.situationId)}
+                            {date ? ` · Fixed ${date}` : ''}
+                          </Text>
+                        </View>
+                        <ListChevronIcon />
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </Card>
+            ) : (
+              // The Mistake log's `Pick a situation` list, row for row: same card,
+              // 68 rows, 44 thumbs with the situation's own illustration.
+              <Card paddingHorizontal={18} paddingVertical={4}>
+                {groups.map((group, index) => {
+                  const situation = situationById[group.situationId];
+                  const category = situation ? categoryById[situation.categoryId] : undefined;
+                  return (
                     <View key={group.situationId}>
                       {index > 0 ? <RowDivider /> : null}
                       <Pressable
                         onPress={() => open(group.situationId)}
                         accessibilityRole="button"
-                        style={styles.row}
+                        style={styles.situationRow}
                       >
-                        <View style={styles.rowText}>
+                        {category ? (
+                          <Image
+                            source={category.illustration}
+                            style={styles.thumb}
+                            resizeMode="cover"
+                            accessibilityIgnoresInvertColors
+                          />
+                        ) : null}
+                        <View style={styles.situationText}>
                           <Text style={type.listTitle}>{titleOf(group.situationId)}</Text>
                           <Text style={type.caption}>
                             {group.count} fixed
@@ -106,8 +123,10 @@ export default function FixedMistakes() {
                         <ListChevronIcon />
                       </Pressable>
                     </View>
-                  ))}
-            </Card>
+                  );
+                })}
+              </Card>
+            )}
           </>
         )}
       </Screen>
@@ -131,6 +150,23 @@ const styles = StyleSheet.create({
   rowText: {
     flex: 1,
     gap: 2,
+  },
+  /** These three match the Mistake log's `mistakeRow` / `thumb` / `listText`. */
+  situationRow: {
+    height: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  thumb: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.badge,
+    backgroundColor: colors.fill,
+  },
+  situationText: {
+    flex: 1,
+    gap: 1,
   },
   empty: {
     alignItems: 'center',
