@@ -23,3 +23,4 @@
 | 26-10-07 | [뜻 캡션은 Native language로, 번역이 없으면 영어로](./261007-native-language-meanings.md) | 적용됨 |
 | 26-10-07 | [미션 문제 은행 확장과 최근 문제 회피 출제](./261007-mission-question-bank.md) | 적용됨 (문항 검수 필요) |
 | 26-10-07 | [9개 언어 번역 카탈로그 · 언어 설정을 Native language 하나로](./261007-native-language-catalogs.md) | 적용됨 (원어민 검수 필요) |
+| 26-10-08 | [학습 기록 기반 진행 수치 · 주간 목표 설정 · 미션 무응답/Skip](./261008-real-progress-and-mission-retry.md) | 적용됨 |

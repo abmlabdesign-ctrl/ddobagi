@@ -92,7 +92,12 @@ export default function MissionRunner() {
   const [spokenSyllables, setSpokenSyllables] = useState(0);
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [done, setDone] = useState(false);
+  /** The mic (or the browser's speech service) said no — speaking questions offer `Skip`. */
   const [micBlocked, setMicBlocked] = useState(false);
+  /** Under the mic: why nothing was graded (blocked mic, nothing heard). */
+  const [micNote, setMicNote] = useState<string | null>(null);
+  /** Steps skipped without an answer — neither right nor wrong, and left out of MY-2. */
+  const [skipped, setSkipped] = useState<number[]>([]);
   /** Questions right on the first attempt — RV-2f's second stat. */
   /** Steps answered right on the first attempt (only steps inside the designed length count). */
   const [firstTryHits, setFirstTryHits] = useState<number[]>([]);
@@ -120,6 +125,8 @@ export default function MissionRunner() {
 
   const reset = () => {
     graded.current = false;
+    // A blocked mic stays blocked, so its note carries over; "say it again" doesn't.
+    setMicNote((note) => (micBlocked ? note : null));
     heard.reset();
     setAnswer(null);
     setEntries([]);
@@ -143,7 +150,7 @@ export default function MissionRunner() {
     );
   };
 
-  const next = () => {
+  const next = (skippedSteps = skipped) => {
     if (step + 1 < queue.length) {
       setStep(step + 1);
       reset();
@@ -154,17 +161,29 @@ export default function MissionRunner() {
     // One row per skill drilled, so a mixed run feeds MY-2 for each of them.
     const bySkill = new Map<Mission['kind'], { correct: number; total: number }>();
     for (let at = 0; at < mission.questionCount; at += 1) {
+      // A skipped question measured nothing.
+      if (skippedSteps.includes(at)) continue;
       const skill = questionKind[mission.questions[queue[at]].id] ?? mission.kind;
       const row = bySkill.get(skill) ?? { correct: 0, total: 0 };
       row.total += 1;
       if (firstTryHits.includes(at)) row.correct += 1;
       bySkill.set(skill, row);
     }
-    finishMission({
-      minutes: Math.max(1, Math.round(took / 60000)),
-      results: [...bySkill].map(([skill, row]) => ({ skill, ...row })),
-    });
+    // A run where every question was skipped wasn't practice: nothing counts.
+    if (bySkill.size > 0) {
+      finishMission({
+        minutes: Math.max(1, Math.round(took / 60000)),
+        results: [...bySkill].map(([skill, row]) => ({ skill, ...row })),
+      });
+    }
     setDone(true);
+  };
+
+  /** `Skip` — offered only when the mic can't be used; moves on without grading. */
+  const skip = () => {
+    const list = skipped.includes(step) ? skipped : [...skipped, step];
+    setSkipped(list);
+    next(list);
   };
 
   /** RV-2f `Retry` — the same mission from the top, as a fresh run. */
@@ -180,6 +199,7 @@ export default function MissionRunner() {
     setQueue(buildQueue(again));
     setStep(0);
     setFirstTryHits([]);
+    setSkipped([]);
     setStartedAt(Date.now());
     setDone(false);
   };
@@ -208,6 +228,19 @@ export default function MissionRunner() {
     heard.stop();
     stopRecording();
 
+    // Nothing heard is not a wrong answer: ask for another take instead of
+    // grading silence. A refused speech service can't be retried into working.
+    if (!spoken.trim()) {
+      graded.current = false;
+      if (problem === 'denied') setMicBlocked(true);
+      setMicNote(
+        problem === 'none' || problem === 'nospeech'
+          ? "We didn't hear anything. Tap the mic and say it again."
+          : recognitionMessage[problem],
+      );
+      return;
+    }
+
     const match = matchSentence(spoken, speakWords);
     // Reading the sentence through to its last word is the pass mark: the
     // orange that follows the reading reaching the end means it was all heard.
@@ -223,9 +256,7 @@ export default function MissionRunner() {
       note:
         problem !== 'none'
           ? recognitionMessage[problem]
-          : spoken.trim()
-            ? `Heard: “${spoken.trim()}”`
-            : "We didn't catch anything. Tap the mic and try again.",
+          : `Heard: “${spoken.trim()}”`,
     });
   };
 
@@ -340,7 +371,7 @@ export default function MissionRunner() {
       headline={verdict.headline}
       note={verdict.note}
       nextLabel={nextLabel}
-      onNext={next}
+      onNext={() => next()}
       onPlayback={question.type === 'speak' && voice.hasClip ? voice.playBack : undefined}
     />
   ) : null;
@@ -388,6 +419,7 @@ export default function MissionRunner() {
                 // 권한이 없으면 파형만 돌고 아무것도 녹음되지 않으므로 함께 막는다.
                 const on = await voice.start();
                 setMicBlocked(!on);
+                setMicNote(on ? null : micMessage(voice.permission));
                 if (on && heard.supported) {
                   heard.start({
                     onTranscript: onHeard,
@@ -408,8 +440,11 @@ export default function MissionRunner() {
                     }
               }
             />
+            {micNote ? <Text style={styles.micNotice}>{micNote}</Text> : null}
             {micBlocked ? (
-              <Text style={styles.micNotice}>{micMessage(voice.permission)}</Text>
+              <View style={styles.skip}>
+                <Button label="Skip" variant="text" height={44} onPress={skip} />
+              </View>
             ) : null}
           </>
         )}
@@ -859,6 +894,11 @@ function MissionComplete({
 const styles = StyleSheet.create({
   fill: {
     flex: 1,
+  },
+  /** Under the mic note, inside the bottom inset the dock already leaves. */
+  skip: {
+    paddingHorizontal: spacing.gutter,
+    paddingBottom: 8,
   },
   micNotice: {
     ...type.caption,
