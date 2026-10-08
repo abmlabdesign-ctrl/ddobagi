@@ -40,6 +40,12 @@ export const colors = {
 
   success: '#27A376',
   successBg: '#EAF8EE',
+  /**
+   * Caution — neither right nor wrong (RV-2 skip sheet). Too light for text on
+   * a pale ground, so it fills shapes and buttons; text on it stays ink.
+   */
+  warning: '#FFC53A',
+  warningBg: '#FFF8E6',
   info: '#0091FF',
   infoBg: '#EBF9FF',
 

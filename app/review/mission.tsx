@@ -40,6 +40,12 @@ import { useHelpText, useMeaning } from '@/store/useMeaning';
 import { colors, layout, radius, shadows, spacing } from '@/theme/tokens';
 import { numeral, text, type } from '@/theme/typography';
 
+/**
+ * How long the mic waits for a first word before the take counts as no
+ * answer. Long enough to read the sentence once before speaking.
+ */
+const NO_ANSWER_MS = 8000;
+
 /** Every RV-2 prompt card is the same height, whichever way the axis is drilled. */
 const MISSION_CARD_HEIGHT = 300;
 
@@ -98,6 +104,20 @@ export default function MissionRunner() {
   const [micNote, setMicNote] = useState<string | null>(null);
   /** Steps skipped without an answer — neither right nor wrong, and left out of MY-2. */
   const [skipped, setSkipped] = useState<number[]>([]);
+  /**
+   * Silent takes on this question. The first opens the skip sheet; a second
+   * is graded wrong — by then the sheet has already offered the way out.
+   */
+  const [silentTakes, setSilentTakes] = useState(0);
+  /** The bottom sheet asking to skip speaking practice on this question. */
+  const [skipAsk, setSkipAsk] = useState(false);
+  /** Fires when no first word arrives in time; cleared by the first word heard. */
+  const silenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearSilenceTimer = () => {
+    if (silenceTimer.current) clearTimeout(silenceTimer.current);
+    silenceTimer.current = null;
+  };
+  useEffect(() => () => clearSilenceTimer(), []);
   /** Questions right on the first attempt — RV-2f's second stat. */
   /** Steps answered right on the first attempt (only steps inside the designed length count). */
   const [firstTryHits, setFirstTryHits] = useState<number[]>([]);
@@ -125,6 +145,9 @@ export default function MissionRunner() {
 
   const reset = () => {
     graded.current = false;
+    clearSilenceTimer();
+    setSilentTakes(0);
+    setSkipAsk(false);
     // A blocked mic stays blocked, so its note carries over; "say it again" doesn't.
     setMicNote((note) => (micBlocked ? note : null));
     heard.reset();
@@ -179,8 +202,9 @@ export default function MissionRunner() {
     setDone(true);
   };
 
-  /** `Skip` — offered only when the mic can't be used; moves on without grading. */
+  /** Moves on without grading — the sheet's `Continue`. */
   const skip = () => {
+    setSkipAsk(false);
     const list = skipped.includes(step) ? skipped : [...skipped, step];
     setSkipped(list);
     next(list);
@@ -228,16 +252,17 @@ export default function MissionRunner() {
     heard.stop();
     stopRecording();
 
-    // Nothing heard is not a wrong answer: ask for another take instead of
-    // grading silence. A refused speech service can't be retried into working.
+    clearSilenceTimer();
     if (!spoken.trim()) {
       graded.current = false;
-      if (problem === 'denied') setMicBlocked(true);
-      setMicNote(
-        problem === 'none' || problem === 'nospeech'
-          ? "We didn't hear anything. Tap the mic and say it again."
-          : recognitionMessage[problem],
-      );
+      // A refused or broken speech service isn't the learner being silent:
+      // say what's wrong (the Skip button stays there) rather than count it.
+      if (problem === 'denied' || problem === 'network' || problem === 'failed') {
+        if (problem === 'denied') setMicBlocked(true);
+        setMicNote(recognitionMessage[problem]);
+        return;
+      }
+      noAnswer();
       return;
     }
 
@@ -260,8 +285,27 @@ export default function MissionRunner() {
     });
   };
 
+  /**
+   * A take with nothing heard. The first offers to skip the question instead
+   * of marking it wrong; a second on the same question is graded wrong.
+   */
+  const noAnswer = () => {
+    if (silentTakes === 0) {
+      setSilentTakes(1);
+      setSkipAsk(true);
+      return;
+    }
+    graded.current = true;
+    judge({
+      correct: false,
+      headline: joinTokens(speakWords),
+      note: "We didn't hear an answer this time either.",
+    });
+  };
+
   /** 말하는 대로 문장에 불이 켜지고, 끝까지 맞게 말하면 그 자리에서 판정된다. */
   const onHeard = (text: string) => {
+    if (text.trim()) clearSilenceTimer();
     const match = matchSentence(text, speakWords);
     setSpokenCount(match.spokenCount);
     setSpokenSyllables(matchSyllables(text, speakWords.join('')));
@@ -407,7 +451,7 @@ export default function MissionRunner() {
           <KoreanVoiceNotice />
         </View>
 
-        {verdict ? null : (
+        {verdict || skipAsk ? null : (
           <>
             <MicDock
               recording={recording}
@@ -426,6 +470,9 @@ export default function MissionRunner() {
                     // 침묵으로 끊기거나 오류가 나도 그때까지 들린 말로 판정한다.
                     onEnd: finishSpeak,
                   });
+                  // No first word in time: end the take as an empty one.
+                  clearSilenceTimer();
+                  silenceTimer.current = setTimeout(() => finishSpeak(''), NO_ANSWER_MS);
                 }
                 setRecording(on);
               }}
@@ -439,17 +486,24 @@ export default function MissionRunner() {
                       stopRecording();
                     }
               }
+              onSkip={() => setSkipAsk(true)}
             />
             {micNote ? <Text style={styles.micNotice}>{micNote}</Text> : null}
-            {micBlocked ? (
-              <View style={styles.skip}>
-                <Button label="Skip" variant="text" height={44} onPress={skip} />
-              </View>
-            ) : null}
           </>
         )}
 
         {panel}
+        {skipAsk && !verdict ? (
+          <SkipSheet
+            onCancel={() => {
+              // Back to the question, ready for another take.
+              setSkipAsk(false);
+              setMicNote((note) => (micBlocked ? note : null));
+              graded.current = false;
+            }}
+            onContinue={skip}
+          />
+        ) : null}
       </ScreenShell>
     );
   }
@@ -624,11 +678,14 @@ function MicDock({
   recording,
   onSpeak,
   onStop,
+  onSkip,
 }: {
   recording: boolean;
   onSpeak: () => void;
   /** 녹음 중 다시 눌러 발화를 끝내는 동작. */
   onStop: () => void;
+  /** Opens the skip sheet. Lives in the dock's right slot, out of the mic's way. */
+  onSkip: () => void;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -637,8 +694,66 @@ function MicDock({
       <View style={styles.micSlot} />
       {/* MicButton이 상태에 맞는 라벨(Start/Stop recording)을 스스로 붙인다. */}
       <MicButton size={84} active={recording} onPress={recording ? onStop : onSpeak} />
-      <View style={styles.micSlot} />
+      <View style={styles.micSlot}>
+        {recording ? null : (
+          <Pressable
+            onPress={onSkip}
+            accessibilityRole="button"
+            accessibilityLabel="Skip this question"
+            hitSlop={8}
+            style={styles.skipButton}
+          >
+            <Text style={styles.skipLabel}>Skip</Text>
+          </Pressable>
+        )}
+      </View>
     </View>
+  );
+}
+
+/**
+ * The verdict panel's box in a caution state: skipping is neither right nor
+ * wrong. Shown after the first silent take, or when the learner taps `Skip`.
+ */
+function SkipSheet({ onCancel, onContinue }: { onCancel: () => void; onContinue: () => void }) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Animated.View
+      entering={SlideInDown.duration(260)}
+      style={[
+        styles.panel,
+        { backgroundColor: colors.warningBg, paddingBottom: insets.bottom + spacing.lg },
+      ]}
+    >
+      <View style={styles.skipTitleRow}>
+        <View style={styles.skipMark}>
+          <Text style={styles.skipMarkLabel}>!</Text>
+        </View>
+        <Text style={styles.skipTitle}>Skip this one?</Text>
+      </View>
+      <Text style={styles.panelNote}>
+        We&apos;ll skip speaking practice for this question. It won&apos;t count as right or
+        wrong.
+      </Text>
+      <View style={styles.skipActions}>
+        <Button
+          label="Cancel"
+          variant="elevated"
+          height={52}
+          style={styles.skipAction}
+          onPress={onCancel}
+        />
+        {/* Tonal for its ink label: white text is unreadable on the yellow. */}
+        <Button
+          label="Continue"
+          variant="tonal"
+          height={52}
+          style={[styles.skipAction, styles.skipContinue]}
+          onPress={onContinue}
+        />
+      </View>
+    </Animated.View>
   );
 }
 
@@ -895,11 +1010,6 @@ const styles = StyleSheet.create({
   fill: {
     flex: 1,
   },
-  /** Under the mic note, inside the bottom inset the dock already leaves. */
-  skip: {
-    paddingHorizontal: spacing.gutter,
-    paddingBottom: 8,
-  },
   micNotice: {
     ...type.caption,
     textAlign: 'center',
@@ -1081,6 +1191,37 @@ const styles = StyleSheet.create({
   micSlot: {
     width: 63,
     height: 44,
+  },
+  skipButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  skipLabel: text(14, 20, '600', colors.textSecondary),
+  skipTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  skipMark: {
+    width: 22,
+    height: 22,
+    borderRadius: radius.pill,
+    backgroundColor: colors.warning,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  skipMarkLabel: text(14, 18, '700', colors.inkAlt),
+  skipTitle: text(18, 26, '700', colors.inkAlt),
+  skipContinue: {
+    backgroundColor: colors.warning,
+  },
+  skipActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  skipAction: {
+    flex: 1,
   },
   /**
    * The verdict is a layer, not a row: it rises from the bottom edge and covers
