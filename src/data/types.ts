@@ -288,8 +288,10 @@ export type Stats = {
     label: string;
     /** Stepper label, e.g. `Aug, week 4`. */
     rangeLabel: string;
-    score: number;
-    skills: { skill: SkillId; score: number }[];
+    /** Null before anything was measured. */
+    score: number | null;
+    /** A skill never practised yet has no score (null), not a made-up one. */
+    skills: { skill: SkillId; score: number | null }[];
   }[];
   /** The one change number the screen still spells out, in the insight row. */
   biggestGain: { skill: SkillId; delta: number; note: string };

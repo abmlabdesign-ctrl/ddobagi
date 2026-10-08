@@ -35,6 +35,29 @@ export default function Stats() {
   const { activity, mistakes } = useApp();
   const data = buildStats(period.toLowerCase() as StatsPeriod, activity, mistakes);
 
+  // No scores until the learner's own practice measures something.
+  if (!data) {
+    return (
+      <ScreenShell bottomEdge="content">
+        <NavBar title="Stats" />
+        <Screen background="surface-alt" contentStyle={styles.emptyContent}>
+          {/* Same empty pattern as the transcript history. */}
+          <View style={styles.empty}>
+            <Text style={type.listTitle}>No scores yet</Text>
+            <Text style={[type.secondary, styles.emptyText]}>
+              Finish a roleplay or a micro mission and your 6-skill breakdown starts here.
+            </Text>
+          </View>
+          <Button
+            label="Start a mission"
+            height={48}
+            onPress={() => router.push('/(tabs)/review')}
+          />
+        </Screen>
+      </ScreenShell>
+    );
+  }
+
   const index = Math.min(Math.max(data.trend.length - 1 - back, 0), data.trend.length - 1);
   const viewing = data.trend[index];
   const atLatest = index === data.trend.length - 1;
@@ -75,7 +98,12 @@ export default function Stats() {
             <Text style={type.label}>Overall progress</Text>
             <Text style={styles.blockMeta}>{data.trendLabel}</Text>
           </View>
-          <TrendChart points={data.trend} />
+          {/* Periods before the first measurement have no score to plot. */}
+          <TrendChart
+            points={data.trend.flatMap((point) =>
+              point.score === null ? [] : [{ label: point.label, score: point.score }],
+            )}
+          />
         </Card>
 
         <Card
@@ -260,6 +288,17 @@ function TrendChart({ points }: { points: { label: string; score: number }[] }) 
 }
 
 const styles = StyleSheet.create({
+  emptyContent: {
+    paddingBottom: spacing.huge,
+  },
+  empty: {
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: spacing.huge,
+  },
+  emptyText: {
+    textAlign: 'center',
+  },
   content: {
     gap: 10,
     paddingTop: 12,

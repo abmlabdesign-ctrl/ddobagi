@@ -14,7 +14,7 @@ import { useApp } from '@/store/AppStore';
 import { spacing } from '@/theme/tokens';
 import { type } from '@/theme/typography';
 
-/** ON-2 Setup (About you) — `Next` stays disabled until the required answers are in. */
+/** ON-2 Setup (About you) → ON-2a Weekly goal. `Next` stays disabled until the required answers are in. */
 export default function Setup() {
   const { profile, updateProfile } = useApp();
   const [studyDuration, setStudyDuration] = useState<string | null>(profile.studyDuration);
@@ -29,7 +29,7 @@ export default function Setup() {
 
   const next = () => {
     updateProfile({ studyDuration, purposes, painPoints });
-    router.push('/onboarding/microphone');
+    router.push('/onboarding/goal');
   };
 
   return (

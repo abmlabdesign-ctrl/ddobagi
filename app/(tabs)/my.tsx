@@ -20,10 +20,16 @@ const MENU = [
 
 /** MY-1 My Page */
 export default function MyPage() {
-  const { profile, isPlus } = useApp();
+  const { profile, isPlus, practice } = useApp();
   const avatar = avatars.find((entry) => entry.id === profile.avatarId) ?? avatars[0];
   const goal = profile.weeklyGoal;
-  const percent = Math.min(100, Math.round((goal.completed / goal.total) * 100));
+  const percent = Math.min(100, Math.round((practice.weekCompleted / goal.total) * 100));
+  // Only what the learner has actually told us or done — no stand-ins.
+  const meta = [
+    profile.purposes[0],
+    profile.koreanLevel,
+    practice.streakDays > 0 ? `${practice.streakDays}-day streak` : null,
+  ].filter(Boolean);
 
   return (
     <ScreenShell bottomEdge="tabs">
@@ -42,10 +48,7 @@ export default function MyPage() {
           </View>
           <View style={styles.profileText}>
             <Text style={styles.nickname}>{profile.nickname}</Text>
-            <Text style={styles.profileMeta}>
-              {profile.purposes[0] ?? 'School life'} · {profile.koreanLevel} ·{' '}
-              {profile.streakDays}-day streak
-            </Text>
+            <Text style={styles.profileMeta}>{meta.join(' · ')}</Text>
           </View>
           <Pressable
             onPress={() => router.push('/my/edit')}
@@ -57,8 +60,8 @@ export default function MyPage() {
         </View>
 
         <View style={styles.statsRow}>
-          <Stat label="Situations done" value={`${profile.situationsDone}`} />
-          <Stat label="Total practice" value={formatPractice(profile.practiceMinutes)} />
+          <Stat label="Situations done" value={`${practice.situationsDone}`} />
+          <Stat label="Total practice" value={formatPractice(practice.practiceMinutes)} />
         </View>
 
         <Card
@@ -78,7 +81,7 @@ export default function MyPage() {
             <View style={styles.goalRow}>
               <Text style={styles.goalLabel}>{goal.total} lessons this week</Text>
               <Text style={styles.goalCount}>
-                {goal.completed} / {goal.total}
+                {practice.weekCompleted} / {goal.total}
               </Text>
             </View>
             <View style={styles.goalTrack}>

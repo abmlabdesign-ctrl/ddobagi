@@ -18,12 +18,15 @@ import { type } from '@/theme/typography';
  * clears it; with an account server, `remove` also calls its delete endpoint.
  */
 export default function DeleteAccount() {
-  const { profile, mistakes, savedPhrases, isPlus, subscription, deleteAccount } = useApp();
+  const { profile, mistakes, savedPhrases, isPlus, subscription, practice, deleteAccount } =
+    useApp();
   const [confirmed, setConfirmed] = useState(false);
 
   const lost = [
     `Your profile, ${profile.nickname}`,
-    `${profile.situationsDone} finished situations and your ${profile.streakDays}-day streak`,
+    practice.streakDays > 0
+      ? `${practice.situationsDone} finished situations and your ${practice.streakDays}-day streak`
+      : `${practice.situationsDone} finished situations`,
     `${mistakes.length} mistakes in your Mistake log`,
     `${savedPhrases.length} saved phrases in your Scrapbook`,
   ];
