@@ -712,7 +712,7 @@ function MicDock({
 }
 
 /**
- * Rises like the verdict panel, but neutral: skipping is neither right nor
+ * The verdict panel's box in a caution state: skipping is neither right nor
  * wrong. Shown after the first silent take, or when the learner taps `Skip`.
  */
 function SkipSheet({ onCancel, onContinue }: { onCancel: () => void; onContinue: () => void }) {
@@ -723,11 +723,15 @@ function SkipSheet({ onCancel, onContinue }: { onCancel: () => void; onContinue:
       entering={SlideInDown.duration(260)}
       style={[
         styles.panel,
-        styles.skipSheet,
-        { paddingBottom: insets.bottom + spacing.lg },
+        { backgroundColor: colors.warningBg, paddingBottom: insets.bottom + spacing.lg },
       ]}
     >
-      <Text style={styles.skipTitle}>Skip this one?</Text>
+      <View style={styles.skipTitleRow}>
+        <View style={styles.skipMark}>
+          <Text style={styles.skipMarkLabel}>!</Text>
+        </View>
+        <Text style={styles.skipTitle}>Skip this one?</Text>
+      </View>
       <Text style={styles.panelNote}>
         We&apos;ll skip speaking practice for this question. It won&apos;t count as right or
         wrong.
@@ -735,12 +739,19 @@ function SkipSheet({ onCancel, onContinue }: { onCancel: () => void; onContinue:
       <View style={styles.skipActions}>
         <Button
           label="Cancel"
-          variant="tonal"
+          variant="elevated"
           height={52}
           style={styles.skipAction}
           onPress={onCancel}
         />
-        <Button label="Continue" height={52} style={styles.skipAction} onPress={onContinue} />
+        {/* Tonal for its ink label: white text is unreadable on the yellow. */}
+        <Button
+          label="Continue"
+          variant="tonal"
+          height={52}
+          style={[styles.skipAction, styles.skipContinue]}
+          onPress={onContinue}
+        />
       </View>
     </Animated.View>
   );
@@ -1187,11 +1198,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   skipLabel: text(14, 20, '600', colors.textSecondary),
-  skipSheet: {
-    backgroundColor: colors.surface,
-    ...shadows.bottomNav,
+  skipTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
+  skipMark: {
+    width: 22,
+    height: 22,
+    borderRadius: radius.pill,
+    backgroundColor: colors.warning,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  skipMarkLabel: text(14, 18, '700', colors.inkAlt),
   skipTitle: text(18, 26, '700', colors.inkAlt),
+  skipContinue: {
+    backgroundColor: colors.warning,
+  },
   skipActions: {
     flexDirection: 'row',
     gap: 8,
