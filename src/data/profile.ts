@@ -26,12 +26,12 @@ export const defaultProfile = {
   email: null as string | null,
   /** ON-1b answers, kept with the day they were given. Null until agreed. */
   consents: null as Consents | null,
-  streakDays: 12,
-  situationsDone: 18,
-  /** Shown as `6h 20m` on MY-1. Minutes so a session can add to it. */
-  practiceMinutes: 380,
-  /** One lesson = one finished roleplay or micro mission. */
-  weeklyGoal: { label: 'Finish 10 lessons', completed: 7, total: 10 },
+  /**
+   * Lessons per week the learner aims for (one lesson = one finished roleplay
+   * or micro mission). How many are done this week is worked out from the
+   * lesson log, not stored here.
+   */
+  weeklyGoal: { label: 'Finish 10 lessons', total: 10 },
 };
 
 export type SignInProvider = 'Google' | 'Apple' | 'Email';

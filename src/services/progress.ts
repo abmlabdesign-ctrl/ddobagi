@@ -1,12 +1,13 @@
-import { levelCheckSkills, skillLabels, skillOrder } from '@/data/skills';
+import { skillLabels, skillOrder } from '@/data/skills';
 import type { Mistake, SkillId, Stats, StatsPeriod } from '@/data/types';
 import type { ActivityEntry } from '@/store/AppStore';
 
 /**
  * MY-2 from the learner's own record.
  *
- * Where it starts: the level-check result, so a new learner's chart is a flat
- * line at their starting point rather than someone else's history.
+ * Where it starts: nowhere. A skill has no score until the learner's own
+ * practice measures it — the first measurement is its starting point. (The
+ * level check is still a mock, so its numbers are not used here.)
  * How it moves: each period's skill score blends the previous one with that
  * period's measured accuracy (mission first tries, roleplay corrections said
  * right). A skill with nothing measured in a period carries over unchanged.
@@ -68,25 +69,35 @@ function buckets(period: StatsPeriod, now: Date): Bucket[] {
   return out;
 }
 
-const average = (values: number[]) =>
-  Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+type Scores = Record<SkillId, number | null>;
 
+const averageOf = (values: (number | null)[]) => {
+  const known = values.filter((value): value is number => value !== null);
+  return known.length
+    ? Math.round(known.reduce((sum, value) => sum + value, 0) / known.length)
+    : null;
+};
+
+/**
+ * MY-2's numbers, or null while nothing has been measured — the screen then
+ * shows an empty state instead of scores.
+ */
 export function buildStats(
   period: StatsPeriod,
   activity: ActivityEntry[],
   mistakes: Mistake[],
   now = new Date(),
-): Stats & { measured: boolean } {
+): (Stats & { measured: boolean }) | null {
+  if (!activity.some((entry) => entry.total > 0)) return null;
+
   const ranges = buckets(period, now);
-  const baseline = Object.fromEntries(
-    levelCheckSkills.map((entry) => [entry.skill, entry.score]),
-  ) as Record<SkillId, number>;
+  let running = Object.fromEntries(skillOrder.map((skill) => [skill, null])) as Scores;
 
   // Anything before the chart's window already shaped where it starts.
-  let running = { ...baseline };
-  for (const entry of activity) {
-    if (entry.at < ranges[0].start) running = blend(running, [entry]);
-  }
+  running = blend(
+    running,
+    activity.filter((entry) => entry.at < ranges[0].start),
+  );
 
   const trend = ranges.map((range) => {
     const inRange = activity.filter((entry) => entry.at >= range.start && entry.at < range.end);
@@ -95,7 +106,7 @@ export function buildStats(
     return {
       label: range.label,
       rangeLabel: range.rangeLabel,
-      score: average(skills.map((entry) => entry.score)),
+      score: averageOf(skills.map((entry) => entry.score)),
       skills,
     };
   });
@@ -104,13 +115,17 @@ export function buildStats(
   const previous = trend[trend.length - 2];
   const unit = period === 'weekly' ? 'this week' : 'this month';
 
-  const deltas = current.skills.map((entry, index) => ({
-    skill: entry.skill,
-    delta: entry.score - previous.skills[index].score,
-    score: entry.score,
-  }));
+  const deltas = current.skills.flatMap((entry, index) => {
+    const before = previous.skills[index].score;
+    return entry.score !== null && before !== null
+      ? [{ skill: entry.skill, delta: entry.score - before, score: entry.score }]
+      : [];
+  });
   const gain = [...deltas].sort((a, b) => b.delta - a.delta)[0];
-  const weakest = [...current.skills].sort((a, b) => a.score - b.score)[0];
+  const measuredSkills = current.skills.filter(
+    (entry): entry is { skill: SkillId; score: number } => entry.score !== null,
+  );
+  const weakest = [...measuredSkills].sort((a, b) => a.score - b.score)[0];
   const openOnWeakest = mistakes.filter(
     (mistake) => !mistake.fixed && mistake.skill === weakest.skill,
   ).length;
@@ -123,19 +138,20 @@ export function buildStats(
   return {
     period,
     heading: period === 'weekly' ? "This week's overall score" : "This month's overall score",
-    score: current.score,
+    // Something was measured, and scores carry forward, so the latest period has one.
+    score: current.score ?? 0,
     rangeLabel: current.rangeLabel,
     trendLabel: period === 'weekly' ? 'Last 6 weeks' : 'Last 6 months',
     trend,
     biggestGain:
-      gain.delta > 0
+      gain && gain.delta > 0
         ? {
             skill: gain.skill,
             delta: gain.delta,
             note: `${skillLabels[gain.skill]} went from ${gain.score - gain.delta} to ${gain.score} ${unit}.`,
           }
         : {
-            skill: gain.skill,
+            skill: weakest.skill,
             delta: 0,
             note: measured
               ? `No skill moved up ${unit} yet. Keep going — gains show once a skill gets steady practice.`
@@ -152,14 +168,16 @@ export function buildStats(
   };
 }
 
-function blend(scores: Record<SkillId, number>, entries: ActivityEntry[]) {
+function blend(scores: Scores, entries: ActivityEntry[]): Scores {
   const next = { ...scores };
   for (const skill of skillOrder) {
     const mine = entries.filter((entry) => entry.skill === skill);
     const total = mine.reduce((sum, entry) => sum + entry.total, 0);
     if (total === 0) continue;
     const accuracy = (mine.reduce((sum, entry) => sum + entry.correct, 0) / total) * 100;
-    next[skill] = Math.round(next[skill] * (1 - WEIGHT) + accuracy * WEIGHT);
+    const before = next[skill];
+    // The first measurement is the starting point; later ones blend in.
+    next[skill] = Math.round(before === null ? accuracy : before * (1 - WEIGHT) + accuracy * WEIGHT);
   }
   return next;
 }

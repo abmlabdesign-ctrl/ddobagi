@@ -20,9 +20,9 @@ import { text, type } from '@/theme/typography';
 
 /** HM-1 Home — the re-entry hub. */
 export default function Home() {
-  const { profile, sessions } = useApp();
+  const { profile, sessions, practice } = useApp();
   const goal = profile.weeklyGoal;
-  const percent = Math.min(100, Math.round((goal.completed / goal.total) * 100));
+  const percent = Math.min(100, Math.round((practice.weekCompleted / goal.total) * 100));
   const startSpeaking = () => router.push(`/roleplay/${pickTopic(profile.interests, sessions)}`);
   const { homeFeatured, inProgress } = useSituations();
   // The resume card floats over the scroll, so the body reserves its height.
@@ -36,7 +36,7 @@ export default function Home() {
         contentStyle={[styles.content, { paddingBottom: dockHeight + spacing.huge }]}
       >
         <HomeStatusRow
-          streakDays={profile.streakDays}
+          streakDays={practice.streakDays}
           onBell={() => router.push('/notifications')}
         />
 

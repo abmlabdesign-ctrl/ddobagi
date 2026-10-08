@@ -6,7 +6,7 @@ import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { notices } from '@/data/support';
 import { ListChevronIcon } from '@/icons';
-import { dayKey, useApp } from '@/store/AppStore';
+import { useApp } from '@/store/AppStore';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { type } from '@/theme/typography';
 
@@ -18,16 +18,20 @@ type Item = { id: string; title: string; caption: string; href: Href; tone: 'pri
  * goal and the newest notice. Each row goes where the learner can act on it.
  */
 export default function Notifications() {
-  const { profile, mistakes, lastPracticeDay } = useApp();
+  const { profile, mistakes, practice } = useApp();
   // Same count as the Mistake log headline: open and not yet Done.
   const open = mistakes.filter((mistake) => !mistake.fixed && !mistake.done).length;
   const goal = profile.weeklyGoal;
 
   const items: Item[] = [];
-  if (lastPracticeDay !== dayKey(new Date())) {
+  // A live streak gets kept; with none yet, the nudge is just to practise today.
+  if (!practice.practicedToday) {
     items.push({
       id: 'streak',
-      title: `Keep your ${profile.streakDays}-day streak going`,
+      title:
+        practice.streakDays > 0
+          ? `Keep your ${practice.streakDays}-day streak going`
+          : 'Practice today to start a streak',
       caption: 'One roleplay or mission today counts.',
       href: '/(tabs)/roleplay',
       tone: 'primary',
@@ -42,11 +46,12 @@ export default function Notifications() {
       tone: 'primary',
     });
   }
-  if (goal.completed < goal.total) {
+  if (practice.weekCompleted < goal.total) {
+    const left = goal.total - practice.weekCompleted;
     items.push({
       id: 'goal',
-      title: `${goal.total - goal.completed} lessons left this week`,
-      caption: `${goal.completed} / ${goal.total} done`,
+      title: `${left} lesson${left === 1 ? '' : 's'} left this week`,
+      caption: `${practice.weekCompleted} / ${goal.total} done`,
       href: '/(tabs)/review',
       tone: 'info',
     });

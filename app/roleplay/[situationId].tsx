@@ -8,7 +8,7 @@ import { NavBar } from '@/components/NavBar';
 import { Screen, ScreenShell } from '@/components/Screen';
 import { FieldLabel } from '@/components/Section';
 import { categoryById } from '@/data/categories';
-import { conversationBySituation, reports } from '@/data/conversations';
+import { conversationBySituation } from '@/data/conversations';
 import { situationById } from '@/data/situations';
 import { useApp } from '@/store/AppStore';
 import { colors, radius, spacing } from '@/theme/tokens';
@@ -36,12 +36,10 @@ export default function ScenarioDetail() {
 
   const category = categoryById[situation.categoryId];
   const breadcrumb = situation.place ? `${category.name} · ${situation.place}` : category.name;
-  // A report exists only once the learner has finished the situation, so it is
-  // what tells this screen whether there is a history to show.
+  // `Last time` reads the learner's own latest run — nothing shows before one
+  // exists. It shows goals met, not points: the point score is still a
+  // scripted placeholder until scoring is wired.
   const played = sessions[situation.id];
-  const lastReport = reports[situation.id]
-    ? { ...reports[situation.id], ...(played ? { completedOn: played.completedOn } : null) }
-    : undefined;
   // Only scripted situations can be played until AI turn generation is wired.
   const playable = Boolean(conversationBySituation[situation.id]);
   // A run saved part-way picks up where it stopped (RP-3 reads the draft).
@@ -97,13 +95,13 @@ export default function ScenarioDetail() {
             ))}
           </View>
 
-          {lastReport ? (
+          {played ? (
             <View style={[styles.section, styles.lastSection]}>
               <FieldLabel label="Last time" />
               <View style={styles.lastRow}>
-                <Text style={styles.lastScore}>{lastReport.score}</Text>
-                <Text style={styles.lastUnit}>pts</Text>
-                <Text style={styles.lastDate}>Finished {lastReport.completedOn}</Text>
+                <Text style={styles.lastScore}>{played.goalsMet}</Text>
+                <Text style={styles.lastUnit}>/ {played.goalsTotal} goals</Text>
+                <Text style={styles.lastDate}>Finished {played.completedOn}</Text>
               </View>
               <Button
                 label="View transcript"

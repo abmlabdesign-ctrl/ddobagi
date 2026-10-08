@@ -61,7 +61,8 @@ export function SkillBarCompact({
   highlight = false,
 }: {
   skill: SkillId;
-  score: number;
+  /** Null for a skill not practised yet: an empty bar and a dash. */
+  score: number | null;
   /** MY-2 paints one row orange — the axis the screen wants read first. */
   highlight?: boolean;
 }) {
@@ -82,10 +83,10 @@ export function SkillBarCompact({
           }
           start={{ x: 1, y: 0 }}
           end={{ x: 0, y: 0 }}
-          style={[styles.compactFill, { width: `${Math.max(0, Math.min(100, score))}%` }]}
+          style={[styles.compactFill, { width: `${Math.max(0, Math.min(100, score ?? 0))}%` }]}
         />
       </View>
-      <Text style={[styles.compactScore, highlight ? styles.compactScoreOn : null]}>{score}</Text>
+      <Text style={[styles.compactScore, highlight ? styles.compactScoreOn : null]}>{score ?? '–'}</Text>
     </View>
   );
 }

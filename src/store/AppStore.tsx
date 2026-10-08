@@ -8,6 +8,7 @@ import { renewalFrom, type Receipt } from '@/services/billing';
 import { rememberDealt } from '@/services/questionPicker';
 import { normalizeSpeech } from '@/services/recognition';
 import { syncReminders } from '@/services/reminders';
+import { dayKey, summarize, type Lesson, type PracticeSummary } from '@/services/practice';
 import { setSpeechSpeed } from '@/services/speech';
 
 export type Profile = typeof defaultProfile;
@@ -104,10 +105,11 @@ type AppState = {
   history: SessionRecord[];
   /** Unfinished roleplays the learner chose to keep, by situation id. */
   drafts: Record<string, ConversationDraft>;
-  /** `2026-09-29` of the last practice, for the streak. */
-  lastPracticeDay: string | null;
-  /** Monday of the week `weeklyGoal.completed` counts, so it resets weekly. */
-  goalWeek: string | null;
+  /**
+   * Every finished roleplay and micro mission. Streak, this week's count and
+   * practice time are worked out from it (`services/practice.ts`).
+   */
+  lessons: Lesson[];
   subscription: Subscription | null;
   receipts: Receipt[];
   usage: Usage;
@@ -160,6 +162,11 @@ type Derived = {
   isPlus: boolean;
   /** Free uses left today; Infinity on Plus. */
   freeLeft: { roleplays: number; missions: number };
+  /** Streak, this week's lessons and practice time, from `lessons` and today's date. */
+  practice: PracticeSummary & {
+    /** Situations finished at least once. */
+    situationsDone: number;
+  };
 };
 
 const AppContext = createContext<(AppState & AppActions & Derived) | null>(null);
@@ -185,8 +192,7 @@ const initialState: AppState = {
   sessions: {},
   history: [],
   drafts: {},
-  lastPracticeDay: null,
-  goalWeek: null,
+  lessons: [],
   subscription: null,
   receipts: [],
   activity: [],
@@ -208,48 +214,16 @@ export const runTime = (at: number) => {
   return `${shortDate(date)}, ${date.getFullYear()} · ${clock}`;
 };
 
-export const dayKey = (date: Date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+export { dayKey };
 
-const mondayKey = (date: Date) => {
-  const monday = new Date(date);
-  monday.setDate(date.getDate() - ((date.getDay() + 6) % 7));
-  return dayKey(monday);
-};
+/** Keeps the lesson log bounded; years of daily practice fit comfortably. */
+const LESSON_CAP = 5000;
 
-/**
- * One finished lesson: streak, weekly goal and practice time move together,
- * whether it was a roleplay or a micro mission.
- */
+/** One finished lesson, whether a roleplay or a micro mission. */
 function countLesson(state: AppState, minutes: number): AppState {
-  const now = new Date();
-  const today = dayKey(now);
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-
-  let streakDays = state.profile.streakDays;
-  if (state.lastPracticeDay !== today) {
-    // A fresh install has no day on record; its seeded streak counts as live.
-    streakDays =
-      state.lastPracticeDay === null || state.lastPracticeDay === dayKey(yesterday)
-        ? streakDays + 1
-        : 1;
-  }
-
-  const week = mondayKey(now);
-  const goal = state.profile.weeklyGoal;
-  const completed = state.goalWeek === null || state.goalWeek === week ? goal.completed + 1 : 1;
-
   return {
     ...state,
-    lastPracticeDay: today,
-    goalWeek: week,
-    profile: {
-      ...state.profile,
-      streakDays,
-      practiceMinutes: state.profile.practiceMinutes + minutes,
-      weeklyGoal: { ...goal, completed },
-    },
+    lessons: [...state.lessons, { at: Date.now(), minutes }].slice(-LESSON_CAP),
   };
 }
 
@@ -279,18 +253,57 @@ function historyFromSessions(sessions: Record<string, SessionResult>): SessionRe
 export const runIdOf = (situationId: string, session: SessionResult) =>
   session.id ?? `${situationId}-${session.completedAt}`;
 
+/** Profile fields older builds stored. */
+type LegacyProfileFields = {
+  appLanguage?: string;
+  streakDays?: number;
+  situationsDone?: number;
+  practiceMinutes?: number;
+};
+
+/** The practice minutes every older install started with as sample data. */
+const LEGACY_SEED_MINUTES = 380;
+
+/**
+ * Older builds kept running totals instead of a lesson log. The finished
+ * roleplays (history) and missions (activity rows share their finish time)
+ * are still on record, so their times become the log; the minutes practised
+ * beyond the old sample seed ride on the first of them.
+ */
+function lessonsFromOlderBuild(saved: Partial<AppState>): Lesson[] {
+  const times = new Set<number>();
+  (saved.history ?? []).forEach((run) => times.add(run.completedAt));
+  (saved.activity ?? []).forEach((entry) => times.add(entry.at));
+  const lessons = [...times].sort((a, b) => a - b).map((at) => ({ at, minutes: 0 }));
+  const stored = (saved.profile as LegacyProfileFields | undefined)?.practiceMinutes ?? 0;
+  if (lessons.length > 0) lessons[0].minutes = Math.max(0, stored - LEGACY_SEED_MINUTES);
+  return lessons;
+}
+
 /** Saved state is merged over the defaults so a field added later still has a value. */
 function restore(raw: string | null): AppState {
   if (!raw) return initialState;
   try {
     const saved = JSON.parse(raw) as Partial<AppState>;
     // `appLanguage` was a second language setting; `nativeLanguage` is the only one now.
-    const { appLanguage: _dropped, ...savedProfile } = (saved.profile ?? {}) as Partial<Profile> & {
-      appLanguage?: string;
-    };
+    // Streak, practice time and situations done used to be stored (and seeded
+    // with sample numbers); they are worked out from the lesson log now.
+    const {
+      appLanguage: _language,
+      streakDays: _streak,
+      situationsDone: _done,
+      practiceMinutes: _minutes,
+      ...savedProfile
+    } = (saved.profile ?? {}) as Partial<Profile> & LegacyProfileFields;
+    // Older builds' running totals for the streak and the weekly goal.
+    const {
+      lastPracticeDay: _lastDay,
+      goalWeek: _goalWeek,
+      ...current
+    } = saved as Partial<AppState> & { lastPracticeDay?: unknown; goalWeek?: unknown };
     return {
       ...initialState,
-      ...saved,
+      ...current,
       // Builds before log out kept the learner had no `signedIn`: onboarded meant signed in.
       signedIn: saved.signedIn ?? saved.onboarded ?? false,
       // Drop the design-time sample mistakes an older build seeded the log with.
@@ -302,7 +315,15 @@ function restore(raw: string | null): AppState {
       // Builds before the history kept only the latest run per situation;
       // those runs become its first entries.
       history: saved.history ?? historyFromSessions(saved.sessions ?? {}),
-      profile: { ...defaultProfile, ...savedProfile },
+      profile: {
+        ...defaultProfile,
+        ...savedProfile,
+        weeklyGoal: {
+          total: savedProfile.weeklyGoal?.total ?? defaultProfile.weeklyGoal.total,
+          label: savedProfile.weeklyGoal?.label ?? defaultProfile.weeklyGoal.label,
+        },
+      },
+      lessons: saved.lessons ?? lessonsFromOlderBuild(saved),
       settings: { ...initialSettings, ...saved.settings },
     };
   } catch {
@@ -533,7 +554,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             : [entry, ...mistakes];
         }
 
-        const firstTime = !current.sessions[situationId];
         const run: SessionRecord = {
           id: `${situationId}-${at}`,
           situationId,
@@ -557,10 +577,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           activity: [...current.activity, ...measured].slice(-ACTIVITY_CAP),
           sessions: { ...current.sessions, [situationId]: run },
           history: [run, ...current.history].slice(0, HISTORY_CAP),
-          profile: {
-            ...next.profile,
-            situationsDone: next.profile.situationsDone + (firstTime ? 1 : 0),
-          },
         };
       });
     },
@@ -641,9 +657,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const roleplaysLeft = isPlus ? Infinity : Math.max(0, freeLimits.roleplaysPerDay - used.roleplays);
   const missionsLeft = isPlus ? Infinity : Math.max(0, freeLimits.missionsPerDay - used.missions);
 
+  // `now` ticks every minute, so a new day or week shows without a reload.
+  const practice = useMemo(
+    () => ({
+      ...summarize(state.lessons, new Date(now)),
+      situationsDone: Object.keys(state.sessions).length,
+    }),
+    [state.lessons, state.sessions, now],
+  );
+
   const value = useMemo(
     () => ({
       ...state,
+      practice,
       isPlus,
       reminderStatus,
       freeLeft: { roleplays: roleplaysLeft, missions: missionsLeft },
@@ -670,6 +696,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       state,
+      practice,
       isPlus,
       reminderStatus,
       roleplaysLeft,

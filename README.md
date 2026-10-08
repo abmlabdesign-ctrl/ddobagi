@@ -45,6 +45,7 @@ npm run export:web # 웹 번들 — 모든 라우트가 컴파일되는지 확�
 | Before we start (약관·음성 동의) | ON-1b | `app/onboarding/consent.tsx` |
 | Feature intro (4장 스와이프, 최초 1회) | IN-1 ~ IN-4 | `app/onboarding/intro.tsx` |
 | Setup (About you) | ON-2 | `app/onboarding/setup.tsx` |
+| Weekly goal (주간 목표 설정) | ON-2a | `app/onboarding/goal.tsx` |
 | Microphone (권한 안내) | ON-2b | `app/onboarding/microphone.tsx` |
 | 1-minute AI level check | ON-3 | `app/onboarding/level-check.tsx` |
 | Your results | ON-4 | `app/onboarding/results.tsx` |
